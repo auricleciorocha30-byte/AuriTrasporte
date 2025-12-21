@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, Truck, Wallet, Calculator, Menu, X, LogOut, Lock, User as UserIcon, Loader2, Sparkles } from 'lucide-react';
+import { LayoutDashboard, Truck, Wallet, Calculator, Menu, X, LogOut, Lock, User as UserIcon, Loader2, Sparkles, AlertTriangle } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { TripManager } from './components/TripManager';
 import { ExpenseManager } from './components/ExpenseManager';
@@ -22,6 +22,7 @@ const App: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [dbError, setDbError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState('');
 
   useEffect(() => {
@@ -45,19 +46,25 @@ const App: React.FC = () => {
 
   const fetchData = async () => {
     setLoading(true);
+    setDbError(null);
     try {
       const [tripsRes, expensesRes] = await Promise.all([
         supabase.from('trips').select('*').order('date', { ascending: false }),
         supabase.from('expenses').select('*').order('date', { ascending: false })
       ]);
 
-      if (tripsRes.error) throw tripsRes.error;
+      if (tripsRes.error) {
+        if (tripsRes.error.code === 'PGRST116' || tripsRes.error.message.includes('schema cache')) {
+           setDbError("As tabelas não foram encontradas no Supabase. Por favor, execute o script SQL de criação no painel do Supabase.");
+        }
+        throw tripsRes.error;
+      }
       if (expensesRes.error) throw expensesRes.error;
 
       if (tripsRes.data) setTrips(tripsRes.data);
       if (expensesRes.data) setExpenses(expensesRes.data);
-    } catch (err) {
-      console.error('Erro ao buscar dados do Supabase:', err);
+    } catch (err: any) {
+      console.error('Erro ao buscar dados do Supabase:', err.message);
     } finally {
       setLoading(false);
     }
@@ -104,8 +111,8 @@ const App: React.FC = () => {
       if (error) throw error;
       if (data) setTrips([data[0], ...trips]);
     } catch (err: any) {
-      console.error("Erro ao salvar viagem no Supabase:", err.message);
-      alert("Falha ao salvar no banco de dados: " + err.message);
+      console.error("Erro ao salvar viagem:", err.message);
+      alert("Falha no Banco de Dados: Verifique se as tabelas foram criadas no painel do Supabase.");
     }
   };
 
@@ -124,8 +131,8 @@ const App: React.FC = () => {
       if (error) throw error;
       if (data) setExpenses([data[0], ...expenses]);
     } catch (err: any) {
-      console.error("Erro ao salvar despesa no Supabase:", err.message);
-      alert("Falha ao salvar no banco de dados: " + err.message);
+      console.error("Erro ao salvar despesa:", err.message);
+      alert("Falha no Banco de Dados: Verifique se as tabelas foram criadas no painel do Supabase.");
     }
   };
 
@@ -190,26 +197,8 @@ const App: React.FC = () => {
     );
   }
 
-  const NavItem = ({ view, icon: Icon, label, color = 'primary' }: { view: any, icon: any, label: string, color?: string }) => (
-    <button
-      onClick={() => {
-        setCurrentView(view as any);
-        setIsMobileMenuOpen(false);
-      }}
-      className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all active:scale-95 ${
-        currentView === (view as any)
-          ? color === 'purple' ? 'bg-purple-600 text-white shadow-md' : 'bg-primary-600 text-white shadow-md'
-          : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-      }`}
-    >
-      <Icon size={22} />
-      <span className="font-medium">{label}</span>
-    </button>
-  );
-
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden font-sans text-slate-900">
-      
       {/* Mobile Header */}
       <div className="md:hidden fixed top-0 w-full bg-slate-900 text-white z-50 px-4 py-3 flex justify-between items-center shadow-md safe-top">
         <h1 className="font-bold text-xl flex items-center gap-2">
@@ -237,66 +226,46 @@ const App: React.FC = () => {
         </div>
 
         <nav className="flex-1 space-y-2 overflow-y-auto">
-          <NavItem view={AppView.DASHBOARD} icon={LayoutDashboard} label="Visão Geral" />
-          <NavItem view={AppView.TRIPS} icon={Truck} label="Minhas Viagens" />
-          <NavItem view={AppView.EXPENSES} icon={Wallet} label="Despesas" />
-          <NavItem view={AppView.CALCULATOR} icon={Calculator} label="Calc. Frete ANTT" />
+          <button onClick={() => { setCurrentView(AppView.DASHBOARD); setIsMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all ${currentView === AppView.DASHBOARD ? 'bg-primary-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+            <LayoutDashboard size={22} /> <span className="font-medium">Visão Geral</span>
+          </button>
+          <button onClick={() => { setCurrentView(AppView.TRIPS); setIsMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all ${currentView === AppView.TRIPS ? 'bg-primary-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+            <Truck size={22} /> <span className="font-medium">Minhas Viagens</span>
+          </button>
+          <button onClick={() => { setCurrentView(AppView.EXPENSES); setIsMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all ${currentView === AppView.EXPENSES ? 'bg-primary-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+            <Wallet size={22} /> <span className="font-medium">Despesas</span>
+          </button>
+          <button onClick={() => { setCurrentView(AppView.CALCULATOR); setIsMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all ${currentView === AppView.CALCULATOR ? 'bg-primary-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+            <Calculator size={22} /> <span className="font-medium">Calc. Frete ANTT</span>
+          </button>
           <div className="pt-4 mt-4 border-t border-slate-800">
-            <NavItem view="AI_INSIGHTS" icon={Sparkles} label="Inteligência Auri" color="purple" />
+            <button onClick={() => { setCurrentView("AI_INSIGHTS" as any); setIsMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all ${currentView === ("AI_INSIGHTS" as any) ? 'bg-purple-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+              <Sparkles size={22} /> <span className="font-medium">Inteligência Auri</span>
+            </button>
           </div>
         </nav>
 
         <div className="mt-auto space-y-4">
-          <div className="px-4 py-3 bg-slate-800/50 rounded-xl flex items-center gap-3">
-             <div className="w-10 h-10 rounded-full bg-primary-600 flex items-center justify-center font-bold text-white shrink-0">
-               {session.user.email?.charAt(0).toUpperCase()}
-             </div>
-             <div className="flex-1 min-w-0">
-               <p className="text-xs text-slate-500 truncate">{session.user.email}</p>
-             </div>
-          </div>
-          <button 
-            onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 transition-all"
-          >
-            <LogOut size={20} />
-            <span className="font-medium">Sair do App</span>
+          <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 transition-all">
+            <LogOut size={20} /> <span className="font-medium">Sair do App</span>
           </button>
         </div>
       </aside>
 
       <main className="flex-1 overflow-y-auto h-full pt-16 md:pt-0 bg-[#f8fafc]">
-        <header className="hidden md:flex bg-white shadow-sm border-b border-gray-100 px-8 py-5 justify-between items-center sticky top-0 z-10">
-          <h2 className="text-2xl font-bold text-gray-800">
-            {currentView === AppView.DASHBOARD && 'Painel de Controle'}
-            {currentView === AppView.TRIPS && 'Gerenciamento de Viagens'}
-            {currentView === AppView.EXPENSES && 'Controle Financeiro'}
-            {currentView === AppView.CALCULATOR && 'Calculadora de Frete'}
-            {currentView === ("AI_INSIGHTS" as any) && 'Consultoria com IA'}
-          </h2>
-          <div className="flex items-center gap-3">
-             <div className="text-right">
-                <p className="text-xs text-slate-500">Gestor de Frota</p>
-                <p className="text-sm font-bold text-slate-900 truncate max-w-[150px]">{session.user.email}</p>
-             </div>
+        {dbError && (
+          <div className="bg-amber-50 border-b border-amber-100 p-4 flex items-center gap-3 text-amber-800 sticky top-0 z-20">
+            <AlertTriangle className="shrink-0" />
+            <p className="text-sm font-medium">{dbError}</p>
           </div>
-        </header>
-
+        )}
+        
         <div className="p-4 md:p-8 max-w-7xl mx-auto safe-bottom">
-          {loading ? (
-            <div className="flex flex-col items-center justify-center py-20 gap-4 text-slate-400">
-              <Loader2 className="animate-spin" size={32} />
-              <p>Sincronizando dados...</p>
-            </div>
-          ) : (
-            <>
-              {currentView === AppView.DASHBOARD && <Dashboard trips={trips} expenses={expenses} />}
-              {currentView === AppView.TRIPS && <TripManager trips={trips} onAddTrip={addTrip} onDeleteTrip={deleteTrip} />}
-              {currentView === AppView.EXPENSES && <ExpenseManager expenses={expenses} trips={trips} onAddExpense={addExpense} onDeleteExpense={deleteExpense} />}
-              {currentView === AppView.CALCULATOR && <FreightCalculator />}
-              {currentView === ("AI_INSIGHTS" as any) && <AiAssistant trips={trips} expenses={expenses} />}
-            </>
-          )}
+          {currentView === AppView.DASHBOARD && <Dashboard trips={trips} expenses={expenses} />}
+          {currentView === AppView.TRIPS && <TripManager trips={trips} onAddTrip={addTrip} onDeleteTrip={deleteTrip} />}
+          {currentView === AppView.EXPENSES && <ExpenseManager expenses={expenses} trips={trips} onAddExpense={addExpense} onDeleteExpense={deleteExpense} />}
+          {currentView === AppView.CALCULATOR && <FreightCalculator />}
+          {currentView === ("AI_INSIGHTS" as any) && <AiAssistant trips={trips} expenses={expenses} />}
         </div>
       </main>
 
