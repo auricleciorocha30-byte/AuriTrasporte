@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Assume-se que as variáveis de ambiente estão configuradas no Vercel/Ambiente
-const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || '';
+// Credenciais fornecidas pelo usuário
+const supabaseUrl = 'https://hbqzareyfehtcsnfyeft.supabase.co';
+const supabaseAnonKey = 'sb_publishable_JBI23-gaSy8CCqTxD1FzfQ_-ZlVt8KX';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);

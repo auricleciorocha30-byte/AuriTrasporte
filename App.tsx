@@ -1,16 +1,19 @@
+
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, Truck, Wallet, Calculator, Menu, X, LogOut, Lock, User as UserIcon, Loader2 } from 'lucide-react';
+import { LayoutDashboard, Truck, Wallet, Calculator, Menu, X, LogOut, Lock, User as UserIcon, Loader2, Sparkles } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { TripManager } from './components/TripManager';
 import { ExpenseManager } from './components/ExpenseManager';
 import { FreightCalculator } from './components/FreightCalculator';
-import { AppView, Trip, Expense, User } from './types';
+import { AiAssistant } from './components/AiAssistant';
+import { AppView, Trip, Expense } from './types';
 import { supabase } from './lib/supabase';
 
 const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [authLoading, setAuthLoading] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
   const [currentView, setCurrentView] = useState<AppView>(AppView.DASHBOARD);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
@@ -20,8 +23,8 @@ const App: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
 
-  // 1. Escutar mudanças na autenticação
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
@@ -35,7 +38,6 @@ const App: React.FC = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  // 2. Buscar dados quando houver sessão
   useEffect(() => {
     if (session?.user) {
       fetchData();
@@ -59,12 +61,27 @@ const App: React.FC = () => {
     }
   };
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthLoading(true);
     setError('');
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) setError('E-mail ou senha incorretos.');
+    setSuccessMsg('');
+
+    if (isSignUp) {
+      const { data, error } = await supabase.auth.signUp({ email, password });
+      if (error) {
+        setError(error.message);
+      } else if (data.user && !data.session) {
+        setSuccessMsg('Conta criada! Verifique seu e-mail para confirmar.');
+      } else {
+        setSuccessMsg('Conta criada com sucesso!');
+      }
+    } else {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        setError('E-mail ou senha incorretos ou conta não confirmada.');
+      }
+    }
     setAuthLoading(false);
   };
 
@@ -118,11 +135,13 @@ const App: React.FC = () => {
               <Truck className="text-white" size={32} />
             </div>
             <h1 className="text-3xl font-extrabold text-slate-900">AuriTrasportes</h1>
-            <p className="text-slate-500">Conecte-se à sua conta Supabase</p>
+            <p className="text-slate-500">{isSignUp ? 'Crie sua conta gratuita' : 'Conecte-se à sua conta'}</p>
           </div>
 
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleAuth} className="space-y-4">
             {error && <div className="p-3 bg-rose-50 text-rose-600 text-sm rounded-lg border border-rose-100">{error}</div>}
+            {successMsg && <div className="p-3 bg-emerald-50 text-emerald-600 text-sm rounded-lg border border-emerald-100">{successMsg}</div>}
+            
             <div className="space-y-1">
               <label className="text-sm font-semibold text-slate-700">E-mail</label>
               <div className="relative">
@@ -138,26 +157,32 @@ const App: React.FC = () => {
               </div>
             </div>
             <button disabled={authLoading} type="submit" className="w-full py-4 bg-primary-600 text-white font-bold rounded-xl shadow-lg hover:bg-primary-700 active:scale-95 transition-all flex items-center justify-center gap-2">
-              {authLoading ? <Loader2 className="animate-spin" /> : 'Acessar Painel'}
+              {authLoading ? <Loader2 className="animate-spin" /> : (isSignUp ? 'Criar Conta' : 'Acessar Painel')}
             </button>
           </form>
-          <div className="text-center text-xs text-slate-400">
-            Utilize as credenciais configuradas no Supabase Auth.
+
+          <div className="text-center">
+            <button 
+              onClick={() => { setIsSignUp(!isSignUp); setError(''); setSuccessMsg(''); }}
+              className="text-sm text-primary-600 font-medium hover:underline"
+            >
+              {isSignUp ? 'Já tem uma conta? Entre aqui' : 'Não tem conta? Crie uma agora'}
+            </button>
           </div>
         </div>
       </div>
     );
   }
 
-  const NavItem = ({ view, icon: Icon, label }: { view: AppView, icon: any, label: string }) => (
+  const NavItem = ({ view, icon: Icon, label, color = 'primary' }: { view: any, icon: any, label: string, color?: string }) => (
     <button
       onClick={() => {
-        setCurrentView(view);
+        setCurrentView(view as any);
         setIsMobileMenuOpen(false);
       }}
       className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all active:scale-95 ${
-        currentView === view 
-          ? 'bg-primary-600 text-white shadow-md' 
+        currentView === (view as any)
+          ? color === 'purple' ? 'bg-purple-600 text-white shadow-md' : 'bg-primary-600 text-white shadow-md'
           : 'text-slate-400 hover:bg-slate-800 hover:text-white'
       }`}
     >
@@ -200,6 +225,9 @@ const App: React.FC = () => {
           <NavItem view={AppView.TRIPS} icon={Truck} label="Minhas Viagens" />
           <NavItem view={AppView.EXPENSES} icon={Wallet} label="Despesas" />
           <NavItem view={AppView.CALCULATOR} icon={Calculator} label="Calc. Frete ANTT" />
+          <div className="pt-4 mt-4 border-t border-slate-800">
+            <NavItem view="AI_INSIGHTS" icon={Sparkles} label="Inteligência Auri" color="purple" />
+          </div>
         </nav>
 
         <div className="mt-auto space-y-4">
@@ -228,10 +256,11 @@ const App: React.FC = () => {
             {currentView === AppView.TRIPS && 'Gerenciamento de Viagens'}
             {currentView === AppView.EXPENSES && 'Controle Financeiro'}
             {currentView === AppView.CALCULATOR && 'Calculadora de Frete'}
+            {currentView === ("AI_INSIGHTS" as any) && 'Consultoria com IA'}
           </h2>
           <div className="flex items-center gap-3">
              <div className="text-right">
-                <p className="text-xs text-slate-500">Usuário Conectado</p>
+                <p className="text-xs text-slate-500">Gestor de Frota</p>
                 <p className="text-sm font-bold text-slate-900 truncate max-w-[150px]">{session.user.email}</p>
              </div>
           </div>
@@ -241,7 +270,7 @@ const App: React.FC = () => {
           {loading ? (
             <div className="flex flex-col items-center justify-center py-20 gap-4 text-slate-400">
               <Loader2 className="animate-spin" size={32} />
-              <p>Sincronizando com Supabase...</p>
+              <p>Sincronizando dados...</p>
             </div>
           ) : (
             <>
@@ -249,6 +278,7 @@ const App: React.FC = () => {
               {currentView === AppView.TRIPS && <TripManager trips={trips} onAddTrip={addTrip} onDeleteTrip={deleteTrip} />}
               {currentView === AppView.EXPENSES && <ExpenseManager expenses={expenses} trips={trips} onAddExpense={addExpense} onDeleteExpense={deleteExpense} />}
               {currentView === AppView.CALCULATOR && <FreightCalculator />}
+              {currentView === ("AI_INSIGHTS" as any) && <AiAssistant trips={trips} expenses={expenses} />}
             </>
           )}
         </div>
