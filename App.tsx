@@ -1,103 +1,148 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, Truck, Wallet, Calculator, Menu, X, LogOut, Lock, User as UserIcon } from 'lucide-react';
+import { LayoutDashboard, Truck, Wallet, Calculator, Menu, X, LogOut, Lock, User as UserIcon, Loader2 } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { TripManager } from './components/TripManager';
 import { ExpenseManager } from './components/ExpenseManager';
 import { FreightCalculator } from './components/FreightCalculator';
-import { AppView, Trip, Expense, TripStatus, ExpenseCategory, User } from './types';
+import { AppView, Trip, Expense, User } from './types';
+import { supabase } from './lib/supabase';
 
 const App: React.FC = () => {
-  const [user, setUser] = useState<User | null>(() => {
-    const saved = localStorage.getItem('user');
-    return saved ? JSON.parse(saved) : null;
-  });
-  
+  const [session, setSession] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [authLoading, setAuthLoading] = useState(false);
   const [currentView, setCurrentView] = useState<AppView>(AppView.DASHBOARD);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
-  const [trips, setTrips] = useState<Trip[]>(() => {
-    const saved = localStorage.getItem('trips');
-    return saved ? JSON.parse(saved) : [
-      { id: '1', origin: 'São Paulo, SP', destination: 'Curitiba, PR', distanceKm: 408, agreedPrice: 3500, driverCommission: 350, cargoType: 'Peças', date: '2023-10-15', status: TripStatus.COMPLETED },
-      { id: '2', origin: 'Santos, SP', destination: 'Uberlândia, MG', distanceKm: 650, agreedPrice: 5200, driverCommission: 520, cargoType: 'Fertilizante', date: '2023-10-20', status: TripStatus.IN_PROGRESS }
-    ];
-  });
+  const [trips, setTrips] = useState<Trip[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
 
-  const [expenses, setExpenses] = useState<Expense[]>(() => {
-    const saved = localStorage.getItem('expenses');
-    return saved ? JSON.parse(saved) : [
-      { id: '1', description: 'Diesel Posto Graal', amount: 800, category: ExpenseCategory.FUEL, date: '2023-10-15', tripId: '1' },
-      { id: '2', description: 'Pedágio Régis', amount: 120, category: ExpenseCategory.TOLL, date: '2023-10-15', tripId: '1' }
-    ];
-  });
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
 
+  // 1. Escutar mudanças na autenticação
   useEffect(() => {
-    localStorage.setItem('trips', JSON.stringify(trips));
-  }, [trips]);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setLoading(false);
+    });
 
-  useEffect(() => {
-    localStorage.setItem('expenses', JSON.stringify(expenses));
-  }, [expenses]);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
 
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // 2. Buscar dados quando houver sessão
   useEffect(() => {
-    if (user) {
-      localStorage.setItem('user', JSON.stringify(user));
-    } else {
-      localStorage.removeItem('user');
+    if (session?.user) {
+      fetchData();
     }
-  }, [user]);
+  }, [session]);
 
-  const addTrip = (trip: Trip) => setTrips([...trips, trip]);
-  const deleteTrip = (id: string) => setTrips(trips.filter(t => t.id !== id));
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const [tripsRes, expensesRes] = await Promise.all([
+        supabase.from('trips').select('*').order('date', { ascending: false }),
+        supabase.from('expenses').select('*').order('date', { ascending: false })
+      ]);
 
-  const addExpense = (expense: Expense) => setExpenses([...expenses, expense]);
-  const deleteExpense = (id: string) => setExpenses(expenses.filter(e => e.id !== id));
-
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    // Login simulado
-    setUser({ id: '1', name: 'Admin Transportes', email: 'admin@auritransportes.com' });
+      if (tripsRes.data) setTrips(tripsRes.data);
+      if (expensesRes.data) setExpenses(expensesRes.data);
+    } catch (err) {
+      console.error('Erro ao buscar dados:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleLogout = () => {
-    setUser(null);
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthLoading(true);
+    setError('');
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) setError('E-mail ou senha incorretos.');
+    setAuthLoading(false);
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setTrips([]);
+    setExpenses([]);
     setIsMobileMenuOpen(false);
   };
 
-  if (!user) {
+  const addTrip = async (trip: Trip) => {
+    const { data, error } = await supabase.from('trips').insert([{
+      ...trip,
+      user_id: session.user.id
+    }]).select();
+    if (data) setTrips([data[0], ...trips]);
+  };
+
+  const deleteTrip = async (id: string) => {
+    const { error } = await supabase.from('trips').delete().eq('id', id);
+    if (!error) setTrips(trips.filter(t => t.id !== id));
+  };
+
+  const addExpense = async (expense: Expense) => {
+    const { data, error } = await supabase.from('expenses').insert([{
+      ...expense,
+      user_id: session.user.id
+    }]).select();
+    if (data) setExpenses([data[0], ...expenses]);
+  };
+
+  const deleteExpense = async (id: string) => {
+    const { error } = await supabase.from('expenses').delete().eq('id', id);
+    if (!error) setExpenses(expenses.filter(e => e.id !== id));
+  };
+
+  if (loading && !session) {
+    return (
+      <div className="h-screen w-full flex items-center justify-center bg-slate-50">
+        <Loader2 className="animate-spin text-primary-600" size={40} />
+      </div>
+    );
+  }
+
+  if (!session) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 font-sans">
-        <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden p-8 space-y-8">
+        <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden p-8 space-y-8 animate-fade-in">
           <div className="text-center space-y-2">
             <div className="bg-primary-600 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto shadow-lg mb-4">
               <Truck className="text-white" size={32} />
             </div>
             <h1 className="text-3xl font-extrabold text-slate-900">AuriTrasportes</h1>
-            <p className="text-slate-500">Gestão completa para seu transporte</p>
+            <p className="text-slate-500">Conecte-se à sua conta Supabase</p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-4">
+            {error && <div className="p-3 bg-rose-50 text-rose-600 text-sm rounded-lg border border-rose-100">{error}</div>}
             <div className="space-y-1">
               <label className="text-sm font-semibold text-slate-700">E-mail</label>
               <div className="relative">
-                <input type="email" required placeholder="seu@email.com" className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none transition-all" />
+                <input type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="seu@email.com" className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none transition-all" />
                 <UserIcon className="absolute left-3 top-3.5 text-slate-400" size={18} />
               </div>
             </div>
             <div className="space-y-1">
               <label className="text-sm font-semibold text-slate-700">Senha</label>
               <div className="relative">
-                <input type="password" required placeholder="••••••••" className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none transition-all" />
+                <input type="password" required value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none transition-all" />
                 <Lock className="absolute left-3 top-3.5 text-slate-400" size={18} />
               </div>
             </div>
-            <button type="submit" className="w-full py-4 bg-primary-600 text-white font-bold rounded-xl shadow-lg hover:bg-primary-700 active:scale-95 transition-all">
-              Acessar Painel
+            <button disabled={authLoading} type="submit" className="w-full py-4 bg-primary-600 text-white font-bold rounded-xl shadow-lg hover:bg-primary-700 active:scale-95 transition-all flex items-center justify-center gap-2">
+              {authLoading ? <Loader2 className="animate-spin" /> : 'Acessar Painel'}
             </button>
           </form>
-
-          <div className="text-center">
-            <a href="#" className="text-sm text-primary-600 hover:underline">Esqueceu a senha?</a>
+          <div className="text-center text-xs text-slate-400">
+            Utilize as credenciais configuradas no Supabase Auth.
           </div>
         </div>
       </div>
@@ -129,14 +174,12 @@ const App: React.FC = () => {
         <h1 className="font-bold text-xl flex items-center gap-2">
           <Truck className="text-primary-500" /> Auri
         </h1>
-        <div className="flex items-center gap-2">
-          <button 
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
-          >
-            {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
-        </div>
+        <button 
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
+        >
+          {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+        </button>
       </div>
 
       {/* Sidebar */}
@@ -161,12 +204,11 @@ const App: React.FC = () => {
 
         <div className="mt-auto space-y-4">
           <div className="px-4 py-3 bg-slate-800/50 rounded-xl flex items-center gap-3">
-             <div className="w-10 h-10 rounded-full bg-primary-600 flex items-center justify-center font-bold text-white">
-               {user.name.charAt(0)}
+             <div className="w-10 h-10 rounded-full bg-primary-600 flex items-center justify-center font-bold text-white shrink-0">
+               {session.user.email?.charAt(0).toUpperCase()}
              </div>
              <div className="flex-1 min-w-0">
-               <p className="text-sm font-bold text-white truncate">{user.name}</p>
-               <p className="text-xs text-slate-500 truncate">{user.email}</p>
+               <p className="text-xs text-slate-500 truncate">{session.user.email}</p>
              </div>
           </div>
           <button 
@@ -176,9 +218,6 @@ const App: React.FC = () => {
             <LogOut size={20} />
             <span className="font-medium">Sair do App</span>
           </button>
-          <div className="px-4 py-2 text-[10px] text-slate-500 text-center border-t border-slate-700/30">
-            &copy; 2024 AuriTrasportes
-          </div>
         </div>
       </aside>
 
@@ -190,39 +229,33 @@ const App: React.FC = () => {
             {currentView === AppView.EXPENSES && 'Controle Financeiro'}
             {currentView === AppView.CALCULATOR && 'Calculadora de Frete'}
           </h2>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
              <div className="text-right">
-                <p className="text-sm font-bold text-slate-900">{user.name}</p>
-                <p className="text-xs text-slate-500">Gestor de Frota</p>
-             </div>
-             <div className="w-10 h-10 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center font-bold border border-primary-200">
-               {user.name.charAt(0)}
+                <p className="text-xs text-slate-500">Usuário Conectado</p>
+                <p className="text-sm font-bold text-slate-900 truncate max-w-[150px]">{session.user.email}</p>
              </div>
           </div>
         </header>
 
-        <div className="md:hidden px-4 pt-6 pb-2">
-           <h2 className="text-2xl font-bold text-gray-900">
-            {currentView === AppView.DASHBOARD && 'Painel'}
-            {currentView === AppView.TRIPS && 'Viagens'}
-            {currentView === AppView.EXPENSES && 'Despesas'}
-            {currentView === AppView.CALCULATOR && 'ANTT'}
-          </h2>
-        </div>
-
         <div className="p-4 md:p-8 max-w-7xl mx-auto safe-bottom">
-          {currentView === AppView.DASHBOARD && <Dashboard trips={trips} expenses={expenses} />}
-          {currentView === AppView.TRIPS && <TripManager trips={trips} onAddTrip={addTrip} onDeleteTrip={deleteTrip} />}
-          {currentView === AppView.EXPENSES && <ExpenseManager expenses={expenses} trips={trips} onAddExpense={addExpense} onDeleteExpense={deleteExpense} />}
-          {currentView === AppView.CALCULATOR && <FreightCalculator />}
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-20 gap-4 text-slate-400">
+              <Loader2 className="animate-spin" size={32} />
+              <p>Sincronizando com Supabase...</p>
+            </div>
+          ) : (
+            <>
+              {currentView === AppView.DASHBOARD && <Dashboard trips={trips} expenses={expenses} />}
+              {currentView === AppView.TRIPS && <TripManager trips={trips} onAddTrip={addTrip} onDeleteTrip={deleteTrip} />}
+              {currentView === AppView.EXPENSES && <ExpenseManager expenses={expenses} trips={trips} onAddExpense={addExpense} onDeleteExpense={deleteExpense} />}
+              {currentView === AppView.CALCULATOR && <FreightCalculator />}
+            </>
+          )}
         </div>
       </main>
 
       {isMobileMenuOpen && (
-        <div 
-          className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-30 md:hidden transition-opacity"
-          onClick={() => setIsMobileMenuOpen(false)}
-        />
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-30 md:hidden transition-opacity" onClick={() => setIsMobileMenuOpen(false)} />
       )}
     </div>
   );
