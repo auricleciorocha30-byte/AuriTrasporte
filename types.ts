@@ -18,6 +18,7 @@ export interface Trip {
   destination: string;
   distanceKm: number;
   agreedPrice: number;
+  driverCommission: number; // Novo campo para comissão
   cargoType: string;
   date: string;
   status: TripStatus;
@@ -45,9 +46,16 @@ export interface Expense {
 export interface FinancialSummary {
   totalRevenue: number;
   totalExpenses: number;
+  totalCommissions: number; // Novo campo no resumo
   netProfit: number;
   tripCount: number;
   profitMargin: number;
+}
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
 }
 
 export interface ANTTParams {

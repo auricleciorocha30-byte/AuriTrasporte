@@ -1,8 +1,8 @@
 import React, { useMemo } from 'react';
 import { Trip, Expense, FinancialSummary } from '../types';
 import { StatsCard } from './StatsCard';
-import { TrendingUp, TrendingDown, DollarSign, Truck } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { TrendingUp, TrendingDown, DollarSign, Truck, UserCheck } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 interface DashboardProps {
   trips: Trip[];
@@ -14,12 +14,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ trips, expenses }) => {
   const summary: FinancialSummary = useMemo(() => {
     const totalRevenue = trips.reduce((acc, t) => acc + t.agreedPrice, 0);
     const totalExpenses = expenses.reduce((acc, e) => acc + e.amount, 0);
-    const netProfit = totalRevenue - totalExpenses;
+    const totalCommissions = trips.reduce((acc, t) => acc + (t.driverCommission || 0), 0);
+    
+    // Lucro Líquido = Receita - (Despesas + Comissões)
+    const netProfit = totalRevenue - totalExpenses - totalCommissions;
     const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
 
     return {
       totalRevenue,
       totalExpenses,
+      totalCommissions,
       netProfit,
       tripCount: trips.length,
       profitMargin
@@ -27,20 +31,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ trips, expenses }) => {
   }, [trips, expenses]);
 
   const chartData = useMemo(() => {
-    const data = trips.slice(-5).map(t => ({
-      name: t.destination.split(',')[0].slice(0, 8), // Abrevia nome da cidade
+    // Agrupa dados das últimas 6 viagens
+    return trips.slice(-6).map(t => ({
+      name: t.destination.split(',')[0].slice(0, 8),
       receita: t.agreedPrice,
-      lucro: t.agreedPrice * 0.4
+      custos: (t.driverCommission || 0) + expenses.filter(e => e.tripId === t.id).reduce((acc, curr) => acc + curr.amount, 0),
+      lucro: t.agreedPrice - ((t.driverCommission || 0) + expenses.filter(e => e.tripId === t.id).reduce((acc, curr) => acc + curr.amount, 0))
     }));
-    return data;
-  }, [trips]);
+  }, [trips, expenses]);
 
   const formatCurrency = (val: number) => 
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(val);
 
   return (
     <div className="space-y-6 animate-fade-in pb-10">
-      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 md:gap-4">
         <StatsCard 
           title="Faturamento" 
           value={formatCurrency(summary.totalRevenue)} 
@@ -48,40 +53,50 @@ export const Dashboard: React.FC<DashboardProps> = ({ trips, expenses }) => {
           color="green"
         />
         <StatsCard 
-          title="Despesas" 
+          title="Despesas GERAIS" 
           value={formatCurrency(summary.totalExpenses)} 
           icon={TrendingDown} 
           color="red"
         />
         <StatsCard 
-          title="Lucro" 
+          title="Comissões" 
+          value={formatCurrency(summary.totalCommissions)} 
+          icon={UserCheck} 
+          color="yellow"
+        />
+        <StatsCard 
+          title="Lucro Líquido" 
           value={formatCurrency(summary.netProfit)} 
           icon={DollarSign} 
           color="blue" 
           trend={`M: ${summary.profitMargin.toFixed(0)}%`}
         />
         <StatsCard 
-          title="Viagens" 
+          title="Total Viagens" 
           value={summary.tripCount.toString()} 
           icon={Truck} 
-          color="yellow" 
+          color="blue" 
         />
       </div>
 
-      <div className="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-100">
-        <h2 className="text-lg font-bold text-gray-800 mb-6">Performance Financeira</h2>
-        <div className="h-64 md:h-80 w-full">
+      <div className="bg-white p-4 md:p-6 rounded-3xl shadow-sm border border-slate-100">
+        <h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
+           Desempenho por Viagem <span className="text-xs font-normal text-slate-400">(Últimas 6)</span>
+        </h2>
+        <div className="h-64 md:h-96 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+            <BarChart data={chartData} margin={{ top: 0, right: 0, left: -10, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
               <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} />
               <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} tickFormatter={(value) => `R$${value/1000}k`} />
               <Tooltip 
-                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)' }}
                 formatter={(value) => formatCurrency(Number(value))} 
               />
-              <Bar dataKey="receita" fill="#0ea5e9" radius={[6, 6, 0, 0]} name="Receita" barSize={30} />
-              <Bar dataKey="lucro" fill="#10b981" radius={[6, 6, 0, 0]} name="Lucro" barSize={30} />
+              <Legend verticalAlign="top" height={36}/>
+              <Bar dataKey="receita" fill="#0ea5e9" radius={[4, 4, 0, 0]} name="Faturamento" />
+              <Bar dataKey="custos" fill="#f43f5e" radius={[4, 4, 0, 0]} name="Custos+Comis." />
+              <Bar dataKey="lucro" fill="#10b981" radius={[4, 4, 0, 0]} name="Lucro Real" />
             </BarChart>
           </ResponsiveContainer>
         </div>
