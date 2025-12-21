@@ -1,16 +1,13 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Trip, Expense, ANTTParams } from '../types';
 
-// Initialize Gemini
-// Note: In a real production app, this should be proxied through a backend to protect the key.
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
-const modelName = 'gemini-2.5-flash';
+const modelName = 'gemini-3-flash-preview';
 
 export const getFinancialInsights = async (trips: Trip[], expenses: Expense[]): Promise<string> => {
   try {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const dataContext = JSON.stringify({
-      trips: trips.slice(-10), // Analyze last 10 trips to save context
+      trips: trips.slice(-10),
       expenses: expenses.slice(-20),
       summary: "User is a truck driver/fleet owner."
     });
@@ -44,6 +41,7 @@ export const getFinancialInsights = async (trips: Trip[], expenses: Expense[]): 
 
 export const getSmartFreightEstimation = async (params: ANTTParams): Promise<{ minPrice: number, marketPrice: number, reasoning: string }> => {
   try {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const prompt = `
       Você é uma calculadora inteligente de fretes baseada na tabela da ANTT (Agência Nacional de Transportes Terrestres) do Brasil.
       
@@ -87,8 +85,7 @@ export const getSmartFreightEstimation = async (params: ANTTParams): Promise<{ m
 
   } catch (error) {
     console.error("AI Estimation Error", error);
-    // Fallback simple calculation if AI fails
-    const baseRate = 1.2 * params.axles; // Dummy coefficient fallback
+    const baseRate = 1.2 * params.axles;
     const cost = (params.distance * baseRate) + params.tollCost + params.otherCosts;
     return {
       minPrice: cost,

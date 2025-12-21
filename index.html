@@ -10,6 +10,9 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script>
+      // Shim para evitar erro de 'process is not defined' no navegador
+      window.process = { env: { API_KEY: "" } };
+      
       tailwind.config = {
         theme: {
           extend: {
@@ -36,11 +39,9 @@
         background-color: #f8fafc;
         -webkit-tap-highlight-color: transparent;
       }
-      /* Ajuste para rolagem suave e momentum no iOS */
       .overflow-y-auto {
         -webkit-overflow-scrolling: touch;
       }
-      /* Garante que o conteúdo não fique sob o notch no modo paisagem */
       .safe-top { padding-top: env(safe-area-inset-top); }
       .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
     </style>
@@ -60,5 +61,7 @@
 </head>
   <body>
     <div id="root"></div>
+    <!-- Script de entrada principal -->
+    <script type="module" src="./index.tsx"></script>
   </body>
 </html>
