@@ -2,7 +2,10 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0c4a6e" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>AuriTrasportes</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -28,7 +31,18 @@
       }
     </script>
     <style>
-      body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+      body { 
+        font-family: 'Inter', sans-serif; 
+        background-color: #f8fafc;
+        -webkit-tap-highlight-color: transparent;
+      }
+      /* Ajuste para rolagem suave e momentum no iOS */
+      .overflow-y-auto {
+        -webkit-overflow-scrolling: touch;
+      }
+      /* Garante que o conteúdo não fique sob o notch no modo paisagem */
+      .safe-top { padding-top: env(safe-area-inset-top); }
+      .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
     </style>
   <script type="importmap">
 {

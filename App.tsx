@@ -48,13 +48,13 @@ const App: React.FC = () => {
         setCurrentView(view);
         setIsMobileMenuOpen(false);
       }}
-      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+      className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all active:scale-95 ${
         currentView === view 
           ? 'bg-primary-600 text-white shadow-md' 
           : 'text-slate-400 hover:bg-slate-800 hover:text-white'
       }`}
     >
-      <Icon size={20} />
+      <Icon size={22} />
       <span className="font-medium">{label}</span>
     </button>
   );
@@ -62,45 +62,50 @@ const App: React.FC = () => {
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden font-sans text-slate-900">
       
-      {/* Mobile Header */}
-      <div className="md:hidden fixed top-0 w-full bg-slate-900 text-white z-50 px-4 py-3 flex justify-between items-center shadow-md">
-        <h1 className="font-bold text-xl flex items-center gap-2"><Truck className="text-primary-500" /> AuriTrasportes</h1>
-        <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
-          {isMobileMenuOpen ? <X /> : <Menu />}
+      {/* Mobile Header (Fixed) */}
+      <div className="md:hidden fixed top-0 w-full bg-slate-900 text-white z-50 px-4 py-3 flex justify-between items-center shadow-md safe-top">
+        <h1 className="font-bold text-xl flex items-center gap-2">
+          <Truck className="text-primary-500" /> AuriTrasportes
+        </h1>
+        <button 
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
+        >
+          {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
       </div>
 
       {/* Sidebar Navigation */}
       <aside className={`
-        fixed md:relative z-40 w-64 h-full bg-slate-900 text-slate-300 flex flex-col p-4 transition-transform duration-300 ease-in-out
+        fixed md:relative z-40 w-72 h-full bg-slate-900 text-slate-300 flex flex-col p-4 transition-transform duration-300 ease-in-out
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
-        pt-20 md:pt-4
+        pt-24 md:pt-6
       `}>
-        <div className="hidden md:flex items-center gap-2 px-4 mb-8">
-          <div className="bg-primary-600 p-2 rounded-lg">
-            <Truck className="text-white" size={24} />
+        <div className="hidden md:flex items-center gap-2 px-4 mb-10">
+          <div className="bg-primary-600 p-2.5 rounded-xl shadow-lg shadow-primary-900/20">
+            <Truck className="text-white" size={26} />
           </div>
           <span className="text-2xl font-bold text-white tracking-tight">AuriTrasportes</span>
         </div>
 
-        <nav className="flex-1 space-y-2">
+        <nav className="flex-1 space-y-2 overflow-y-auto">
           <NavItem view={AppView.DASHBOARD} icon={LayoutDashboard} label="Visão Geral" />
           <NavItem view={AppView.TRIPS} icon={Truck} label="Minhas Viagens" />
           <NavItem view={AppView.EXPENSES} icon={Wallet} label="Despesas" />
           <NavItem view={AppView.CALCULATOR} icon={Calculator} label="Calc. Frete ANTT" />
-          <div className="pt-4 mt-4 border-t border-slate-700">
+          <div className="pt-4 mt-4 border-t border-slate-700/50">
             <NavItem view={AppView.AI_INSIGHTS} icon={BrainCircuit} label="Inteligência Artificial" />
           </div>
         </nav>
 
-        <div className="mt-auto px-4 py-4 text-xs text-slate-500 text-center">
+        <div className="mt-auto px-4 py-6 text-xs text-slate-500 text-center border-t border-slate-700/30">
           &copy; 2024 AuriTrasportes AI
         </div>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto h-full pt-16 md:pt-0">
-        <header className="bg-white shadow-sm border-b border-gray-100 px-8 py-5 flex justify-between items-center sticky top-0 z-10 md:static">
+      <main className="flex-1 overflow-y-auto h-full pt-16 md:pt-0 bg-[#f8fafc]">
+        <header className="hidden md:flex bg-white shadow-sm border-b border-gray-100 px-8 py-5 justify-between items-center sticky top-0 z-10">
           <h2 className="text-2xl font-bold text-gray-800">
             {currentView === AppView.DASHBOARD && 'Painel de Controle'}
             {currentView === AppView.TRIPS && 'Gerenciamento de Viagens'}
@@ -108,15 +113,25 @@ const App: React.FC = () => {
             {currentView === AppView.CALCULATOR && 'Calculadora de Frete'}
             {currentView === AppView.AI_INSIGHTS && 'Consultor Virtual'}
           </h2>
-          <div className="hidden md:flex items-center gap-4">
-             {/* Example Profile/User area */}
-             <div className="w-10 h-10 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center font-bold">
+          <div className="flex items-center gap-4">
+             <div className="w-10 h-10 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center font-bold border border-primary-200">
                AT
              </div>
           </div>
         </header>
 
-        <div className="p-4 md:p-8 max-w-7xl mx-auto">
+        {/* Mobile Header Title */}
+        <div className="md:hidden px-4 pt-6 pb-2">
+           <h2 className="text-2xl font-bold text-gray-900">
+            {currentView === AppView.DASHBOARD && 'Painel'}
+            {currentView === AppView.TRIPS && 'Viagens'}
+            {currentView === AppView.EXPENSES && 'Despesas'}
+            {currentView === AppView.CALCULATOR && 'ANTT'}
+            {currentView === AppView.AI_INSIGHTS && 'IA Auri'}
+          </h2>
+        </div>
+
+        <div className="p-4 md:p-8 max-w-7xl mx-auto safe-bottom">
           {currentView === AppView.DASHBOARD && <Dashboard trips={trips} expenses={expenses} />}
           {currentView === AppView.TRIPS && <TripManager trips={trips} onAddTrip={addTrip} onDeleteTrip={deleteTrip} />}
           {currentView === AppView.EXPENSES && <ExpenseManager expenses={expenses} trips={trips} onAddExpense={addExpense} onDeleteExpense={deleteExpense} />}
@@ -128,7 +143,7 @@ const App: React.FC = () => {
       {/* Mobile Overlay */}
       {isMobileMenuOpen && (
         <div 
-          className="fixed inset-0 bg-black/50 z-30 md:hidden"
+          className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-30 md:hidden transition-opacity"
           onClick={() => setIsMobileMenuOpen(false)}
         />
       )}
