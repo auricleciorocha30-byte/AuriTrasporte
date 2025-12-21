@@ -2,8 +2,7 @@ export enum AppView {
   DASHBOARD = 'DASHBOARD',
   TRIPS = 'TRIPS',
   EXPENSES = 'EXPENSES',
-  CALCULATOR = 'CALCULATOR',
-  AI_INSIGHTS = 'AI_INSIGHTS'
+  CALCULATOR = 'CALCULATOR'
 }
 
 export enum TripStatus {
@@ -36,7 +35,7 @@ export enum ExpenseCategory {
 
 export interface Expense {
   id: string;
-  tripId?: string; // Optional link to a specific trip
+  tripId?: string;
   description: string;
   amount: number;
   category: ExpenseCategory;
