@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { LayoutDashboard, Truck, Wallet, Calculator, Menu, X, LogOut, Lock, User as UserIcon, Loader2, Sparkles } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
@@ -52,10 +51,13 @@ const App: React.FC = () => {
         supabase.from('expenses').select('*').order('date', { ascending: false })
       ]);
 
+      if (tripsRes.error) throw tripsRes.error;
+      if (expensesRes.error) throw expensesRes.error;
+
       if (tripsRes.data) setTrips(tripsRes.data);
       if (expensesRes.data) setExpenses(expensesRes.data);
     } catch (err) {
-      console.error('Erro ao buscar dados:', err);
+      console.error('Erro ao buscar dados do Supabase:', err);
     } finally {
       setLoading(false);
     }
@@ -92,12 +94,19 @@ const App: React.FC = () => {
     setIsMobileMenuOpen(false);
   };
 
-  const addTrip = async (trip: Trip) => {
-    const { data, error } = await supabase.from('trips').insert([{
-      ...trip,
-      user_id: session.user.id
-    }]).select();
-    if (data) setTrips([data[0], ...trips]);
+  const addTrip = async (trip: Omit<Trip, 'id'>) => {
+    try {
+      const { data, error } = await supabase.from('trips').insert([{
+        ...trip,
+        user_id: session.user.id
+      }]).select();
+      
+      if (error) throw error;
+      if (data) setTrips([data[0], ...trips]);
+    } catch (err: any) {
+      console.error("Erro ao salvar viagem no Supabase:", err.message);
+      alert("Falha ao salvar no banco de dados: " + err.message);
+    }
   };
 
   const deleteTrip = async (id: string) => {
@@ -105,12 +114,19 @@ const App: React.FC = () => {
     if (!error) setTrips(trips.filter(t => t.id !== id));
   };
 
-  const addExpense = async (expense: Expense) => {
-    const { data, error } = await supabase.from('expenses').insert([{
-      ...expense,
-      user_id: session.user.id
-    }]).select();
-    if (data) setExpenses([data[0], ...expenses]);
+  const addExpense = async (expense: Omit<Expense, 'id'>) => {
+    try {
+      const { data, error } = await supabase.from('expenses').insert([{
+        ...expense,
+        user_id: session.user.id
+      }]).select();
+      
+      if (error) throw error;
+      if (data) setExpenses([data[0], ...expenses]);
+    } catch (err: any) {
+      console.error("Erro ao salvar despesa no Supabase:", err.message);
+      alert("Falha ao salvar no banco de dados: " + err.message);
+    }
   };
 
   const deleteExpense = async (id: string) => {

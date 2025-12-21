@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Trip, TripStatus } from '../types';
-import { Plus, MapPin, Calendar, DollarSign, Package, Trash2, Truck, UserCheck } from 'lucide-react';
+import { Plus, MapPin, Calendar, DollarSign, Package, Trash2, Truck, UserCheck, Percent } from 'lucide-react';
 
 interface TripManagerProps {
   trips: Trip[];
-  onAddTrip: (trip: Trip) => void;
+  onAddTrip: (trip: Omit<Trip, 'id'>) => void;
   onDeleteTrip: (id: string) => void;
 }
 
@@ -24,19 +24,28 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, onAddTrip, onDe
   const [newTrip, setNewTrip] = useState<Partial<Trip>>({
     status: TripStatus.SCHEDULED,
     date: new Date().toISOString().split('T')[0],
-    driverCommission: 0
+    driverCommissionPercentage: 10,
+    agreedPrice: 0
   });
+
+  const [calculatedValue, setCalculatedValue] = useState(0);
+
+  useEffect(() => {
+    const price = newTrip.agreedPrice || 0;
+    const perc = newTrip.driverCommissionPercentage || 0;
+    setCalculatedValue(price * (perc / 100));
+  }, [newTrip.agreedPrice, newTrip.driverCommissionPercentage]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (originCity && destCity && newTrip.agreedPrice) {
-      const trip: Trip = {
-        id: Math.random().toString(36).substr(2, 9),
+      const trip: Omit<Trip, 'id'> = {
         origin: `${originCity}, ${originState}`,
         destination: `${destCity}, ${destState}`,
         distanceKm: Number(newTrip.distanceKm) || 0,
         agreedPrice: Number(newTrip.agreedPrice) || 0,
-        driverCommission: Number(newTrip.driverCommission) || 0,
+        driverCommissionPercentage: Number(newTrip.driverCommissionPercentage) || 0,
+        driverCommission: calculatedValue,
         cargoType: newTrip.cargoType || 'Geral',
         date: newTrip.date || new Date().toISOString(),
         status: (newTrip.status as TripStatus) || TripStatus.SCHEDULED,
@@ -49,7 +58,7 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, onAddTrip, onDe
   };
 
   const resetForm = () => {
-    setNewTrip({ status: TripStatus.SCHEDULED, date: new Date().toISOString().split('T')[0], driverCommission: 0 });
+    setNewTrip({ status: TripStatus.SCHEDULED, date: new Date().toISOString().split('T')[0], driverCommissionPercentage: 10, agreedPrice: 0 });
     setOriginCity('');
     setOriginState('SP');
     setDestCity('');
@@ -102,7 +111,7 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, onAddTrip, onDe
                 <span className="flex items-center gap-1"><Package size={14}/> {trip.cargoType}</span>
                 <span className="flex items-center gap-1"><Truck size={14}/> {trip.distanceKm} km</span>
                 <span className="flex items-center gap-1 text-amber-600 font-medium">
-                  <UserCheck size={14}/> Comiss: {formatCurrency(trip.driverCommission)}
+                  <UserCheck size={14}/> Comiss: {trip.driverCommissionPercentage}% ({formatCurrency(trip.driverCommission || 0)})
                 </span>
               </div>
             </div>
@@ -134,7 +143,7 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, onAddTrip, onDe
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white rounded-2xl w-full max-w-lg p-6 shadow-xl my-8">
+          <div className="bg-white rounded-2xl w-full max-w-lg p-6 shadow-xl my-8 animate-fade-in">
             <h3 className="text-xl font-bold mb-4">Registrar Nova Viagem</h3>
             <form onSubmit={handleSubmit} className="space-y-4">
               
@@ -169,14 +178,23 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, onAddTrip, onDe
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Valor Frete (R$)</label>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="md:col-span-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Frete (R$)</label>
                   <input required type="number" className="w-full p-3 bg-slate-50 border rounded-xl outline-none" onChange={e => setNewTrip({...newTrip, agreedPrice: Number(e.target.value)})} />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Comissão (R$)</label>
-                  <input required type="number" className="w-full p-3 bg-slate-50 border rounded-xl border-amber-200 outline-none focus:ring-2 focus:ring-amber-500" value={newTrip.driverCommission} onChange={e => setNewTrip({...newTrip, driverCommission: Number(e.target.value)})} />
+                <div className="md:col-span-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Comissão (%)</label>
+                  <div className="relative">
+                    <input required type="number" step="0.1" className="w-full p-3 bg-slate-50 border rounded-xl border-amber-200 outline-none focus:ring-2 focus:ring-amber-500 pr-8" value={newTrip.driverCommissionPercentage} onChange={e => setNewTrip({...newTrip, driverCommissionPercentage: Number(e.target.value)})} />
+                    <Percent className="absolute right-3 top-3.5 text-slate-400" size={16} />
+                  </div>
+                </div>
+                <div className="md:col-span-1">
+                  <label className="block text-sm font-medium text-slate-500 mb-1">Valor Final</label>
+                  <div className="p-3 bg-amber-50 border border-amber-100 rounded-xl font-bold text-amber-700 text-center">
+                    {formatCurrency(calculatedValue)}
+                  </div>
                 </div>
               </div>
 

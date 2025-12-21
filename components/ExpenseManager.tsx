@@ -5,7 +5,7 @@ import { Plus, Tag, Calendar, DollarSign, Trash2, Receipt } from 'lucide-react';
 interface ExpenseManagerProps {
   expenses: Expense[];
   trips: Trip[];
-  onAddExpense: (expense: Expense) => void;
+  onAddExpense: (expense: Omit<Expense, 'id'>) => void;
   onDeleteExpense: (id: string) => void;
 }
 
@@ -19,8 +19,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (newExpense.description && newExpense.amount) {
-      const expense: Expense = {
-        id: Math.random().toString(36).substr(2, 9),
+      const expense: Omit<Expense, 'id'> = {
         description: newExpense.description,
         amount: Number(newExpense.amount),
         category: (newExpense.category as ExpenseCategory) || ExpenseCategory.OTHER,
@@ -103,7 +102,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl w-full max-w-lg p-6 shadow-xl">
+          <div className="bg-white rounded-2xl w-full max-w-lg p-6 shadow-xl animate-fade-in">
             <h3 className="text-xl font-bold mb-4">Lançar Despesa</h3>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>

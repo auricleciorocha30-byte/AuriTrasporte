@@ -18,11 +18,13 @@ export interface Trip {
   destination: string;
   distanceKm: number;
   agreedPrice: number;
-  driverCommission: number; // Novo campo para comissão
+  driverCommissionPercentage: number; // Agora em porcentagem
+  driverCommission: number; // Valor calculado em R$
   cargoType: string;
   date: string;
   status: TripStatus;
   notes?: string;
+  user_id?: string;
 }
 
 export enum ExpenseCategory {
@@ -41,12 +43,13 @@ export interface Expense {
   amount: number;
   category: ExpenseCategory;
   date: string;
+  user_id?: string;
 }
 
 export interface FinancialSummary {
   totalRevenue: number;
   totalExpenses: number;
-  totalCommissions: number; // Novo campo no resumo
+  totalCommissions: number;
   netProfit: number;
   tripCount: number;
   profitMargin: number;
