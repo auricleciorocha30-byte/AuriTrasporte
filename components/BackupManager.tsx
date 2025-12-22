@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Database, Download, Code, Clipboard, Check } from 'lucide-react';
 
@@ -37,11 +38,11 @@ CREATE TABLE IF NOT EXISTS trips (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   origin TEXT NOT NULL,
   destination TEXT NOT NULL,
-  distanceKm FLOAT DEFAULT 0,
-  agreedPrice FLOAT DEFAULT 0,
-  driverCommissionPercentage FLOAT DEFAULT 0,
-  driverCommission FLOAT DEFAULT 0,
-  cargoType TEXT,
+  distance_km FLOAT DEFAULT 0,
+  agreed_price FLOAT DEFAULT 0,
+  driver_commission_percentage FLOAT DEFAULT 0,
+  driver_commission FLOAT DEFAULT 0,
+  cargo_type TEXT,
   date DATE NOT NULL DEFAULT CURRENT_DATE,
   status TEXT DEFAULT 'Agendada',
   notes TEXT,
@@ -57,7 +58,7 @@ CREATE TABLE IF NOT EXISTS expenses (
   amount FLOAT NOT NULL,
   category TEXT NOT NULL,
   date DATE NOT NULL DEFAULT CURRENT_DATE,
-  tripId UUID REFERENCES trips(id) ON DELETE SET NULL,
+  trip_id UUID REFERENCES trips(id) ON DELETE SET NULL,
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -75,17 +76,24 @@ CREATE TABLE IF NOT EXISTS maintenance (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- RLS (SEGURANÇA - CADA USUÁRIO VÊ APENAS O SEU)
+-- 5. Habilitar Row Level Security (RLS)
 ALTER TABLE vehicles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE trips ENABLE ROW LEVEL SECURITY;
 ALTER TABLE expenses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE maintenance ENABLE ROW LEVEL SECURITY;
 
--- Políticas de acesso (ALL para o dono do registro)
-CREATE POLICY "Own_Vehicles" ON vehicles FOR ALL USING (auth.uid() = user_id);
-CREATE POLICY "Own_Trips" ON trips FOR ALL USING (auth.uid() = user_id);
-CREATE POLICY "Own_Expenses" ON expenses FOR ALL USING (auth.uid() = user_id);
-CREATE POLICY "Own_Maintenance" ON maintenance FOR ALL USING (auth.uid() = user_id);`;
+-- 6. Criar políticas (Lógica de limpeza para evitar erro 42710)
+DROP POLICY IF EXISTS "Manage own vehicles" ON vehicles;
+CREATE POLICY "Manage own vehicles" ON vehicles FOR ALL USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Manage own trips" ON trips;
+CREATE POLICY "Manage own trips" ON trips FOR ALL USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Manage own expenses" ON expenses;
+CREATE POLICY "Manage own expenses" ON expenses FOR ALL USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Manage own maintenance" ON maintenance;
+CREATE POLICY "Manage own maintenance" ON maintenance FOR ALL USING (auth.uid() = user_id);`;
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(sqlCode);
