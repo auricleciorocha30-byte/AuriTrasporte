@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { LayoutDashboard, Truck, Wallet, Calculator, Menu, X, LogOut, Bell, Search, Database, CheckSquare, Settings, Lock, User as UserIcon, Loader2, AlertCircle } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
@@ -39,6 +40,12 @@ const App: React.FC = () => {
 
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
+  
+  // Lista de IDs de notificações que o usuário já apagou para não voltarem
+  const [dismissedIds, setDismissedIds] = useState<string[]>(() => {
+    const saved = localStorage.getItem('aurilog_dismissed_notifications');
+    return saved ? JSON.parse(saved) : [];
+  });
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -54,6 +61,11 @@ const App: React.FC = () => {
   useEffect(() => {
     if (session?.user) fetchData();
   }, [session]);
+
+  // Salvar notificações apagadas no localStorage
+  useEffect(() => {
+    localStorage.setItem('aurilog_dismissed_notifications', JSON.stringify(dismissedIds));
+  }, [dismissedIds]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -91,11 +103,12 @@ const App: React.FC = () => {
     const tomorrowStr = tomorrow.toISOString().split('T')[0];
 
     currentTrips.forEach(t => {
-      if (t.status === TripStatus.SCHEDULED && t.date === tomorrowStr) {
+      const nid = `trip-${t.id}-${t.date}`;
+      if (t.status === TripStatus.SCHEDULED && t.date === tomorrowStr && !dismissedIds.includes(nid)) {
         alerts.push({ 
-          id: `trip-${t.id}`,
-          title: 'Viagem Programada', 
-          msg: `Viagem para ${t.destination} marcada para amanhã!`, 
+          id: nid,
+          title: 'Próxima Viagem', 
+          msg: `Atenção: Viagem marcada para amanhã para ${t.destination}!`, 
           type: 'info' 
         });
       }
@@ -110,18 +123,21 @@ const App: React.FC = () => {
       const vehicle = currentVehicles.find(v => v.id === m.vehicle_id);
       const isKmExpired = vehicle && m.warranty_km > 0 && vehicle.current_km > (m.km_at_purchase + m.warranty_km);
 
-      if (isTimeExpired) {
+      const timeNid = `main-time-${m.id}`;
+      const kmNid = `main-km-${m.id}`;
+
+      if (isTimeExpired && !dismissedIds.includes(timeNid)) {
         alerts.push({ 
-          id: `main-time-${m.id}`,
+          id: timeNid,
           title: 'Garantia Vencida (Tempo)', 
-          msg: `A garantia de "${m.part_name}" no ${vehicle?.plate} expirou.`, 
+          msg: `A garantia de "${m.part_name}" no ${vehicle?.plate} expirou por tempo!`, 
           type: 'warning' 
         });
-      } else if (isKmExpired) {
+      } else if (isKmExpired && !dismissedIds.includes(kmNid)) {
         alerts.push({ 
-          id: `main-km-${m.id}`,
+          id: kmNid,
           title: 'Garantia Vencida (KM)', 
-          msg: `Garantia de "${m.part_name}" no ${vehicle?.plate} expirou por KM.`, 
+          msg: `Garantia de "${m.part_name}" no ${vehicle?.plate} excedeu a quilometragem!`, 
           type: 'warning' 
         });
       }
@@ -131,7 +147,14 @@ const App: React.FC = () => {
   };
 
   const dismissNotification = (id: string) => {
+    setDismissedIds(prev => [...prev, id]);
     setNotifications(prev => prev.filter(n => n.id !== id));
+  };
+
+  const clearAllNotifications = () => {
+    const allIds = notifications.map(n => n.id);
+    setDismissedIds(prev => [...prev, ...allIds]);
+    setNotifications([]);
   };
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -386,7 +409,7 @@ const App: React.FC = () => {
                     ) : notifications.map((n) => (
                       <div key={n.id} className={`p-4 rounded-2xl relative group border transition-all hover:shadow-sm ${n.type === 'warning' ? 'bg-amber-50 text-amber-900 border-amber-100' : 'bg-blue-50 text-blue-900 border-blue-100'}`}>
                         <p className="font-black text-[10px] uppercase opacity-50 tracking-widest mb-1.5 pr-6">{n.title}</p>
-                        <p className="text-base font-bold leading-tight">{n.msg}</p>
+                        <p className="text-lg font-black leading-tight tracking-tight">{n.msg}</p>
                         <button 
                           onClick={() => dismissNotification(n.id)}
                           className="absolute top-3 right-3 p-1.5 text-slate-400 hover:text-slate-900 hover:bg-white/50 rounded-lg transition-all"
@@ -399,10 +422,10 @@ const App: React.FC = () => {
                   </div>
                   {notifications.length > 0 && (
                     <button 
-                      onClick={() => setNotifications([])}
+                      onClick={clearAllNotifications}
                       className="w-full mt-4 py-2.5 text-xs font-black text-slate-400 hover:text-primary-600 transition-colors uppercase tracking-widest border-t border-slate-50"
                     >
-                      Limpar Tudo
+                      Limpar Tudo Permanentemente
                     </button>
                   )}
                 </div>
