@@ -1,15 +1,18 @@
+
 import React, { useState } from 'react';
 import { MaintenanceItem, Vehicle } from '../types';
-import { Plus, CheckSquare, Calendar, ShieldCheck, Trash2 } from 'lucide-react';
+import { Plus, CheckSquare, Calendar, ShieldCheck, Trash2, Loader2 } from 'lucide-react';
 
 interface MaintenanceManagerProps {
   maintenance: MaintenanceItem[];
   vehicles: Vehicle[];
   onAddMaintenance: (m: Omit<MaintenanceItem, 'id'>) => void;
   onDeleteMaintenance: (id: string) => void;
+  // Added isSaving to fix TypeScript error in App.tsx
+  isSaving?: boolean;
 }
 
-export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ maintenance, vehicles, onAddMaintenance, onDeleteMaintenance }) => {
+export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ maintenance, vehicles, onAddMaintenance, onDeleteMaintenance, isSaving }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState<any>({
     vehicle_id: '',
@@ -89,8 +92,11 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ maintena
                 <input type="number" placeholder="Custo R$" className="p-3 bg-slate-50 border rounded-xl outline-none" onChange={e => setFormData({...formData, cost: Number(e.target.value)})} />
               </div>
               <div className="flex gap-3 pt-4">
-                <button onClick={() => setIsModalOpen(false)} className="flex-1 py-3 font-bold border rounded-xl">Cancelar</button>
-                <button onClick={() => { onAddMaintenance(formData); setIsModalOpen(false); }} className="flex-1 py-3 font-bold bg-emerald-600 text-white rounded-xl">Salvar</button>
+                {/* Fixed: Disabled buttons while isSaving is true */}
+                <button disabled={isSaving} onClick={() => setIsModalOpen(false)} className="flex-1 py-3 font-bold border rounded-xl disabled:opacity-50">Cancelar</button>
+                <button disabled={isSaving} onClick={async () => { await onAddMaintenance(formData); setIsModalOpen(false); }} className="flex-1 py-3 font-bold bg-emerald-600 text-white rounded-xl disabled:opacity-70 flex items-center justify-center gap-2">
+                  {isSaving ? <Loader2 className="animate-spin" size={20} /> : 'Salvar'}
+                </button>
               </div>
             </div>
           </div>

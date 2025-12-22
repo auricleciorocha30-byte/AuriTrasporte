@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Trip, TripStatus, Vehicle } from '../types';
-import { Plus, MapPin, Calendar, Truck, UserCheck, Percent, Navigation, RefreshCcw, X, Trash2 } from 'lucide-react';
+import { Plus, MapPin, Calendar, Truck, UserCheck, Percent, Navigation, RefreshCcw, X, Trash2, Loader2 } from 'lucide-react';
 
 interface TripManagerProps {
   trips: Trip[];
@@ -8,6 +8,7 @@ interface TripManagerProps {
   onAddTrip: (trip: Omit<Trip, 'id'>) => void;
   onUpdateStatus: (id: string, status: TripStatus) => void;
   onDeleteTrip: (id: string) => void;
+  isSaving?: boolean;
 }
 
 const BRAZILIAN_STATES = [
@@ -15,7 +16,7 @@ const BRAZILIAN_STATES = [
   'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'
 ];
 
-export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAddTrip, onUpdateStatus, onDeleteTrip }) => {
+export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAddTrip, onUpdateStatus, onDeleteTrip, isSaving }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loadingDist, setLoadingDist] = useState(false);
   
@@ -44,13 +45,13 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
     }, 1200);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!originCity || !destCity) {
       alert("Por favor, preencha origem e destino.");
       return;
     }
     const commValue = formData.agreed_price * (formData.driver_commission_percentage / 100);
-    onAddTrip({
+    await onAddTrip({
       ...formData,
       origin: `${originCity} - ${originState}`,
       destination: `${destCity} - ${destState}`,
@@ -162,7 +163,7 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                     </button>
                   </div>
                   <select className="p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none" value={formData.vehicle_id} onChange={e => setFormData({...formData, vehicle_id: e.target.value})}>
-                    <option value="">Veículo</option>
+                    <option value="">Veículo (Opcional)</option>
                     {vehicles.map(v => <option key={v.id} value={v.id}>{v.plate} - {v.model}</option>)}
                   </select>
                 </div>
@@ -188,8 +189,10 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
               </div>
 
               <div className="flex gap-3 pt-4">
-                <button onClick={() => setIsModalOpen(false)} className="flex-1 py-3.5 font-bold text-slate-500 border border-slate-200 rounded-2xl">Cancelar</button>
-                <button onClick={handleSave} className="flex-1 py-3.5 font-black bg-primary-600 text-white rounded-2xl shadow-lg hover:bg-primary-700 transition-all">Salvar Viagem</button>
+                <button disabled={isSaving} onClick={() => setIsModalOpen(false)} className="flex-1 py-3.5 font-bold text-slate-500 border border-slate-200 rounded-2xl disabled:opacity-50">Cancelar</button>
+                <button disabled={isSaving} onClick={handleSave} className="flex-1 py-3.5 font-black bg-primary-600 text-white rounded-2xl shadow-lg hover:bg-primary-700 transition-all flex items-center justify-center gap-2 disabled:opacity-70">
+                  {isSaving ? <Loader2 className="animate-spin" size={20} /> : 'Salvar Viagem'}
+                </button>
               </div>
             </div>
           </div>

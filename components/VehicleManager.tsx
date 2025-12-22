@@ -1,14 +1,17 @@
+
 import React, { useState } from 'react';
 import { Vehicle } from '../types';
-import { Plus, Settings, Truck, Trash2 } from 'lucide-react';
+import { Plus, Settings, Truck, Trash2, Loader2 } from 'lucide-react';
 
 interface VehicleManagerProps {
   vehicles: Vehicle[];
   onAddVehicle: (veh: Omit<Vehicle, 'id'>) => void;
   onDeleteVehicle: (id: string) => void;
+  // Added isSaving to fix TypeScript error in App.tsx
+  isSaving?: boolean;
 }
 
-export const VehicleManager: React.FC<VehicleManagerProps> = ({ vehicles, onAddVehicle, onDeleteVehicle }) => {
+export const VehicleManager: React.FC<VehicleManagerProps> = ({ vehicles, onAddVehicle, onDeleteVehicle, isSaving }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({ plate: '', model: '', year: 2024, current_km: 0 });
 
@@ -58,8 +61,11 @@ export const VehicleManager: React.FC<VehicleManagerProps> = ({ vehicles, onAddV
                 <input type="number" placeholder="KM Atual" className="p-3 bg-slate-50 border rounded-xl" onChange={e => setFormData({...formData, current_km: Number(e.target.value)})} />
               </div>
               <div className="flex gap-3 pt-4">
-                <button onClick={() => setIsModalOpen(false)} className="flex-1 py-3 font-bold border rounded-xl">Cancelar</button>
-                <button onClick={() => { onAddVehicle(formData); setIsModalOpen(false); }} className="flex-1 py-3 font-bold bg-primary-600 text-white rounded-xl">Cadastrar</button>
+                {/* Fixed: Disabled buttons while isSaving is true */}
+                <button disabled={isSaving} onClick={() => setIsModalOpen(false)} className="flex-1 py-3 font-bold border rounded-xl disabled:opacity-50">Cancelar</button>
+                <button disabled={isSaving} onClick={async () => { await onAddVehicle(formData); setIsModalOpen(false); }} className="flex-1 py-3 font-bold bg-primary-600 text-white rounded-xl disabled:opacity-70 flex items-center justify-center gap-2">
+                  {isSaving ? <Loader2 className="animate-spin" size={20} /> : 'Cadastrar'}
+                </button>
               </div>
             </div>
           </div>

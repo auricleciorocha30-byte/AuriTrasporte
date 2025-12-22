@@ -1,22 +1,23 @@
 import React, { useState } from 'react';
 import { Expense, ExpenseCategory, Trip } from '../types';
-import { Plus, Tag, Calendar, DollarSign, Trash2, Receipt } from 'lucide-react';
+import { Plus, Tag, Calendar, DollarSign, Trash2, Receipt, Loader2 } from 'lucide-react';
 
 interface ExpenseManagerProps {
   expenses: Expense[];
   trips: Trip[];
   onAddExpense: (expense: Omit<Expense, 'id'>) => void;
   onDeleteExpense: (id: string) => void;
+  isSaving?: boolean;
 }
 
-export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips, onAddExpense, onDeleteExpense }) => {
+export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips, onAddExpense, onDeleteExpense, isSaving }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newExpense, setNewExpense] = useState<Partial<Expense>>({
     category: ExpenseCategory.FUEL,
     date: new Date().toISOString().split('T')[0]
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newExpense.description && newExpense.amount) {
       const expense: Omit<Expense, 'id'> = {
@@ -24,9 +25,9 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
         amount: Number(newExpense.amount),
         category: (newExpense.category as ExpenseCategory) || ExpenseCategory.OTHER,
         date: newExpense.date || new Date().toISOString(),
-        trip_id: newExpense.trip_id
+        trip_id: newExpense.trip_id || null
       };
-      onAddExpense(expense);
+      await onAddExpense(expense);
       setIsModalOpen(false);
       setNewExpense({ category: ExpenseCategory.FUEL, date: new Date().toISOString().split('T')[0] });
     }
@@ -137,7 +138,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Vincular a Viagem (Opcional)</label>
                   <select className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-rose-500 outline-none"
-                    onChange={e => setNewExpense({...newExpense, trip_id: e.target.value || undefined})}
+                    onChange={e => setNewExpense({...newExpense, trip_id: e.target.value || null})}
                   >
                     <option value="">Sem vínculo</option>
                     {trips.map(t => (
@@ -148,8 +149,10 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
               </div>
 
               <div className="flex gap-3 mt-6">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-2 px-4 border rounded-lg hover:bg-gray-50">Cancelar</button>
-                <button type="submit" className="flex-1 py-2 px-4 bg-rose-600 text-white rounded-lg hover:bg-rose-700">Salvar Despesa</button>
+                <button disabled={isSaving} type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-2 px-4 border rounded-lg hover:bg-gray-50 disabled:opacity-50">Cancelar</button>
+                <button disabled={isSaving} type="submit" className="flex-1 py-2 px-4 bg-rose-600 text-white rounded-lg hover:bg-rose-700 flex items-center justify-center gap-2 disabled:opacity-70">
+                  {isSaving ? <Loader2 className="animate-spin" size={20} /> : 'Salvar Despesa'}
+                </button>
               </div>
             </form>
           </div>

@@ -13,6 +13,7 @@ import { supabase } from './lib/supabase';
 const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
   const [currentView, setCurrentView] = useState<AppView>(AppView.DASHBOARD);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -128,21 +129,23 @@ const App: React.FC = () => {
   };
 
   const addTrip = async (trip: Omit<Trip, 'id'>) => {
-    const sanitizedTrip = {
-      ...trip,
-      vehicle_id: trip.vehicle_id === "" ? null : trip.vehicle_id,
-      user_id: session.user.id
-    };
+    setIsSaving(true);
+    try {
+      const sanitizedTrip = {
+        ...trip,
+        vehicle_id: trip.vehicle_id === "" ? null : trip.vehicle_id,
+        user_id: session.user.id
+      };
 
-    const { data, error } = await supabase.from('trips').insert([sanitizedTrip]).select();
-    
-    if (error) {
-      console.error("Erro ao salvar viagem:", error);
-      alert("Erro ao salvar viagem: " + error.message);
-      return;
+      const { data, error } = await supabase.from('trips').insert([sanitizedTrip]).select();
+      
+      if (error) throw error;
+      if (data) setTrips([data[0], ...trips]);
+    } catch (err: any) {
+      alert("Erro ao salvar viagem: " + err.message);
+    } finally {
+      setIsSaving(false);
     }
-
-    if (data) setTrips([data[0], ...trips]);
   };
 
   const deleteTrip = async (id: string) => {
@@ -165,12 +168,16 @@ const App: React.FC = () => {
   };
 
   const addVehicle = async (veh: Omit<Vehicle, 'id'>) => {
-    const { data, error } = await supabase.from('vehicles').insert([{ ...veh, user_id: session.user.id }]).select();
-    if (error) {
-      alert("Erro ao salvar veículo: " + error.message);
-      return;
+    setIsSaving(true);
+    try {
+      const { data, error } = await supabase.from('vehicles').insert([{ ...veh, user_id: session.user.id }]).select();
+      if (error) throw error;
+      if (data) setVehicles([...vehicles, data[0]]);
+    } catch (err: any) {
+      alert("Erro ao salvar veículo: " + err.message);
+    } finally {
+      setIsSaving(false);
     }
-    if (data) setVehicles([...vehicles, data[0]]);
   };
 
   const deleteVehicle = async (id: string) => {
@@ -184,18 +191,22 @@ const App: React.FC = () => {
   };
 
   const addMaintenance = async (item: Omit<MaintenanceItem, 'id'>) => {
-    const sanitizedItem = {
-      ...item,
-      vehicle_id: item.vehicle_id === "" ? null : item.vehicle_id,
-      user_id: session.user.id
-    };
+    setIsSaving(true);
+    try {
+      const sanitizedItem = {
+        ...item,
+        vehicle_id: item.vehicle_id === "" ? null : item.vehicle_id,
+        user_id: session.user.id
+      };
 
-    const { data, error } = await supabase.from('maintenance').insert([sanitizedItem]).select();
-    if (error) {
-      alert("Erro ao salvar manutenção: " + error.message);
-      return;
+      const { data, error } = await supabase.from('maintenance').insert([sanitizedItem]).select();
+      if (error) throw error;
+      if (data) setMaintenance([data[0], ...maintenance]);
+    } catch (err: any) {
+      alert("Erro ao salvar manutenção: " + err.message);
+    } finally {
+      setIsSaving(false);
     }
-    if (data) setMaintenance([data[0], ...maintenance]);
   };
 
   const deleteMaintenance = async (id: string) => {
@@ -209,18 +220,22 @@ const App: React.FC = () => {
   };
 
   const addExpense = async (exp: Omit<Expense, 'id'>) => {
-    const sanitizedExp = {
-      ...exp,
-      trip_id: exp.trip_id === "" ? null : exp.trip_id,
-      user_id: session.user.id
-    };
+    setIsSaving(true);
+    try {
+      const sanitizedExp = {
+        ...exp,
+        trip_id: exp.trip_id === "" ? null : exp.trip_id,
+        user_id: session.user.id
+      };
 
-    const { data, error } = await supabase.from('expenses').insert([sanitizedExp]).select();
-    if (error) {
-      alert("Erro ao salvar despesa: " + error.message);
-      return;
+      const { data, error } = await supabase.from('expenses').insert([sanitizedExp]).select();
+      if (error) throw error;
+      if (data) setExpenses([data[0], ...expenses]);
+    } catch (err: any) {
+      alert("Erro ao salvar despesa: " + err.message);
+    } finally {
+      setIsSaving(false);
     }
-    if (data) setExpenses([data[0], ...expenses]);
   };
 
   const deleteExpense = async (id: string) => {
@@ -415,10 +430,10 @@ const App: React.FC = () => {
           )}
 
           {currentView === AppView.DASHBOARD && <Dashboard trips={trips} expenses={expenses} />}
-          {currentView === AppView.TRIPS && <TripManager trips={filteredTrips} vehicles={vehicles} onAddTrip={addTrip} onUpdateStatus={updateTripStatus} onDeleteTrip={deleteTrip} />}
-          {currentView === AppView.VEHICLES && <VehicleManager vehicles={filteredVehicles} onAddVehicle={addVehicle} onDeleteVehicle={deleteVehicle} />}
-          {currentView === AppView.MAINTENANCE && <MaintenanceManager maintenance={maintenance} vehicles={vehicles} onAddMaintenance={addMaintenance} onDeleteMaintenance={deleteMaintenance} />}
-          {currentView === AppView.EXPENSES && <ExpenseManager expenses={filteredExpenses} trips={trips} onAddExpense={addExpense} onDeleteExpense={deleteExpense} />}
+          {currentView === AppView.TRIPS && <TripManager trips={filteredTrips} vehicles={vehicles} onAddTrip={addTrip} onUpdateStatus={updateTripStatus} onDeleteTrip={deleteTrip} isSaving={isSaving} />}
+          {currentView === AppView.VEHICLES && <VehicleManager vehicles={filteredVehicles} onAddVehicle={addVehicle} onDeleteVehicle={deleteVehicle} isSaving={isSaving} />}
+          {currentView === AppView.MAINTENANCE && <MaintenanceManager maintenance={maintenance} vehicles={vehicles} onAddMaintenance={addMaintenance} onDeleteMaintenance={deleteMaintenance} isSaving={isSaving} />}
+          {currentView === AppView.EXPENSES && <ExpenseManager expenses={filteredExpenses} trips={trips} onAddExpense={addExpense} onDeleteExpense={deleteExpense} isSaving={isSaving} />}
           {currentView === AppView.CALCULATOR && <FreightCalculator />}
           {currentView === AppView.BACKUP && <BackupManager data={{ trips, expenses, vehicles, maintenance }} />}
         </div>
