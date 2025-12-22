@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { LayoutDashboard, Truck, Wallet, Calculator, Menu, X, LogOut, Bell, Search, Database, CheckSquare, Settings, Lock, User as UserIcon, Loader2, AlertCircle } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
@@ -10,6 +9,13 @@ import { MaintenanceManager } from './components/MaintenanceManager';
 import { BackupManager } from './components/BackupManager';
 import { AppView, Trip, Expense, Vehicle, MaintenanceItem, TripStatus } from './types';
 import { supabase } from './lib/supabase';
+
+interface AppNotification {
+  id: string;
+  title: string;
+  msg: string;
+  type: 'warning' | 'info';
+}
 
 const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);
@@ -31,7 +37,7 @@ const App: React.FC = () => {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [maintenance, setMaintenance] = useState<MaintenanceItem[]>([]);
 
-  const [notifications, setNotifications] = useState<{title: string, msg: string, type: 'warning' | 'info'}[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
 
   useEffect(() => {
@@ -77,7 +83,7 @@ const App: React.FC = () => {
   };
 
   const checkNotifications = (currentTrips: Trip[], currentMain: MaintenanceItem[], currentVehicles: Vehicle[]) => {
-    const alerts: any[] = [];
+    const alerts: AppNotification[] = [];
     
     // 1. Notificação de Viagens Programadas (1 dia antes)
     const tomorrow = new Date();
@@ -87,8 +93,9 @@ const App: React.FC = () => {
     currentTrips.forEach(t => {
       if (t.status === TripStatus.SCHEDULED && t.date === tomorrowStr) {
         alerts.push({ 
+          id: `trip-${t.id}`,
           title: 'Viagem Programada', 
-          msg: `Atenção: Viagem para ${t.destination} amanhã (${new Date(t.date).toLocaleDateString()})!`, 
+          msg: `Viagem para ${t.destination} marcada para amanhã (${new Date(t.date).toLocaleDateString()})!`, 
           type: 'info' 
         });
       }
@@ -96,23 +103,35 @@ const App: React.FC = () => {
 
     // 2. Notificação de Garantias de Manutenção (Meses e KM)
     currentMain.forEach(m => {
-      // Checar meses
       const pDate = new Date(m.purchase_date);
       const expiryDate = new Date(pDate.setMonth(pDate.getMonth() + m.warranty_months));
       const isTimeExpired = expiryDate < new Date();
       
-      // Checar KM
       const vehicle = currentVehicles.find(v => v.id === m.vehicle_id);
       const isKmExpired = vehicle && m.warranty_km > 0 && vehicle.current_km > (m.km_at_purchase + m.warranty_km);
 
       if (isTimeExpired) {
-        alerts.push({ title: 'Garantia Vencida (Tempo)', msg: `A garantia da peça "${m.part_name}" no veículo ${vehicle?.plate} expirou por tempo.`, type: 'warning' });
+        alerts.push({ 
+          id: `main-time-${m.id}`,
+          title: 'Garantia Vencida (Tempo)', 
+          msg: `A garantia da peça "${m.part_name}" no veículo ${vehicle?.plate} expirou por tempo.`, 
+          type: 'warning' 
+        });
       } else if (isKmExpired) {
-        alerts.push({ title: 'Garantia Vencida (KM)', msg: `A garantia da peça "${m.part_name}" no veículo ${vehicle?.plate} expirou por quilometragem excedida.`, type: 'warning' });
+        alerts.push({ 
+          id: `main-km-${m.id}`,
+          title: 'Garantia Vencida (KM)', 
+          msg: `A garantia da peça "${m.part_name}" no veículo ${vehicle?.plate} expirou por quilometragem excedida.`, 
+          type: 'warning' 
+        });
       }
     });
 
     setNotifications(alerts);
+  };
+
+  const dismissNotification = (id: string) => {
+    setNotifications(prev => prev.filter(n => n.id !== id));
   };
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -348,21 +367,44 @@ const App: React.FC = () => {
           </div>
           <div className="flex items-center gap-4">
             <div className="relative">
-              <button onClick={() => setShowNotifications(!showNotifications)} className="p-2 text-slate-500 hover:bg-slate-100 rounded-full relative">
+              <button onClick={() => setShowNotifications(!showNotifications)} className="p-2 text-slate-500 hover:bg-slate-100 rounded-full relative transition-colors">
                 <Bell size={22} />
                 {notifications.length > 0 && <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white"></span>}
               </button>
               {showNotifications && (
-                <div className="absolute right-0 mt-2 w-80 bg-white shadow-2xl rounded-2xl border p-4 z-50">
-                  <h4 className="font-bold mb-3">Notificações</h4>
+                <div className="absolute right-0 mt-2 w-80 bg-white shadow-2xl rounded-2xl border border-slate-100 p-4 z-50 animate-fade-in">
+                  <div className="flex justify-between items-center mb-3">
+                    <h4 className="font-bold text-slate-800">Notificações</h4>
+                    <button onClick={() => setShowNotifications(false)} className="text-slate-400 hover:text-slate-600"><X size={16}/></button>
+                  </div>
                   <div className="space-y-2 max-h-60 overflow-y-auto">
-                    {notifications.length === 0 ? <p className="text-xs text-slate-400 text-center py-4">Nenhum aviso.</p> : notifications.map((n, i) => (
-                      <div key={i} className={`p-3 rounded-xl text-xs ${n.type === 'warning' ? 'bg-amber-50 text-amber-800' : 'bg-blue-50 text-blue-800'}`}>
-                        <p className="font-bold">{n.title}</p>
-                        <p>{n.msg}</p>
+                    {notifications.length === 0 ? (
+                      <div className="text-center py-6">
+                        <Bell className="mx-auto text-slate-200 mb-2" size={32} />
+                        <p className="text-xs text-slate-400">Tudo em ordem por aqui!</p>
+                      </div>
+                    ) : notifications.map((n) => (
+                      <div key={n.id} className={`p-3 rounded-xl text-xs relative group ${n.type === 'warning' ? 'bg-amber-50 text-amber-900 border border-amber-100' : 'bg-blue-50 text-blue-900 border border-blue-100'}`}>
+                        <p className="font-bold pr-5">{n.title}</p>
+                        <p className="mt-0.5 opacity-80">{n.msg}</p>
+                        <button 
+                          onClick={() => dismissNotification(n.id)}
+                          className="absolute top-2 right-2 p-1 text-slate-400 hover:text-slate-600 transition-colors"
+                          title="Remover"
+                        >
+                          <X size={14} />
+                        </button>
                       </div>
                     ))}
                   </div>
+                  {notifications.length > 0 && (
+                    <button 
+                      onClick={() => setNotifications([])}
+                      className="w-full mt-3 py-2 text-[10px] font-bold text-slate-400 hover:text-slate-600 transition-colors uppercase tracking-widest"
+                    >
+                      Limpar Todas
+                    </button>
+                  )}
                 </div>
               )}
             </div>

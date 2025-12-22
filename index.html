@@ -36,6 +36,14 @@
       }
     </script>
     <style>
+      :root {
+        font-size: 18px; /* Aumentado de 16px para 18px para melhor visibilidade */
+      }
+      @media (max-width: 768px) {
+        :root {
+          font-size: 16px; /* Ajuste para mobile para não ficar excessivo */
+        }
+      }
       body { 
         font-family: 'Inter', sans-serif; 
         background-color: #f8fafc;
@@ -58,6 +66,11 @@
         to { opacity: 1; transform: translateY(0); }
       }
       .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
+      
+      /* Ajuste fino em inputs e selects para acompanhar a fonte maior */
+      input, select, button {
+        font-size: 1rem;
+      }
     </style>
   <script type="importmap">
 {
