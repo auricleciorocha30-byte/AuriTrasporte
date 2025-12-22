@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, Truck, Wallet, Calculator, Menu, X, LogOut, Bell, Search, Database, CheckSquare, Settings, Lock, User as UserIcon, Loader2, AlertCircle, Smartphone } from 'lucide-react';
+import { LayoutDashboard, Truck, Wallet, Calculator, Menu, X, LogOut, Bell, Search, Database, CheckSquare, Settings, Lock, User as UserIcon, Loader2, AlertCircle } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { TripManager } from './components/TripManager';
 import { ExpenseManager } from './components/ExpenseManager';
@@ -32,7 +32,6 @@ const App: React.FC = () => {
 
   const [notifications, setNotifications] = useState<{title: string, msg: string, type: 'warning' | 'info'}[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [showInstallTip, setShowInstallTip] = useState(true);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -414,21 +413,6 @@ const App: React.FC = () => {
         </header>
 
         <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50">
-          {showInstallTip && currentView === AppView.DASHBOARD && (
-            <div className="mb-6 bg-gradient-to-r from-primary-600 to-primary-800 p-4 rounded-2xl text-white shadow-lg flex flex-col md:flex-row items-center justify-between gap-4 animate-fade-in">
-              <div className="flex items-center gap-4 text-center md:text-left">
-                <div className="bg-white/20 p-3 rounded-xl">
-                  <Smartphone size={24} />
-                </div>
-                <div>
-                  <h4 className="font-bold">Instale o AuriLog no seu celular</h4>
-                  <p className="text-xs text-primary-100">Abra o menu do navegador e selecione "Adicionar à Tela de Início" para usar como app.</p>
-                </div>
-              </div>
-              <button onClick={() => setShowInstallTip(false)} className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-xs font-bold transition-all shrink-0">Entendi</button>
-            </div>
-          )}
-
           {currentView === AppView.DASHBOARD && <Dashboard trips={trips} expenses={expenses} />}
           {currentView === AppView.TRIPS && <TripManager trips={filteredTrips} vehicles={vehicles} onAddTrip={addTrip} onUpdateStatus={updateTripStatus} onDeleteTrip={deleteTrip} isSaving={isSaving} />}
           {currentView === AppView.VEHICLES && <VehicleManager vehicles={filteredVehicles} onAddVehicle={addVehicle} onDeleteVehicle={deleteVehicle} isSaving={isSaving} />}
