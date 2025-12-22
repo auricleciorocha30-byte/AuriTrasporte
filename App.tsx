@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, Truck, Wallet, Calculator, Menu, X, LogOut, Bell, Search, Database, CheckSquare, Settings, Lock, User as UserIcon, Loader2, AlertCircle } from 'lucide-react';
+import { LayoutDashboard, Truck, Wallet, Calculator, Menu, X, LogOut, Bell, Search, Database, CheckSquare, Settings, Lock, User as UserIcon, Loader2, AlertCircle, Smartphone } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { TripManager } from './components/TripManager';
 import { ExpenseManager } from './components/ExpenseManager';
@@ -32,6 +32,7 @@ const App: React.FC = () => {
 
   const [notifications, setNotifications] = useState<{title: string, msg: string, type: 'warning' | 'info'}[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showInstallTip, setShowInstallTip] = useState(true);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -112,6 +113,11 @@ const App: React.FC = () => {
     } finally {
       setAuthLoading(false);
     }
+  };
+
+  const handleViewChange = (view: AppView) => {
+    setCurrentView(view);
+    setIsMobileMenuOpen(false); // Fecha o menu para a esquerda no mobile
   };
 
   const addTrip = async (trip: Omit<Trip, 'id'>) => {
@@ -227,45 +233,58 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="flex h-screen bg-slate-50 font-sans">
-      <aside className={`fixed md:relative z-40 w-64 h-full bg-slate-900 text-slate-300 p-4 transition-transform ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
-        <div className="flex items-center gap-2 mb-10 px-2">
-          <Truck className="text-primary-500" size={28} />
-          <span className="text-xl font-bold text-white">AuriLog</span>
+    <div className="flex h-screen bg-slate-50 font-sans overflow-hidden">
+      {/* Sidebar - desliza para a esquerda ao fechar */}
+      <aside className={`fixed md:relative z-40 w-64 h-full bg-slate-900 text-slate-300 p-4 transition-transform duration-300 ease-in-out ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+        <div className="flex items-center justify-between mb-10 px-2">
+          <div className="flex items-center gap-2">
+            <Truck className="text-primary-500" size={28} />
+            <span className="text-xl font-bold text-white uppercase tracking-tighter">AuriLog</span>
+          </div>
+          <button onClick={() => setIsMobileMenuOpen(false)} className="md:hidden p-1 text-slate-500">
+            <X size={20} />
+          </button>
         </div>
         <nav className="space-y-1">
-          <MenuBtn icon={LayoutDashboard} label="Dashboard" active={currentView === AppView.DASHBOARD} onClick={() => setCurrentView(AppView.DASHBOARD)} />
-          <MenuBtn icon={Truck} label="Viagens" active={currentView === AppView.TRIPS} onClick={() => setCurrentView(AppView.TRIPS)} />
-          <MenuBtn icon={Settings} label="Veículos" active={currentView === AppView.VEHICLES} onClick={() => setCurrentView(AppView.VEHICLES)} />
-          <MenuBtn icon={CheckSquare} label="Manutenções" active={currentView === AppView.MAINTENANCE} onClick={() => setCurrentView(AppView.MAINTENANCE)} />
-          <MenuBtn icon={Wallet} label="Despesas" active={currentView === AppView.EXPENSES} onClick={() => setCurrentView(AppView.EXPENSES)} />
-          <MenuBtn icon={Calculator} label="Frete ANTT" active={currentView === AppView.CALCULATOR} onClick={() => setCurrentView(AppView.CALCULATOR)} />
-          <MenuBtn icon={Database} label="Backup" active={currentView === AppView.BACKUP} onClick={() => setCurrentView(AppView.BACKUP)} />
+          <MenuBtn icon={LayoutDashboard} label="Dashboard" active={currentView === AppView.DASHBOARD} onClick={() => handleViewChange(AppView.DASHBOARD)} />
+          <MenuBtn icon={Truck} label="Viagens" active={currentView === AppView.TRIPS} onClick={() => handleViewChange(AppView.TRIPS)} />
+          <MenuBtn icon={Settings} label="Veículos" active={currentView === AppView.VEHICLES} onClick={() => handleViewChange(AppView.VEHICLES)} />
+          <MenuBtn icon={CheckSquare} label="Manutenções" active={currentView === AppView.MAINTENANCE} onClick={() => handleViewChange(AppView.MAINTENANCE)} />
+          <MenuBtn icon={Wallet} label="Despesas" active={currentView === AppView.EXPENSES} onClick={() => handleViewChange(AppView.EXPENSES)} />
+          <MenuBtn icon={Calculator} label="Frete ANTT" active={currentView === AppView.CALCULATOR} onClick={() => handleViewChange(AppView.CALCULATOR)} />
+          <MenuBtn icon={Database} label="Backup" active={currentView === AppView.BACKUP} onClick={() => handleViewChange(AppView.BACKUP)} />
         </nav>
+
+        <div className="absolute bottom-6 left-4 right-4">
+          <button onClick={() => supabase.auth.signOut()} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-rose-400 hover:bg-rose-500/10 transition-all font-bold">
+            <LogOut size={20} /> <span>Sair do App</span>
+          </button>
+        </div>
       </aside>
 
-      <main className="flex-1 flex flex-col overflow-hidden">
-        <header className="h-16 bg-white border-b flex items-center justify-between px-6 shrink-0">
-          <div className="flex items-center gap-4 md:hidden">
-             <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 text-slate-600">
+      <main className="flex-1 flex flex-col overflow-hidden relative">
+        <header className="h-16 bg-white border-b flex items-center justify-between px-6 shrink-0 z-10">
+          <div className="flex items-center gap-4">
+             <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-lg">
                <Menu size={24} />
              </button>
+             <div className="hidden md:block relative w-64 lg:w-96">
+                <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
+                <input 
+                  type="text" 
+                  placeholder="Pesquisar..." 
+                  className="w-full pl-10 pr-4 py-2 bg-slate-100 border-none rounded-full focus:ring-2 focus:ring-primary-500 transition-all text-sm"
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                />
+             </div>
           </div>
-          <div className="relative w-full max-w-md hidden md:block">
-            <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
-            <input 
-              type="text" 
-              placeholder="Pesquisar..." 
-              className="w-full pl-10 pr-4 py-2 bg-slate-100 border-none rounded-full focus:ring-2 focus:ring-primary-500 transition-all text-sm"
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-            />
-          </div>
-          <div className="flex items-center gap-4">
+
+          <div className="flex items-center gap-2 md:gap-4">
             <div className="relative">
               <button onClick={() => setShowNotifications(!showNotifications)} className="p-2 text-slate-500 hover:bg-slate-100 rounded-full relative">
                 <Bell size={22} />
-                {notifications.length > 0 && <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white"></span>}
+                {notifications.length > 0 && <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white"></span>}
               </button>
               {showNotifications && (
                 <div className="absolute right-0 mt-2 w-80 bg-white shadow-2xl rounded-2xl border p-4 z-50">
@@ -284,25 +303,39 @@ const App: React.FC = () => {
                 </div>
               )}
             </div>
-            <button onClick={() => supabase.auth.signOut()} className="p-2 text-slate-500 hover:text-rose-500 transition-colors">
-              <LogOut size={22} />
-            </button>
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-4 md:p-8">
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50">
+          {/* Banner de Instalação no Celular */}
+          {showInstallTip && currentView === AppView.DASHBOARD && (
+            <div className="mb-6 bg-gradient-to-r from-primary-600 to-primary-800 p-4 rounded-2xl text-white shadow-lg flex flex-col md:flex-row items-center justify-between gap-4 animate-fade-in">
+              <div className="flex items-center gap-4 text-center md:text-left">
+                <div className="bg-white/20 p-3 rounded-xl">
+                  <Smartphone size={24} />
+                </div>
+                <div>
+                  <h4 className="font-bold">Instale o AuriLog no seu celular</h4>
+                  <p className="text-xs text-primary-100">Abra o menu do navegador e selecione "Adicionar à Tela de Início" para usar como app.</p>
+                </div>
+              </div>
+              <button onClick={() => setShowInstallTip(false)} className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-xs font-bold transition-all shrink-0">Entendi</button>
+            </div>
+          )}
+
           <div className="md:hidden mb-6">
             <div className="relative w-full">
               <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
               <input 
                 type="text" 
                 placeholder="Pesquisar no sistema..." 
-                className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary-500 transition-all text-sm"
+                className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary-500 transition-all text-sm"
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
               />
             </div>
           </div>
+
           {currentView === AppView.DASHBOARD && <Dashboard trips={trips} expenses={expenses} />}
           {currentView === AppView.TRIPS && <TripManager trips={filteredTrips} vehicles={vehicles} onAddTrip={addTrip} onUpdateStatus={updateTripStatus} onDeleteTrip={id => {}} />}
           {currentView === AppView.VEHICLES && <VehicleManager vehicles={filteredVehicles} onAddVehicle={addVehicle} />}
@@ -313,6 +346,7 @@ const App: React.FC = () => {
         </div>
       </main>
 
+      {/* Overlay para fechar o menu ao clicar fora */}
       {isMobileMenuOpen && (
         <div 
           className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-30 md:hidden" 
@@ -324,8 +358,11 @@ const App: React.FC = () => {
 };
 
 const MenuBtn = ({ icon: Icon, label, active, onClick }: any) => (
-  <button onClick={onClick} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${active ? 'bg-primary-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800'}`}>
-    <Icon size={20} /> <span className="font-medium text-sm">{label}</span>
+  <button 
+    onClick={onClick} 
+    className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all duration-200 ${active ? 'bg-primary-600 text-white shadow-lg scale-105 z-10' : 'text-slate-400 hover:bg-slate-800'}`}
+  >
+    <Icon size={20} /> <span className="font-bold text-sm">{label}</span>
   </button>
 );
 
