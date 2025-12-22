@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { Vehicle } from '../types';
-import { Plus, Settings, Truck } from 'lucide-react';
+import { Plus, Settings, Truck, Trash2 } from 'lucide-react';
 
 interface VehicleManagerProps {
   vehicles: Vehicle[];
   onAddVehicle: (veh: Omit<Vehicle, 'id'>) => void;
+  onDeleteVehicle: (id: string) => void;
 }
 
-export const VehicleManager: React.FC<VehicleManagerProps> = ({ vehicles, onAddVehicle }) => {
+export const VehicleManager: React.FC<VehicleManagerProps> = ({ vehicles, onAddVehicle, onDeleteVehicle }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({ plate: '', model: '', year: 2024, current_km: 0 });
 
@@ -22,10 +23,18 @@ export const VehicleManager: React.FC<VehicleManagerProps> = ({ vehicles, onAddV
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {vehicles.map(v => (
-          <div key={v.id} className="bg-white p-6 rounded-3xl border shadow-sm">
+          <div key={v.id} className="bg-white p-6 rounded-3xl border shadow-sm relative group">
             <div className="flex justify-between items-start mb-4">
               <div className="p-3 bg-primary-50 text-primary-600 rounded-2xl"><Truck size={24}/></div>
-              <span className="bg-slate-100 px-3 py-1 rounded-full text-xs font-bold">{v.plate}</span>
+              <div className="flex items-center gap-2">
+                <span className="bg-slate-100 px-3 py-1 rounded-full text-xs font-bold uppercase">{v.plate}</span>
+                <button 
+                  onClick={() => onDeleteVehicle(v.id)}
+                  className="p-1.5 text-slate-300 hover:text-rose-500 transition-colors opacity-0 group-hover:opacity-100"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
             </div>
             <h3 className="text-xl font-bold">{v.model}</h3>
             <p className="text-sm text-slate-500 mb-4">{v.year}</p>

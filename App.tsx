@@ -117,12 +117,18 @@ const App: React.FC = () => {
 
   const handleViewChange = (view: AppView) => {
     setCurrentView(view);
-    setIsMobileMenuOpen(false); // Fecha o menu para a esquerda no mobile
+    setIsMobileMenuOpen(false);
   };
 
   const addTrip = async (trip: Omit<Trip, 'id'>) => {
     const { data, error } = await supabase.from('trips').insert([{ ...trip, user_id: session.user.id }]).select();
     if (data) setTrips([data[0], ...trips]);
+  };
+
+  const deleteTrip = async (id: string) => {
+    if (!confirm('Excluir esta viagem permanentemente?')) return;
+    const { error } = await supabase.from('trips').delete().eq('id', id);
+    if (!error) setTrips(trips.filter(t => t.id !== id));
   };
 
   const updateTripStatus = async (id: string, status: TripStatus) => {
@@ -135,9 +141,32 @@ const App: React.FC = () => {
     if (data) setVehicles([...vehicles, data[0]]);
   };
 
+  const deleteVehicle = async (id: string) => {
+    if (!confirm('Excluir este veículo? Isso também afetará viagens vinculadas.')) return;
+    const { error } = await supabase.from('vehicles').delete().eq('id', id);
+    if (!error) setVehicles(vehicles.filter(v => v.id !== id));
+  };
+
   const addMaintenance = async (item: Omit<MaintenanceItem, 'id'>) => {
     const { data, error } = await supabase.from('maintenance').insert([{ ...item, user_id: session.user.id }]).select();
     if (data) setMaintenance([data[0], ...maintenance]);
+  };
+
+  const deleteMaintenance = async (id: string) => {
+    if (!confirm('Excluir registro de manutenção?')) return;
+    const { error } = await supabase.from('maintenance').delete().eq('id', id);
+    if (!error) setMaintenance(maintenance.filter(m => m.id !== id));
+  };
+
+  const addExpense = async (exp: Omit<Expense, 'id'>) => {
+    const { data, error } = await supabase.from('expenses').insert([{ ...exp, user_id: session.user.id }]).select();
+    if (data) setExpenses([data[0], ...expenses]);
+  };
+
+  const deleteExpense = async (id: string) => {
+    if (!confirm('Excluir esta despesa?')) return;
+    const { error } = await supabase.from('expenses').delete().eq('id', id);
+    if (!error) setExpenses(expenses.filter(e => e.id !== id));
   };
 
   const filteredTrips = trips.filter(t => t.origin.toLowerCase().includes(searchTerm.toLowerCase()) || t.destination.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -234,7 +263,6 @@ const App: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans overflow-hidden">
-      {/* Sidebar - desliza para a esquerda ao fechar */}
       <aside className={`fixed md:relative z-40 w-64 h-full bg-slate-900 text-slate-300 p-4 transition-transform duration-300 ease-in-out ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
         <div className="flex items-center justify-between mb-10 px-2">
           <div className="flex items-center gap-2">
@@ -307,7 +335,6 @@ const App: React.FC = () => {
         </header>
 
         <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50">
-          {/* Banner de Instalação no Celular */}
           {showInstallTip && currentView === AppView.DASHBOARD && (
             <div className="mb-6 bg-gradient-to-r from-primary-600 to-primary-800 p-4 rounded-2xl text-white shadow-lg flex flex-col md:flex-row items-center justify-between gap-4 animate-fade-in">
               <div className="flex items-center gap-4 text-center md:text-left">
@@ -337,16 +364,15 @@ const App: React.FC = () => {
           </div>
 
           {currentView === AppView.DASHBOARD && <Dashboard trips={trips} expenses={expenses} />}
-          {currentView === AppView.TRIPS && <TripManager trips={filteredTrips} vehicles={vehicles} onAddTrip={addTrip} onUpdateStatus={updateTripStatus} onDeleteTrip={id => {}} />}
-          {currentView === AppView.VEHICLES && <VehicleManager vehicles={filteredVehicles} onAddVehicle={addVehicle} />}
-          {currentView === AppView.MAINTENANCE && <MaintenanceManager maintenance={maintenance} vehicles={vehicles} onAddMaintenance={addMaintenance} />}
-          {currentView === AppView.EXPENSES && <ExpenseManager expenses={filteredExpenses} trips={trips} onAddExpense={() => {}} onDeleteExpense={() => {}} />}
+          {currentView === AppView.TRIPS && <TripManager trips={filteredTrips} vehicles={vehicles} onAddTrip={addTrip} onUpdateStatus={updateTripStatus} onDeleteTrip={deleteTrip} />}
+          {currentView === AppView.VEHICLES && <VehicleManager vehicles={filteredVehicles} onAddVehicle={addVehicle} onDeleteVehicle={deleteVehicle} />}
+          {currentView === AppView.MAINTENANCE && <MaintenanceManager maintenance={maintenance} vehicles={vehicles} onAddMaintenance={addMaintenance} onDeleteMaintenance={deleteMaintenance} />}
+          {currentView === AppView.EXPENSES && <ExpenseManager expenses={filteredExpenses} trips={trips} onAddExpense={addExpense} onDeleteExpense={deleteExpense} />}
           {currentView === AppView.CALCULATOR && <FreightCalculator />}
           {currentView === AppView.BACKUP && <BackupManager data={{ trips, expenses, vehicles, maintenance }} />}
         </div>
       </main>
 
-      {/* Overlay para fechar o menu ao clicar fora */}
       {isMobileMenuOpen && (
         <div 
           className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-30 md:hidden" 

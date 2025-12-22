@@ -1,7 +1,9 @@
-import React from 'react';
-import { Database, Download } from 'lucide-react';
+import React, { useState } from 'react';
+import { Database, Download, Code, Clipboard, Check } from 'lucide-react';
 
 export const BackupManager: React.FC<{ data: any }> = ({ data }) => {
+  const [copied, setCopied] = useState(false);
+
   const downloadBackup = () => {
     const jsonStr = JSON.stringify(data, null, 2);
     const blob = new Blob([jsonStr], { type: 'application/json' });
@@ -15,25 +17,129 @@ export const BackupManager: React.FC<{ data: any }> = ({ data }) => {
     URL.revokeObjectURL(url);
   };
 
+  const sqlCode = `-- TABELAS SUPABASE PARA AURILOG
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+CREATE TABLE vehicles (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  plate TEXT NOT NULL,
+  model TEXT NOT NULL,
+  year INTEGER,
+  current_km INTEGER DEFAULT 0,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE trips (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  origin TEXT NOT NULL,
+  destination TEXT NOT NULL,
+  distanceKm FLOAT,
+  agreedPrice FLOAT,
+  driverCommissionPercentage FLOAT,
+  driverCommission FLOAT,
+  cargoType TEXT,
+  date DATE,
+  status TEXT DEFAULT 'Agendada',
+  notes TEXT,
+  vehicle_id UUID REFERENCES vehicles(id) ON DELETE SET NULL,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE expenses (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  description TEXT NOT NULL,
+  amount FLOAT NOT NULL,
+  category TEXT NOT NULL,
+  date DATE,
+  tripId UUID REFERENCES trips(id) ON DELETE SET NULL,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE maintenance (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  vehicle_id UUID REFERENCES vehicles(id) ON DELETE CASCADE,
+  part_name TEXT NOT NULL,
+  km_at_purchase INTEGER,
+  warranty_months INTEGER DEFAULT 12,
+  purchase_date DATE,
+  cost FLOAT DEFAULT 0,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- RLS (SEGURANÇA)
+ALTER TABLE vehicles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE trips ENABLE ROW LEVEL SECURITY;
+ALTER TABLE expenses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE maintenance ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Own_Vehicles" ON vehicles FOR ALL USING (auth.uid() = user_id);
+CREATE POLICY "Own_Trips" ON trips FOR ALL USING (auth.uid() = user_id);
+CREATE POLICY "Own_Expenses" ON expenses FOR ALL USING (auth.uid() = user_id);
+CREATE POLICY "Own_Maintenance" ON maintenance FOR ALL USING (auth.uid() = user_id);`;
+
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(sqlCode);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   return (
-    <div className="max-w-2xl mx-auto py-12 text-center">
-      <div className="bg-white p-12 rounded-[3rem] shadow-xl border border-slate-100">
+    <div className="max-w-4xl mx-auto py-8 space-y-12">
+      <div className="bg-white p-12 rounded-[3rem] shadow-xl border border-slate-100 text-center">
         <div className="bg-primary-100 text-primary-600 p-6 rounded-full w-24 h-24 flex items-center justify-center mx-auto mb-8">
           <Database size={48} />
         </div>
-        <h2 className="text-3xl font-black mb-4">Central de Backup</h2>
-        <p className="text-slate-500 mb-10 leading-relaxed">
-          Sua segurança é prioridade. Exportar seus dados garante que você tenha uma cópia local de todas as viagens, veículos e manutenções registradas no AuriLog.
+        <h2 className="text-3xl font-black mb-4">Exportar Meus Dados</h2>
+        <p className="text-slate-500 mb-10 leading-relaxed max-w-md mx-auto">
+          Baixe uma cópia local de tudo o que você registrou: viagens, despesas, veículos e manutenções.
         </p>
         <button 
           onClick={downloadBackup}
-          className="bg-primary-600 hover:bg-primary-700 text-white px-10 py-5 rounded-3xl flex items-center gap-3 font-black text-lg transition-all shadow-xl hover:shadow-primary-200 active:scale-95 mx-auto"
+          className="bg-primary-600 hover:bg-primary-700 text-white px-10 py-5 rounded-3xl flex items-center gap-3 font-black text-lg transition-all shadow-xl active:scale-95 mx-auto"
         >
-          <Download size={24} /> Exportar Dados (JSON)
+          <Download size={24} /> Baixar Backup (JSON)
         </button>
-        <p className="text-[10px] text-slate-400 mt-8 uppercase font-bold tracking-widest">
-          Backup criptografado pelo Supabase • Exportação local permitida
-        </p>
+      </div>
+
+      <div className="bg-slate-900 rounded-[3rem] p-8 md:p-12 text-slate-300">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+          <div className="flex items-center gap-4">
+            <div className="bg-primary-500/20 p-3 rounded-2xl text-primary-400">
+              <Code size={28} />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-white">Configuração do Supabase</h3>
+              <p className="text-sm text-slate-400">Scripts SQL para criar as tabelas e políticas de segurança.</p>
+            </div>
+          </div>
+          <button 
+            onClick={copyToClipboard}
+            className="flex items-center gap-2 px-5 py-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl transition-all text-sm font-bold border border-slate-700"
+          >
+            {copied ? <Check size={18} className="text-emerald-400" /> : <Clipboard size={18} />}
+            {copied ? 'Copiado!' : 'Copiar Script SQL'}
+          </button>
+        </div>
+
+        <div className="bg-black/40 rounded-3xl p-6 overflow-x-auto max-h-96 overflow-y-auto border border-slate-800 scrollbar-hide">
+          <pre className="text-xs font-mono text-primary-300/80 leading-relaxed">
+            {sqlCode}
+          </pre>
+        </div>
+        
+        <div className="mt-8 p-6 bg-primary-500/10 rounded-2xl border border-primary-500/20 text-sm">
+          <p className="font-bold text-primary-400 mb-2">Como usar este script?</p>
+          <ol className="list-decimal list-inside space-y-1 text-slate-400">
+            <li>Acesse o painel do seu projeto no Supabase.</li>
+            <li>Clique em <span className="text-white font-medium">SQL Editor</span> no menu lateral.</li>
+            <li>Crie uma nova consulta (<span className="text-white font-medium">New query</span>).</li>
+            <li>Cole o código acima e clique em <span className="text-primary-400 font-bold uppercase tracking-widest">Run</span>.</li>
+          </ol>
+        </div>
       </div>
     </div>
   );
