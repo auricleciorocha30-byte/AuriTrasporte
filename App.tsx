@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { LayoutDashboard, Truck, Wallet, Calculator, Menu, X, LogOut, Bell, Search, Database, CheckSquare, Settings } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { LayoutDashboard, Truck, Wallet, Calculator, Menu, X, LogOut, Bell, Search, Database, CheckSquare, Settings, Lock, User as UserIcon, Loader2, AlertCircle } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { TripManager } from './components/TripManager';
 import { ExpenseManager } from './components/ExpenseManager';
@@ -13,10 +13,18 @@ import { supabase } from './lib/supabase';
 const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [authLoading, setAuthLoading] = useState(false);
   const [currentView, setCurrentView] = useState<AppView>(AppView.DASHBOARD);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   
+  // Auth States
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [error, setError] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
+
   const [trips, setTrips] = useState<Trip[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -82,6 +90,30 @@ const App: React.FC = () => {
     setNotifications(alerts);
   };
 
+  const handleAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthLoading(true);
+    setError('');
+    setSuccessMsg('');
+
+    try {
+      if (isSignUp) {
+        const { data, error } = await supabase.auth.signUp({ email, password });
+        if (error) throw error;
+        if (data.user && !data.session) {
+          setSuccessMsg('Conta criada! Verifique seu e-mail para confirmar o cadastro.');
+        }
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+      }
+    } catch (err: any) {
+      setError(err.message || 'Erro ao processar autenticação.');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
   const addTrip = async (trip: Omit<Trip, 'id'>) => {
     const { data, error } = await supabase.from('trips').insert([{ ...trip, user_id: session.user.id }]).select();
     if (data) setTrips([data[0], ...trips]);
@@ -106,7 +138,93 @@ const App: React.FC = () => {
   const filteredExpenses = expenses.filter(e => e.description.toLowerCase().includes(searchTerm.toLowerCase()));
   const filteredVehicles = vehicles.filter(v => v.plate.toLowerCase().includes(searchTerm.toLowerCase()) || v.model.toLowerCase().includes(searchTerm.toLowerCase()));
 
-  if (!session) return <Login handleAuth={() => {}} />; // Simplified for clarity in prompt
+  if (loading) {
+    return (
+      <div className="h-screen w-full flex items-center justify-center bg-slate-50">
+        <Loader2 className="animate-spin text-primary-600" size={40} />
+      </div>
+    );
+  }
+
+  if (!session) {
+    return (
+      <div className="h-screen bg-slate-900 flex items-center justify-center p-4">
+        <div className="bg-white p-8 rounded-[2.5rem] shadow-2xl w-full max-w-md animate-fade-in">
+          <div className="text-center mb-8">
+            <div className="bg-primary-600 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto shadow-lg mb-4">
+              <Truck className="text-white" size={32} />
+            </div>
+            <h1 className="text-3xl font-black text-slate-900">AuriLog</h1>
+            <p className="text-slate-500 font-medium">
+              {isSignUp ? 'Crie sua conta de gestor' : 'Gestão de fretes inteligente'}
+            </p>
+          </div>
+
+          <form onSubmit={handleAuth} className="space-y-4">
+            {error && (
+              <div className="p-4 bg-rose-50 text-rose-600 text-sm rounded-2xl border border-rose-100 flex items-start gap-3">
+                <AlertCircle className="shrink-0" size={18} />
+                <p>{error}</p>
+              </div>
+            )}
+            {successMsg && (
+              <div className="p-4 bg-emerald-50 text-emerald-600 text-sm rounded-2xl border border-emerald-100 flex items-start gap-3">
+                <AlertCircle className="shrink-0" size={18} />
+                <p>{successMsg}</p>
+              </div>
+            )}
+
+            <div className="space-y-1">
+              <label className="text-sm font-bold text-slate-700 ml-1">E-mail</label>
+              <div className="relative">
+                <UserIcon className="absolute left-4 top-3.5 text-slate-400" size={18} />
+                <input 
+                  type="email" 
+                  required 
+                  value={email} 
+                  onChange={e => setEmail(e.target.value)} 
+                  placeholder="seu@email.com" 
+                  className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-primary-500 outline-none transition-all" 
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-sm font-bold text-slate-700 ml-1">Senha</label>
+              <div className="relative">
+                <Lock className="absolute left-4 top-3.5 text-slate-400" size={18} />
+                <input 
+                  type="password" 
+                  required 
+                  value={password} 
+                  onChange={e => setPassword(e.target.value)} 
+                  placeholder="••••••••" 
+                  className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-primary-500 outline-none transition-all" 
+                />
+              </div>
+            </div>
+
+            <button 
+              disabled={authLoading} 
+              type="submit" 
+              className="w-full py-4 bg-primary-600 text-white font-black rounded-2xl shadow-xl hover:bg-primary-700 active:scale-95 transition-all flex items-center justify-center gap-2"
+            >
+              {authLoading ? <Loader2 className="animate-spin" /> : (isSignUp ? 'Criar Conta Grátis' : 'Entrar no Painel')}
+            </button>
+          </form>
+
+          <div className="mt-8 text-center">
+            <button 
+              onClick={() => { setIsSignUp(!isSignUp); setError(''); setSuccessMsg(''); }}
+              className="text-sm font-bold text-primary-600 hover:text-primary-700 transition-colors"
+            >
+              {isSignUp ? 'Já tem uma conta? Acesse aqui' : 'Ainda não tem conta? Cadastre-se'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans">
@@ -128,7 +246,12 @@ const App: React.FC = () => {
 
       <main className="flex-1 flex flex-col overflow-hidden">
         <header className="h-16 bg-white border-b flex items-center justify-between px-6 shrink-0">
-          <div className="relative w-full max-w-md">
+          <div className="flex items-center gap-4 md:hidden">
+             <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 text-slate-600">
+               <Menu size={24} />
+             </button>
+          </div>
+          <div className="relative w-full max-w-md hidden md:block">
             <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
             <input 
               type="text" 
@@ -146,9 +269,12 @@ const App: React.FC = () => {
               </button>
               {showNotifications && (
                 <div className="absolute right-0 mt-2 w-80 bg-white shadow-2xl rounded-2xl border p-4 z-50">
-                  <h4 className="font-bold mb-3">Notificações</h4>
+                  <div className="flex justify-between items-center mb-3">
+                    <h4 className="font-bold">Notificações</h4>
+                    <button onClick={() => setShowNotifications(false)} className="text-slate-400 hover:text-slate-600"><X size={16}/></button>
+                  </div>
                   <div className="space-y-2 max-h-60 overflow-y-auto">
-                    {notifications.length === 0 ? <p className="text-xs text-slate-400">Tudo em dia!</p> : notifications.map((n, i) => (
+                    {notifications.length === 0 ? <p className="text-xs text-slate-400 text-center py-4">Tudo em dia!</p> : notifications.map((n, i) => (
                       <div key={i} className={`p-3 rounded-xl text-xs ${n.type === 'warning' ? 'bg-amber-50 text-amber-800' : 'bg-blue-50 text-blue-800'}`}>
                         <p className="font-bold">{n.title}</p>
                         <p>{n.msg}</p>
@@ -158,11 +284,25 @@ const App: React.FC = () => {
                 </div>
               )}
             </div>
-            <button onClick={() => supabase.auth.signOut()} className="p-2 text-slate-500 hover:text-rose-500"><LogOut size={22} /></button>
+            <button onClick={() => supabase.auth.signOut()} className="p-2 text-slate-500 hover:text-rose-500 transition-colors">
+              <LogOut size={22} />
+            </button>
           </div>
         </header>
 
         <div className="flex-1 overflow-y-auto p-4 md:p-8">
+          <div className="md:hidden mb-6">
+            <div className="relative w-full">
+              <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
+              <input 
+                type="text" 
+                placeholder="Pesquisar no sistema..." 
+                className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary-500 transition-all text-sm"
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+              />
+            </div>
+          </div>
           {currentView === AppView.DASHBOARD && <Dashboard trips={trips} expenses={expenses} />}
           {currentView === AppView.TRIPS && <TripManager trips={filteredTrips} vehicles={vehicles} onAddTrip={addTrip} onUpdateStatus={updateTripStatus} onDeleteTrip={id => {}} />}
           {currentView === AppView.VEHICLES && <VehicleManager vehicles={filteredVehicles} onAddVehicle={addVehicle} />}
@@ -172,6 +312,13 @@ const App: React.FC = () => {
           {currentView === AppView.BACKUP && <BackupManager data={{ trips, expenses, vehicles, maintenance }} />}
         </div>
       </main>
+
+      {isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-30 md:hidden" 
+          onClick={() => setIsMobileMenuOpen(false)} 
+        />
+      )}
     </div>
   );
 };
@@ -180,16 +327,6 @@ const MenuBtn = ({ icon: Icon, label, active, onClick }: any) => (
   <button onClick={onClick} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${active ? 'bg-primary-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800'}`}>
     <Icon size={20} /> <span className="font-medium text-sm">{label}</span>
   </button>
-);
-
-const Login = ({ handleAuth }: any) => (
-  <div className="h-screen bg-slate-900 flex items-center justify-center p-4">
-    <div className="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-md text-center">
-      <Truck size={48} className="text-primary-600 mx-auto mb-4" />
-      <h1 className="text-2xl font-bold mb-6">Bem-vindo ao AuriLog</h1>
-      <button onClick={() => window.location.reload()} className="w-full py-3 bg-primary-600 text-white rounded-xl font-bold">Acessar Sistema</button>
-    </div>
-  </div>
 );
 
 export default App;
