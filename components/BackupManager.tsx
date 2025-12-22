@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Database, Download, Code, Clipboard, Check } from 'lucide-react';
+import { Database, Download, Code, Clipboard, Check, AlertTriangle } from 'lucide-react';
 
 export const BackupManager: React.FC<{ data: any }> = ({ data }) => {
   const [copied, setCopied] = useState(false);
@@ -18,13 +18,19 @@ export const BackupManager: React.FC<{ data: any }> = ({ data }) => {
     URL.revokeObjectURL(url);
   };
 
-  const sqlCode = `-- TABELAS SUPABASE PARA AURILOG (EXECUTE NO SQL EDITOR)
--- 0. Habilitar UUIDs
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+  const sqlCode = `-- SCRIPT DE RESETE TOTAL PARA AURILOG
+-- ATENÇÃO: Este script apaga as tabelas e as cria novamente.
+-- Útil para resolver erros de "Column not found" ou "Schema cache".
 
--- 1. Tabela de Veículos
-CREATE TABLE IF NOT EXISTS vehicles (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+-- 1. Remover tabelas existentes (Limpeza total)
+DROP TABLE IF EXISTS maintenance;
+DROP TABLE IF EXISTS expenses;
+DROP TABLE IF EXISTS trips;
+DROP TABLE IF EXISTS vehicles;
+
+-- 2. Criar Tabela de Veículos
+CREATE TABLE vehicles (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   plate TEXT NOT NULL,
   model TEXT NOT NULL,
   year INTEGER,
@@ -33,9 +39,9 @@ CREATE TABLE IF NOT EXISTS vehicles (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 2. Tabela de Viagens
-CREATE TABLE IF NOT EXISTS trips (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+-- 3. Criar Tabela de Viagens
+CREATE TABLE trips (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   origin TEXT NOT NULL,
   destination TEXT NOT NULL,
   distance_km FLOAT DEFAULT 0,
@@ -51,9 +57,9 @@ CREATE TABLE IF NOT EXISTS trips (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 3. Tabela de Despesas
-CREATE TABLE IF NOT EXISTS expenses (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+-- 4. Criar Tabela de Despesas
+CREATE TABLE expenses (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   description TEXT NOT NULL,
   amount FLOAT NOT NULL,
   category TEXT NOT NULL,
@@ -63,9 +69,9 @@ CREATE TABLE IF NOT EXISTS expenses (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 4. Tabela de Manutenção
-CREATE TABLE IF NOT EXISTS maintenance (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+-- 5. Criar Tabela de Manutenção
+CREATE TABLE maintenance (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   vehicle_id UUID REFERENCES vehicles(id) ON DELETE CASCADE,
   part_name TEXT NOT NULL,
   km_at_purchase INTEGER,
@@ -76,24 +82,20 @@ CREATE TABLE IF NOT EXISTS maintenance (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 5. Habilitar Row Level Security (RLS)
+-- 6. Habilitar Segurança (RLS)
 ALTER TABLE vehicles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE trips ENABLE ROW LEVEL SECURITY;
 ALTER TABLE expenses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE maintenance ENABLE ROW LEVEL SECURITY;
 
--- 6. Criar políticas (Lógica de limpeza para evitar erro 42710)
-DROP POLICY IF EXISTS "Manage own vehicles" ON vehicles;
+-- 7. Criar Políticas de Acesso (Dono vê apenas seus dados)
 CREATE POLICY "Manage own vehicles" ON vehicles FOR ALL USING (auth.uid() = user_id);
-
-DROP POLICY IF EXISTS "Manage own trips" ON trips;
 CREATE POLICY "Manage own trips" ON trips FOR ALL USING (auth.uid() = user_id);
-
-DROP POLICY IF EXISTS "Manage own expenses" ON expenses;
 CREATE POLICY "Manage own expenses" ON expenses FOR ALL USING (auth.uid() = user_id);
+CREATE POLICY "Manage own maintenance" ON maintenance FOR ALL USING (auth.uid() = user_id);
 
-DROP POLICY IF EXISTS "Manage own maintenance" ON maintenance;
-CREATE POLICY "Manage own maintenance" ON maintenance FOR ALL USING (auth.uid() = user_id);`;
+-- 8. FORÇAR ATUALIZAÇÃO DO CACHE DA API (Resolve erro de "Column not found")
+NOTIFY pgrst, 'reload schema';`;
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(sqlCode);
@@ -127,7 +129,7 @@ CREATE POLICY "Manage own maintenance" ON maintenance FOR ALL USING (auth.uid() 
             </div>
             <div>
               <h3 className="text-xl font-bold text-white">Configuração do Supabase</h3>
-              <p className="text-sm text-slate-400">Scripts SQL para criar as tabelas e políticas de segurança.</p>
+              <p className="text-sm text-slate-400">Resolva erros de salvamento resetando o banco.</p>
             </div>
           </div>
           <button 
@@ -135,8 +137,16 @@ CREATE POLICY "Manage own maintenance" ON maintenance FOR ALL USING (auth.uid() 
             className="flex items-center gap-2 px-5 py-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl transition-all text-sm font-bold border border-slate-700"
           >
             {copied ? <Check size={18} className="text-emerald-400" /> : <Clipboard size={18} />}
-            {copied ? 'Copiado!' : 'Copiar Script SQL'}
+            {copied ? 'Copiado!' : 'Copiar Script de Resete'}
           </button>
+        </div>
+
+        <div className="bg-amber-900/20 border border-amber-900/50 p-6 rounded-2xl mb-8 flex gap-4 items-start">
+          <AlertTriangle className="text-amber-500 shrink-0" size={24} />
+          <div className="text-sm text-amber-200/80">
+            <p className="font-bold text-amber-400 mb-1">Atenção!</p>
+            Este script abaixo apaga as tabelas existentes (DROP TABLE) para garantir que as novas colunas como <code className="text-white">agreed_price</code> sejam criadas corretamente. Use-o se estiver recebendo erros ao salvar viagens.
+          </div>
         </div>
 
         <div className="bg-black/40 rounded-3xl p-6 overflow-x-auto max-h-96 overflow-y-auto border border-slate-800 scrollbar-hide">
@@ -146,12 +156,12 @@ CREATE POLICY "Manage own maintenance" ON maintenance FOR ALL USING (auth.uid() 
         </div>
         
         <div className="mt-8 p-6 bg-primary-500/10 rounded-2xl border border-primary-500/20 text-sm">
-          <p className="font-bold text-primary-400 mb-2">Importante para salvar os dados:</p>
-          <ol className="list-decimal list-inside space-y-1 text-slate-400">
-            <li>Vá no <span className="text-white font-medium">SQL Editor</span> do Supabase.</li>
-            <li>Cole o código acima e clique em <span className="text-white font-medium">Run</span>.</li>
-            <li>Certifique-se de que a coluna <span className="text-primary-400">user_id</span> está presente.</li>
-            <li>Sem o script SQL acima, as tabelas não saberão quem é o dono dos dados e o salvamento falhará por segurança (RLS).</li>
+          <p className="font-bold text-primary-400 mb-2">Instruções para corrigir o erro:</p>
+          <ol className="list-decimal list-inside space-y-2 text-slate-400">
+            <li>Copie o script acima clicando no botão no topo desta seção.</li>
+            <li>No painel do Supabase, vá em <span className="text-white font-medium">SQL Editor</span>.</li>
+            <li>Cole o código em uma nova query e clique em <span className="text-white font-medium">Run</span>.</li>
+            <li>Isso recriará as tabelas com as colunas certas e limpará o cache da API.</li>
           </ol>
         </div>
       </div>
