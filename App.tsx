@@ -95,7 +95,7 @@ const App: React.FC = () => {
         alerts.push({ 
           id: `trip-${t.id}`,
           title: 'Viagem Programada', 
-          msg: `Viagem para ${t.destination} marcada para amanhã (${new Date(t.date).toLocaleDateString()})!`, 
+          msg: `Viagem para ${t.destination} marcada para amanhã!`, 
           type: 'info' 
         });
       }
@@ -114,14 +114,14 @@ const App: React.FC = () => {
         alerts.push({ 
           id: `main-time-${m.id}`,
           title: 'Garantia Vencida (Tempo)', 
-          msg: `A garantia da peça "${m.part_name}" no veículo ${vehicle?.plate} expirou por tempo.`, 
+          msg: `A garantia de "${m.part_name}" no ${vehicle?.plate} expirou.`, 
           type: 'warning' 
         });
       } else if (isKmExpired) {
         alerts.push({ 
           id: `main-km-${m.id}`,
           title: 'Garantia Vencida (KM)', 
-          msg: `A garantia da peça "${m.part_name}" no veículo ${vehicle?.plate} expirou por quilometragem excedida.`, 
+          msg: `Garantia de "${m.part_name}" no ${vehicle?.plate} expirou por KM.`, 
           type: 'warning' 
         });
       }
@@ -373,26 +373,26 @@ const App: React.FC = () => {
               </button>
               {showNotifications && (
                 <div className="absolute right-0 mt-2 w-80 bg-white shadow-2xl rounded-2xl border border-slate-100 p-4 z-50 animate-fade-in">
-                  <div className="flex justify-between items-center mb-3">
-                    <h4 className="font-bold text-slate-800">Notificações</h4>
-                    <button onClick={() => setShowNotifications(false)} className="text-slate-400 hover:text-slate-600"><X size={16}/></button>
+                  <div className="flex justify-between items-center mb-4">
+                    <h4 className="font-bold text-slate-900 text-lg tracking-tight">Notificações</h4>
+                    <button onClick={() => setShowNotifications(false)} className="text-slate-400 hover:text-slate-600"><X size={18}/></button>
                   </div>
-                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                  <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
                     {notifications.length === 0 ? (
-                      <div className="text-center py-6">
-                        <Bell className="mx-auto text-slate-200 mb-2" size={32} />
-                        <p className="text-xs text-slate-400">Tudo em ordem por aqui!</p>
+                      <div className="text-center py-8">
+                        <Bell className="mx-auto text-slate-200 mb-2" size={36} />
+                        <p className="text-sm text-slate-400">Sem notificações no momento.</p>
                       </div>
                     ) : notifications.map((n) => (
-                      <div key={n.id} className={`p-3 rounded-xl text-xs relative group ${n.type === 'warning' ? 'bg-amber-50 text-amber-900 border border-amber-100' : 'bg-blue-50 text-blue-900 border border-blue-100'}`}>
-                        <p className="font-bold pr-5">{n.title}</p>
-                        <p className="mt-0.5 opacity-80">{n.msg}</p>
+                      <div key={n.id} className={`p-4 rounded-2xl relative group border transition-all hover:shadow-sm ${n.type === 'warning' ? 'bg-amber-50 text-amber-900 border-amber-100' : 'bg-blue-50 text-blue-900 border-blue-100'}`}>
+                        <p className="font-black text-[10px] uppercase opacity-50 tracking-widest mb-1.5 pr-6">{n.title}</p>
+                        <p className="text-base font-bold leading-tight">{n.msg}</p>
                         <button 
                           onClick={() => dismissNotification(n.id)}
-                          className="absolute top-2 right-2 p-1 text-slate-400 hover:text-slate-600 transition-colors"
-                          title="Remover"
+                          className="absolute top-3 right-3 p-1.5 text-slate-400 hover:text-slate-900 hover:bg-white/50 rounded-lg transition-all"
+                          title="Apagar"
                         >
-                          <X size={14} />
+                          <X size={16} />
                         </button>
                       </div>
                     ))}
@@ -400,9 +400,9 @@ const App: React.FC = () => {
                   {notifications.length > 0 && (
                     <button 
                       onClick={() => setNotifications([])}
-                      className="w-full mt-3 py-2 text-[10px] font-bold text-slate-400 hover:text-slate-600 transition-colors uppercase tracking-widest"
+                      className="w-full mt-4 py-2.5 text-xs font-black text-slate-400 hover:text-primary-600 transition-colors uppercase tracking-widest border-t border-slate-50"
                     >
-                      Limpar Todas
+                      Limpar Tudo
                     </button>
                   )}
                 </div>
