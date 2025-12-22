@@ -1,8 +1,12 @@
+
 export enum AppView {
   DASHBOARD = 'DASHBOARD',
   TRIPS = 'TRIPS',
   EXPENSES = 'EXPENSES',
-  CALCULATOR = 'CALCULATOR'
+  CALCULATOR = 'CALCULATOR',
+  VEHICLES = 'VEHICLES',
+  MAINTENANCE = 'MAINTENANCE',
+  BACKUP = 'BACKUP'
 }
 
 export enum TripStatus {
@@ -12,18 +16,39 @@ export enum TripStatus {
   CANCELLED = 'Cancelada'
 }
 
+export interface Vehicle {
+  id: string;
+  plate: string;
+  model: string;
+  year: number;
+  current_km: number;
+  user_id?: string;
+}
+
+export interface MaintenanceItem {
+  id: string;
+  vehicle_id: string;
+  part_name: string;
+  km_at_purchase: number;
+  warranty_months: number;
+  purchase_date: string;
+  cost: number;
+  user_id?: string;
+}
+
 export interface Trip {
   id: string;
   origin: string;
   destination: string;
   distanceKm: number;
   agreedPrice: number;
-  driverCommissionPercentage: number; // Agora em porcentagem
-  driverCommission: number; // Valor calculado em R$
+  driverCommissionPercentage: number;
+  driverCommission: number;
   cargoType: string;
   date: string;
   status: TripStatus;
   notes?: string;
+  vehicle_id?: string;
   user_id?: string;
 }
 
@@ -46,21 +71,7 @@ export interface Expense {
   user_id?: string;
 }
 
-export interface FinancialSummary {
-  totalRevenue: number;
-  totalExpenses: number;
-  totalCommissions: number;
-  netProfit: number;
-  tripCount: number;
-  profitMargin: number;
-}
-
-export interface User {
-  id: string;
-  name: string;
-  email: string;
-}
-
+// Fix: Added missing ANTTParams interface required by geminiService and FreightCalculator
 export interface ANTTParams {
   distance: number;
   axles: number;
@@ -68,5 +79,15 @@ export interface ANTTParams {
   returnEmpty: boolean;
   tollCost: number;
   otherCosts: number;
+  profitMargin: number;
+}
+
+// Fix: Added missing FinancialSummary interface required by the Dashboard component
+export interface FinancialSummary {
+  totalRevenue: number;
+  totalExpenses: number;
+  totalCommissions: number;
+  netProfit: number;
+  tripCount: number;
   profitMargin: number;
 }

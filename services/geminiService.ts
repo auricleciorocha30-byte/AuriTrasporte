@@ -1,8 +1,8 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { Trip, Expense, ANTTParams } from '../types';
 
-const modelName = 'gemini-3-flash-preview';
-
+// Fix: Removed separate modelName variable to use model string directly in calls as per guidelines
 export const getFinancialInsights = async (trips: Trip[], expenses: Expense[]): Promise<string> => {
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -13,7 +13,7 @@ export const getFinancialInsights = async (trips: Trip[], expenses: Expense[]): 
     });
 
     const response = await ai.models.generateContent({
-      model: modelName,
+      model: 'gemini-3-flash-preview',
       contents: `
         Atue como um consultor financeiro especialista em logística e transporte rodoviário de cargas no Brasil.
         Analise os seguintes dados (JSON) das minhas viagens e despesas recentes.
@@ -32,6 +32,7 @@ export const getFinancialInsights = async (trips: Trip[], expenses: Expense[]): 
       }
     });
 
+    // Fix: Using response.text property directly as per GenerateContentResponse definition
     return response.text || "Não foi possível gerar insights no momento.";
   } catch (error) {
     console.error("Error fetching insights:", error);
@@ -63,7 +64,7 @@ export const getSmartFreightEstimation = async (params: ANTTParams): Promise<{ m
     `;
 
     const response = await ai.models.generateContent({
-      model: modelName,
+      model: 'gemini-3-flash-preview',
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -78,6 +79,7 @@ export const getSmartFreightEstimation = async (params: ANTTParams): Promise<{ m
       }
     });
 
+    // Fix: Extracting string from .text property
     const text = response.text;
     if (!text) throw new Error("Sem resposta da IA");
     

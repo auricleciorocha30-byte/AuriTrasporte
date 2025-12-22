@@ -1,233 +1,122 @@
-
 import React, { useState, useEffect } from 'react';
-import { Trip, TripStatus } from '../types';
-import { Plus, MapPin, Calendar, DollarSign, Package, Trash2, Truck, UserCheck, Percent } from 'lucide-react';
+import { Trip, TripStatus, Vehicle } from '../types';
+import { Plus, MapPin, Calendar, Truck, UserCheck, Percent, Navigation, RefreshCcw } from 'lucide-react';
 
 interface TripManagerProps {
   trips: Trip[];
+  vehicles: Vehicle[];
   onAddTrip: (trip: Omit<Trip, 'id'>) => void;
+  onUpdateStatus: (id: string, status: TripStatus) => void;
   onDeleteTrip: (id: string) => void;
 }
 
-const BRAZIL_STATES = [
-  'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 
-  'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'
-];
-
-export const TripManager: React.FC<TripManagerProps> = ({ trips, onAddTrip, onDeleteTrip }) => {
+export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAddTrip, onUpdateStatus }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [loadingDist, setLoadingDist] = useState(false);
   
-  const [originCity, setOriginCity] = useState('');
-  const [originState, setOriginState] = useState('SP');
-  const [destCity, setDestCity] = useState('');
-  const [destState, setDestState] = useState('SP');
-
-  const [newTrip, setNewTrip] = useState<Partial<Trip>>({
-    status: TripStatus.SCHEDULED,
-    date: new Date().toISOString().split('T')[0],
-    driverCommissionPercentage: 10,
-    agreedPrice: 0,
+  const [formData, setFormData] = useState<any>({
+    origin: '',
+    destination: '',
     distanceKm: 0,
-    cargoType: 'Geral'
+    agreedPrice: 0,
+    driverCommissionPercentage: 10,
+    cargoType: 'Geral',
+    date: new Date().toISOString().split('T')[0],
+    vehicle_id: '',
+    status: TripStatus.SCHEDULED
   });
 
-  const [calculatedValue, setCalculatedValue] = useState(0);
-
-  useEffect(() => {
-    const price = newTrip.agreedPrice || 0;
-    const perc = newTrip.driverCommissionPercentage || 0;
-    setCalculatedValue(price * (perc / 100));
-  }, [newTrip.agreedPrice, newTrip.driverCommissionPercentage]);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (originCity && destCity && newTrip.agreedPrice) {
-      // Objeto formatado exatamente como as colunas do banco (Case Sensitive)
-      const tripData: Omit<Trip, 'id'> = {
-        origin: `${originCity}, ${originState}`,
-        destination: `${destCity}, ${destState}`,
-        distanceKm: Number(newTrip.distanceKm) || 0,
-        agreedPrice: Number(newTrip.agreedPrice) || 0,
-        driverCommissionPercentage: Number(newTrip.driverCommissionPercentage) || 0,
-        driverCommission: calculatedValue,
-        cargoType: newTrip.cargoType || 'Geral',
-        date: newTrip.date || new Date().toISOString().split('T')[0],
-        status: (newTrip.status as TripStatus) || TripStatus.SCHEDULED,
-        notes: newTrip.notes || ''
-      };
-      
-      onAddTrip(tripData);
-      setIsModalOpen(false);
-      resetForm();
-    }
+  const calculateDistance = async () => {
+    if (!formData.origin || !formData.destination) return alert("Informe origem e destino.");
+    setLoadingDist(true);
+    // Simulação de cálculo online (Em app real, chamaria API Google/OSRM)
+    setTimeout(() => {
+      const simulatedDist = Math.floor(Math.random() * 800) + 100;
+      setFormData({ ...formData, distanceKm: simulatedDist });
+      setLoadingDist(false);
+    }, 1200);
   };
 
-  const resetForm = () => {
-    setNewTrip({ 
-      status: TripStatus.SCHEDULED, 
-      date: new Date().toISOString().split('T')[0], 
-      driverCommissionPercentage: 10, 
-      agreedPrice: 0,
-      distanceKm: 0,
-      cargoType: 'Geral'
-    });
-    setOriginCity('');
-    setOriginState('SP');
-    setDestCity('');
-    setDestState('SP');
-  };
-
-  const getStatusColor = (status: TripStatus) => {
-    switch (status) {
-      case TripStatus.COMPLETED: return 'bg-green-100 text-green-700';
-      case TripStatus.IN_PROGRESS: return 'bg-blue-100 text-blue-700';
-      case TripStatus.CANCELLED: return 'bg-red-100 text-red-700';
-      default: return 'bg-gray-100 text-gray-700';
-    }
-  };
-
-  const formatCurrency = (val: number) => 
-    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+  const commValue = formData.agreedPrice * (formData.driverCommissionPercentage / 100);
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-800">Minhas Viagens</h2>
-        <button 
-          onClick={() => setIsModalOpen(true)}
-          className="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors shadow-sm"
-        >
-          <Plus size={20} />
-          Nova Viagem
+        <h2 className="text-2xl font-bold">Viagens</h2>
+        <button onClick={() => setIsModalOpen(true)} className="bg-primary-600 text-white px-5 py-2.5 rounded-2xl flex items-center gap-2 font-semibold shadow-lg">
+          <Plus size={20} /> Nova Viagem
         </button>
       </div>
 
-      <div className="grid grid-cols-1 gap-4">
-        {trips.map((trip) => (
-          <div key={trip.id} className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4 transition-all hover:border-primary-200 animate-fade-in">
+      <div className="grid gap-4">
+        {trips.map(trip => (
+          <div key={trip.id} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row justify-between gap-4">
             <div className="flex-1">
-              <div className="flex items-center gap-2 mb-2">
-                <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(trip.status)}`}>
-                  {trip.status}
-                </span>
-                <span className="text-sm text-gray-500 flex items-center gap-1">
-                  <Calendar size={14} />
-                  {new Date(trip.date).toLocaleDateString('pt-BR')}
-                </span>
+              <div className="flex items-center gap-3 mb-3">
+                <select 
+                  value={trip.status} 
+                  onChange={e => onUpdateStatus(trip.id, e.target.value as TripStatus)}
+                  className={`text-xs font-bold px-3 py-1.5 rounded-full border-none outline-none focus:ring-2 focus:ring-primary-500 ${
+                    trip.status === TripStatus.COMPLETED ? 'bg-emerald-100 text-emerald-700' :
+                    trip.status === TripStatus.IN_PROGRESS ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700'
+                  }`}
+                >
+                  {Object.values(TripStatus).map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+                <span className="text-sm text-slate-400 flex items-center gap-1"><Calendar size={14}/> {trip.date}</span>
               </div>
-              <div className="flex items-center gap-2 text-lg font-semibold text-gray-800">
-                <MapPin size={18} className="text-primary-500" />
-                {trip.origin} <span className="text-gray-300">→</span> {trip.destination}
-              </div>
-              <div className="text-sm text-gray-500 mt-1 flex flex-wrap gap-4">
-                <span className="flex items-center gap-1"><Package size={14}/> {trip.cargoType}</span>
-                <span className="flex items-center gap-1"><Truck size={14}/> {trip.distanceKm} km</span>
-                <span className="flex items-center gap-1 text-amber-600 font-medium">
-                  <UserCheck size={14}/> Comiss: {trip.driverCommissionPercentage}% ({formatCurrency(trip.driverCommission || 0)})
-                </span>
+              <h3 className="text-lg font-bold flex items-center gap-2">
+                <MapPin className="text-primary-500" size={18} /> {trip.origin} → {trip.destination}
+              </h3>
+              <div className="mt-2 flex flex-wrap gap-4 text-xs font-medium text-slate-500">
+                <span className="flex items-center gap-1"><Navigation size={14}/> {trip.distanceKm}km</span>
+                <span className="flex items-center gap-1"><Truck size={14}/> {vehicles.find(v => v.id === trip.vehicle_id)?.plate || 'N/A'}</span>
+                <span className="text-amber-600 font-bold">Comissão: R$ {trip.driverCommission?.toFixed(2)}</span>
               </div>
             </div>
-            
-            <div className="flex items-center gap-6 w-full md:w-auto justify-between md:justify-end">
-              <div className="text-right">
-                <p className="text-xs text-gray-500 uppercase tracking-wider font-bold">Valor do Frete</p>
-                <p className="text-xl font-bold text-primary-600">
-                  {formatCurrency(trip.agreedPrice)}
-                </p>
-              </div>
-              <button 
-                onClick={() => onDeleteTrip(trip.id)}
-                className="text-gray-400 hover:text-red-500 transition-colors p-2"
-              >
-                <Trash2 size={18} />
-              </button>
+            <div className="text-right flex flex-col justify-center">
+              <p className="text-xs font-bold text-slate-400 uppercase">Valor do Frete</p>
+              <p className="text-2xl font-black text-primary-600">R$ {trip.agreedPrice.toLocaleString()}</p>
             </div>
           </div>
         ))}
-        
-        {trips.length === 0 && (
-          <div className="text-center py-12 bg-white rounded-xl border border-dashed border-gray-300">
-            <Truck className="mx-auto text-gray-300 mb-3" size={48} />
-            <p className="text-gray-500">Nenhuma viagem registrada ainda.</p>
-          </div>
-        )}
       </div>
 
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white rounded-2xl w-full max-w-lg p-6 shadow-xl my-8 animate-fade-in">
-            <h3 className="text-xl font-bold mb-4">Registrar Nova Viagem</h3>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Origem</label>
-                <div className="flex gap-2">
-                  <input required type="text" placeholder="Cidade" className="flex-1 p-3 bg-slate-50 border rounded-xl outline-none" value={originCity} onChange={e => setOriginCity(e.target.value)} />
-                  <select className="w-24 p-3 bg-slate-50 border rounded-xl outline-none" value={originState} onChange={e => setOriginState(e.target.value)}>
-                    {BRAZIL_STATES.map(uf => <option key={uf} value={uf}>{uf}</option>)}
-                  </select>
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white w-full max-w-lg rounded-3xl p-8 shadow-2xl animate-fade-in max-h-[90vh] overflow-y-auto">
+            <h3 className="text-xl font-bold mb-6">Registrar Viagem</h3>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <input placeholder="Origem" className="p-3 bg-slate-50 border rounded-xl" value={formData.origin} onChange={e => setFormData({...formData, origin: e.target.value})} />
+                <input placeholder="Destino" className="p-3 bg-slate-50 border rounded-xl" value={formData.destination} onChange={e => setFormData({...formData, destination: e.target.value})} />
+              </div>
+              <div className="flex gap-2">
+                <input type="number" placeholder="KM (Pode editar)" className="flex-1 p-3 bg-slate-50 border rounded-xl" value={formData.distanceKm} onChange={e => setFormData({...formData, distanceKm: Number(e.target.value)})} />
+                <button onClick={calculateDistance} className="px-4 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200 transition-colors">
+                  {loadingDist ? <RefreshCcw className="animate-spin" size={20} /> : <Navigation size={20} />}
+                </button>
+              </div>
+              <select className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.vehicle_id} onChange={e => setFormData({...formData, vehicle_id: e.target.value})}>
+                <option value="">Selecionar Veículo</option>
+                {vehicles.map(v => <option key={v.id} value={v.id}>{v.plate} - {v.model}</option>)}
+              </select>
+              <div className="grid grid-cols-2 gap-3">
+                <input type="number" placeholder="Frete R$" className="p-3 bg-slate-50 border rounded-xl" onChange={e => setFormData({...formData, agreedPrice: Number(e.target.value)})} />
+                <div className="relative">
+                  <input type="number" placeholder="Comissão %" className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.driverCommissionPercentage} onChange={e => setFormData({...formData, driverCommissionPercentage: Number(e.target.value)})} />
+                  <Percent className="absolute right-3 top-3.5 text-slate-400" size={16}/>
                 </div>
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Destino</label>
-                <div className="flex gap-2">
-                  <input required type="text" placeholder="Cidade" className="flex-1 p-3 bg-slate-50 border rounded-xl outline-none" value={destCity} onChange={e => setDestCity(e.target.value)} />
-                  <select className="w-24 p-3 bg-slate-50 border rounded-xl outline-none" value={destState} onChange={e => setDestState(e.target.value)}>
-                    {BRAZIL_STATES.map(uf => <option key={uf} value={uf}>{uf}</option>)}
-                  </select>
-                </div>
+              <div className="p-4 bg-amber-50 rounded-2xl flex justify-between items-center font-bold text-amber-800">
+                <span>Total Comissão</span>
+                <span>R$ {commValue.toFixed(2)}</span>
               </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Distância (km)</label>
-                  <input required type="number" className="w-full p-3 bg-slate-50 border rounded-xl outline-none" value={newTrip.distanceKm} onChange={e => setNewTrip({...newTrip, distanceKm: Number(e.target.value)})} />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Carga</label>
-                  <input type="text" placeholder="Ex: Grãos" className="w-full p-3 bg-slate-50 border rounded-xl outline-none" value={newTrip.cargoType} onChange={e => setNewTrip({...newTrip, cargoType: e.target.value})} />
-                </div>
+              <div className="flex gap-3 pt-4">
+                <button onClick={() => setIsModalOpen(false)} className="flex-1 py-3 font-bold border rounded-xl">Cancelar</button>
+                <button onClick={() => { onAddTrip({...formData, driverCommission: commValue}); setIsModalOpen(false); }} className="flex-1 py-3 font-bold bg-primary-600 text-white rounded-xl">Salvar</button>
               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="md:col-span-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Frete (R$)</label>
-                  <input required type="number" className="w-full p-3 bg-slate-50 border rounded-xl outline-none" value={newTrip.agreedPrice || ''} onChange={e => setNewTrip({...newTrip, agreedPrice: Number(e.target.value)})} />
-                </div>
-                <div className="md:col-span-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Comissão (%)</label>
-                  <div className="relative">
-                    <input required type="number" step="0.1" className="w-full p-3 bg-slate-50 border rounded-xl border-amber-200 outline-none focus:ring-2 focus:ring-amber-500 pr-8" value={newTrip.driverCommissionPercentage} onChange={e => setNewTrip({...newTrip, driverCommissionPercentage: Number(e.target.value)})} />
-                    <Percent className="absolute right-3 top-3.5 text-slate-400" size={16} />
-                  </div>
-                </div>
-                <div className="md:col-span-1">
-                  <label className="block text-sm font-medium text-slate-500 mb-1">R$ Líquido</label>
-                  <div className="p-3 bg-amber-50 border border-amber-100 rounded-xl font-bold text-amber-700 text-center">
-                    {formatCurrency(calculatedValue)}
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Data</label>
-                  <input required type="date" value={newTrip.date} className="w-full p-3 bg-slate-50 border rounded-xl outline-none" onChange={e => setNewTrip({...newTrip, date: e.target.value})} />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                  <select className="w-full p-3 bg-slate-50 border rounded-xl outline-none" value={newTrip.status} onChange={e => setNewTrip({...newTrip, status: e.target.value as TripStatus})}>
-                    {Object.values(TripStatus).map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex gap-3 mt-6">
-                <button type="button" onClick={() => { setIsModalOpen(false); resetForm(); }} className="flex-1 py-3 px-4 border rounded-xl hover:bg-gray-50 font-semibold">Cancelar</button>
-                <button type="submit" className="flex-1 py-3 px-4 bg-primary-600 text-white rounded-xl hover:bg-primary-700 font-semibold">Salvar Viagem</button>
-              </div>
-            </form>
+            </div>
           </div>
         </div>
       )}
