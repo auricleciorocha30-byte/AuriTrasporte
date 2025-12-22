@@ -31,6 +31,7 @@ export interface MaintenanceItem {
   part_name: string;
   km_at_purchase: number;
   warranty_months: number;
+  warranty_km: number; // Nova coluna solicitada
   purchase_date: string;
   cost: number;
   user_id?: string;

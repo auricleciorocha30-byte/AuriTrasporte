@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { LayoutDashboard, Truck, Wallet, Calculator, Menu, X, LogOut, Bell, Search, Database, CheckSquare, Settings, Lock, User as UserIcon, Loader2, AlertCircle } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
@@ -68,30 +69,46 @@ const App: React.FC = () => {
       setVehicles(vehRes.data || []);
       setMaintenance(mainRes.data || []);
       
-      checkNotifications(tripsRes.data || [], mainRes.data || []);
+      checkNotifications(tripsRes.data || [], mainRes.data || [], vehRes.data || []);
     } catch (err: any) { 
       console.error("Erro ao carregar dados:", err.message);
     }
     finally { setLoading(false); }
   };
 
-  const checkNotifications = (currentTrips: Trip[], currentMain: MaintenanceItem[]) => {
+  const checkNotifications = (currentTrips: Trip[], currentMain: MaintenanceItem[], currentVehicles: Vehicle[]) => {
     const alerts: any[] = [];
+    
+    // 1. Notificação de Viagens Programadas (1 dia antes)
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     const tomorrowStr = tomorrow.toISOString().split('T')[0];
 
     currentTrips.forEach(t => {
       if (t.status === TripStatus.SCHEDULED && t.date === tomorrowStr) {
-        alerts.push({ title: 'Viagem Amanhã', msg: `Viagem para ${t.destination} agendada para amanhã!`, type: 'info' });
+        alerts.push({ 
+          title: 'Viagem Programada', 
+          msg: `Atenção: Viagem para ${t.destination} amanhã (${new Date(t.date).toLocaleDateString()})!`, 
+          type: 'info' 
+        });
       }
     });
 
+    // 2. Notificação de Garantias de Manutenção (Meses e KM)
     currentMain.forEach(m => {
+      // Checar meses
       const pDate = new Date(m.purchase_date);
-      const expiry = new Date(pDate.setMonth(pDate.getMonth() + m.warranty_months));
-      if (expiry < new Date()) {
-        alerts.push({ title: 'Garantia Vencida', msg: `A peça "${m.part_name}" saiu da garantia.`, type: 'warning' });
+      const expiryDate = new Date(pDate.setMonth(pDate.getMonth() + m.warranty_months));
+      const isTimeExpired = expiryDate < new Date();
+      
+      // Checar KM
+      const vehicle = currentVehicles.find(v => v.id === m.vehicle_id);
+      const isKmExpired = vehicle && m.warranty_km > 0 && vehicle.current_km > (m.km_at_purchase + m.warranty_km);
+
+      if (isTimeExpired) {
+        alerts.push({ title: 'Garantia Vencida (Tempo)', msg: `A garantia da peça "${m.part_name}" no veículo ${vehicle?.plate} expirou por tempo.`, type: 'warning' });
+      } else if (isKmExpired) {
+        alerts.push({ title: 'Garantia Vencida (KM)', msg: `A garantia da peça "${m.part_name}" no veículo ${vehicle?.plate} expirou por quilometragem excedida.`, type: 'warning' });
       }
     });
 
@@ -135,9 +152,7 @@ const App: React.FC = () => {
         vehicle_id: trip.vehicle_id === "" ? null : trip.vehicle_id,
         user_id: session.user.id
       };
-
       const { data, error } = await supabase.from('trips').insert([sanitizedTrip]).select();
-      
       if (error) throw error;
       if (data) setTrips([data[0], ...trips]);
     } catch (err: any) {
@@ -197,7 +212,6 @@ const App: React.FC = () => {
         vehicle_id: item.vehicle_id === "" ? null : item.vehicle_id,
         user_id: session.user.id
       };
-
       const { data, error } = await supabase.from('maintenance').insert([sanitizedItem]).select();
       if (error) throw error;
       if (data) setMaintenance([data[0], ...maintenance]);
@@ -226,7 +240,6 @@ const App: React.FC = () => {
         trip_id: exp.trip_id === "" ? null : exp.trip_id,
         user_id: session.user.id
       };
-
       const { data, error } = await supabase.from('expenses').insert([sanitizedExp]).select();
       if (error) throw error;
       if (data) setExpenses([data[0], ...expenses]);
@@ -248,8 +261,6 @@ const App: React.FC = () => {
   };
 
   const filteredTrips = trips.filter(t => t.origin.toLowerCase().includes(searchTerm.toLowerCase()) || t.destination.toLowerCase().includes(searchTerm.toLowerCase()));
-  const filteredExpenses = expenses.filter(e => e.description.toLowerCase().includes(searchTerm.toLowerCase()));
-  const filteredVehicles = vehicles.filter(v => v.plate.toLowerCase().includes(searchTerm.toLowerCase()) || v.model.toLowerCase().includes(searchTerm.toLowerCase()));
 
   if (loading) {
     return (
@@ -268,70 +279,31 @@ const App: React.FC = () => {
               <Truck className="text-white" size={32} />
             </div>
             <h1 className="text-3xl font-black text-slate-900">AuriLog</h1>
-            <p className="text-slate-500 font-medium">
-              {isSignUp ? 'Crie sua conta de gestor' : 'Gestão de fretes inteligente'}
-            </p>
+            <p className="text-slate-500 font-medium">Gestão de fretes inteligente</p>
           </div>
-
           <form onSubmit={handleAuth} className="space-y-4">
-            {error && (
-              <div className="p-4 bg-rose-50 text-rose-600 text-sm rounded-2xl border border-rose-100 flex items-start gap-3">
-                <AlertCircle className="shrink-0" size={18} />
-                <p>{error}</p>
-              </div>
-            )}
-            {successMsg && (
-              <div className="p-4 bg-emerald-50 text-emerald-600 text-sm rounded-2xl border border-emerald-100 flex items-start gap-3">
-                <AlertCircle className="shrink-0" size={18} />
-                <p>{successMsg}</p>
-              </div>
-            )}
-
+            {error && <div className="p-4 bg-rose-50 text-rose-600 text-sm rounded-2xl flex items-start gap-3"><AlertCircle className="shrink-0" size={18} /><p>{error}</p></div>}
             <div className="space-y-1">
               <label className="text-sm font-bold text-slate-700 ml-1">E-mail</label>
               <div className="relative">
                 <UserIcon className="absolute left-4 top-3.5 text-slate-400" size={18} />
-                <input 
-                  type="email" 
-                  required 
-                  value={email} 
-                  onChange={e => setEmail(e.target.value)} 
-                  placeholder="seu@email.com" 
-                  className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-primary-500 outline-none transition-all" 
-                />
+                <input type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="seu@email.com" className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-primary-500 outline-none transition-all" />
               </div>
             </div>
-
             <div className="space-y-1">
               <label className="text-sm font-bold text-slate-700 ml-1">Senha</label>
               <div className="relative">
                 <Lock className="absolute left-4 top-3.5 text-slate-400" size={18} />
-                <input 
-                  type="password" 
-                  required 
-                  value={password} 
-                  onChange={e => setPassword(e.target.value)} 
-                  placeholder="••••••••" 
-                  className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-primary-500 outline-none transition-all" 
-                />
+                <input type="password" required value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-primary-500 outline-none transition-all" />
               </div>
             </div>
-
-            <button 
-              disabled={authLoading} 
-              type="submit" 
-              className="w-full py-4 bg-primary-600 text-white font-black rounded-2xl shadow-xl hover:bg-primary-700 active:scale-95 transition-all flex items-center justify-center gap-2"
-            >
-              {authLoading ? <Loader2 className="animate-spin" /> : (isSignUp ? 'Criar Conta Grátis' : 'Entrar no Painel')}
+            <button disabled={authLoading} type="submit" className="w-full py-4 bg-primary-600 text-white font-black rounded-2xl shadow-xl hover:bg-primary-700 active:scale-95 transition-all flex items-center justify-center gap-2">
+              {authLoading ? <Loader2 className="animate-spin" /> : (isSignUp ? 'Criar Conta' : 'Entrar')}
             </button>
           </form>
-
           <div className="mt-8 text-center">
-            <button 
-              onClick={() => { setIsSignUp(!isSignUp); setError(''); setSuccessMsg(''); }}
-              className="text-sm font-bold text-primary-600 hover:text-primary-700 transition-colors"
-            >
-              {isSignUp ? 'Já tem uma conta? Acesse aqui' : 'Ainda não tem conta? Cadastre-se'}
+            <button onClick={() => { setIsSignUp(!isSignUp); setError(''); }} className="text-sm font-bold text-primary-600">
+              {isSignUp ? 'Já tem conta? Entre aqui' : 'Não tem conta? Cadastre-se'}
             </button>
           </div>
         </div>
@@ -347,9 +319,7 @@ const App: React.FC = () => {
             <Truck className="text-primary-500" size={28} />
             <span className="text-xl font-bold text-white uppercase tracking-tighter">AuriLog</span>
           </div>
-          <button onClick={() => setIsMobileMenuOpen(false)} className="md:hidden p-1 text-slate-500">
-            <X size={20} />
-          </button>
+          <button onClick={() => setIsMobileMenuOpen(false)} className="md:hidden p-1 text-slate-500"><X size={20} /></button>
         </div>
         <nav className="space-y-1">
           <MenuBtn icon={LayoutDashboard} label="Dashboard" active={currentView === AppView.DASHBOARD} onClick={() => handleViewChange(AppView.DASHBOARD)} />
@@ -360,10 +330,9 @@ const App: React.FC = () => {
           <MenuBtn icon={Calculator} label="Frete ANTT" active={currentView === AppView.CALCULATOR} onClick={() => handleViewChange(AppView.CALCULATOR)} />
           <MenuBtn icon={Database} label="Backup" active={currentView === AppView.BACKUP} onClick={() => handleViewChange(AppView.BACKUP)} />
         </nav>
-
         <div className="absolute bottom-6 left-4 right-4">
           <button onClick={() => supabase.auth.signOut()} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-rose-400 hover:bg-rose-500/10 transition-all font-bold">
-            <LogOut size={20} /> <span>Sair do App</span>
+            <LogOut size={20} /> <span>Sair</span>
           </button>
         </div>
       </aside>
@@ -371,22 +340,13 @@ const App: React.FC = () => {
       <main className="flex-1 flex flex-col overflow-hidden relative">
         <header className="h-16 bg-white border-b flex items-center justify-between px-6 shrink-0 z-10">
           <div className="flex items-center gap-4">
-             <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-lg">
-               <Menu size={24} />
-             </button>
+             <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden p-2 text-slate-600 rounded-lg"><Menu size={24} /></button>
              <div className="hidden md:block relative w-64 lg:w-96">
                 <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
-                <input 
-                  type="text" 
-                  placeholder="Pesquisar..." 
-                  className="w-full pl-10 pr-4 py-2 bg-slate-100 border-none rounded-full focus:ring-2 focus:ring-primary-500 transition-all text-sm"
-                  value={searchTerm}
-                  onChange={e => setSearchTerm(e.target.value)}
-                />
+                <input type="text" placeholder="Pesquisar..." className="w-full pl-10 pr-4 py-2 bg-slate-100 border-none rounded-full focus:ring-2 focus:ring-primary-500 transition-all text-sm" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
              </div>
           </div>
-
-          <div className="flex items-center gap-2 md:gap-4">
+          <div className="flex items-center gap-4">
             <div className="relative">
               <button onClick={() => setShowNotifications(!showNotifications)} className="p-2 text-slate-500 hover:bg-slate-100 rounded-full relative">
                 <Bell size={22} />
@@ -394,12 +354,9 @@ const App: React.FC = () => {
               </button>
               {showNotifications && (
                 <div className="absolute right-0 mt-2 w-80 bg-white shadow-2xl rounded-2xl border p-4 z-50">
-                  <div className="flex justify-between items-center mb-3">
-                    <h4 className="font-bold">Notificações</h4>
-                    <button onClick={() => setShowNotifications(false)} className="text-slate-400 hover:text-slate-600"><X size={16}/></button>
-                  </div>
+                  <h4 className="font-bold mb-3">Notificações</h4>
                   <div className="space-y-2 max-h-60 overflow-y-auto">
-                    {notifications.length === 0 ? <p className="text-xs text-slate-400 text-center py-4">Tudo em dia!</p> : notifications.map((n, i) => (
+                    {notifications.length === 0 ? <p className="text-xs text-slate-400 text-center py-4">Nenhum aviso.</p> : notifications.map((n, i) => (
                       <div key={i} className={`p-3 rounded-xl text-xs ${n.type === 'warning' ? 'bg-amber-50 text-amber-800' : 'bg-blue-50 text-blue-800'}`}>
                         <p className="font-bold">{n.title}</p>
                         <p>{n.msg}</p>
@@ -415,29 +372,21 @@ const App: React.FC = () => {
         <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50">
           {currentView === AppView.DASHBOARD && <Dashboard trips={trips} expenses={expenses} />}
           {currentView === AppView.TRIPS && <TripManager trips={filteredTrips} vehicles={vehicles} onAddTrip={addTrip} onUpdateStatus={updateTripStatus} onDeleteTrip={deleteTrip} isSaving={isSaving} />}
-          {currentView === AppView.VEHICLES && <VehicleManager vehicles={filteredVehicles} onAddVehicle={addVehicle} onDeleteVehicle={deleteVehicle} isSaving={isSaving} />}
+          {currentView === AppView.VEHICLES && <VehicleManager vehicles={vehicles} onAddVehicle={addVehicle} onDeleteVehicle={deleteVehicle} isSaving={isSaving} />}
           {currentView === AppView.MAINTENANCE && <MaintenanceManager maintenance={maintenance} vehicles={vehicles} onAddMaintenance={addMaintenance} onDeleteMaintenance={deleteMaintenance} isSaving={isSaving} />}
-          {currentView === AppView.EXPENSES && <ExpenseManager expenses={filteredExpenses} trips={trips} onAddExpense={addExpense} onDeleteExpense={deleteExpense} isSaving={isSaving} />}
+          {currentView === AppView.EXPENSES && <ExpenseManager expenses={expenses} trips={trips} onAddExpense={addExpense} onDeleteExpense={deleteExpense} isSaving={isSaving} />}
           {currentView === AppView.CALCULATOR && <FreightCalculator />}
           {currentView === AppView.BACKUP && <BackupManager data={{ trips, expenses, vehicles, maintenance }} />}
         </div>
       </main>
 
-      {isMobileMenuOpen && (
-        <div 
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-30 md:hidden" 
-          onClick={() => setIsMobileMenuOpen(false)} 
-        />
-      )}
+      {isMobileMenuOpen && <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-30 md:hidden" onClick={() => setIsMobileMenuOpen(false)} />}
     </div>
   );
 };
 
 const MenuBtn = ({ icon: Icon, label, active, onClick }: any) => (
-  <button 
-    onClick={onClick} 
-    className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all duration-200 ${active ? 'bg-primary-600 text-white shadow-lg scale-105 z-10' : 'text-slate-400 hover:bg-slate-800'}`}
-  >
+  <button onClick={onClick} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all duration-200 ${active ? 'bg-primary-600 text-white shadow-lg scale-105 z-10' : 'text-slate-400 hover:bg-slate-800'}`}>
     <Icon size={20} /> <span className="font-bold text-sm">{label}</span>
   </button>
 );

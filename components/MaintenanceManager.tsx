@@ -1,14 +1,13 @@
 
 import React, { useState } from 'react';
 import { MaintenanceItem, Vehicle } from '../types';
-import { Plus, CheckSquare, Calendar, ShieldCheck, Trash2, Loader2 } from 'lucide-react';
+import { Plus, CheckSquare, Calendar, ShieldCheck, Trash2, Loader2, Gauge } from 'lucide-react';
 
 interface MaintenanceManagerProps {
   maintenance: MaintenanceItem[];
   vehicles: Vehicle[];
   onAddMaintenance: (m: Omit<MaintenanceItem, 'id'>) => void;
   onDeleteMaintenance: (id: string) => void;
-  // Added isSaving to fix TypeScript error in App.tsx
   isSaving?: boolean;
 }
 
@@ -19,6 +18,7 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ maintena
     part_name: '',
     km_at_purchase: 0,
     warranty_months: 12,
+    warranty_km: 10000,
     purchase_date: new Date().toISOString().split('T')[0],
     cost: 0
   });
@@ -33,7 +33,7 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ maintena
       </div>
 
       <div className="bg-white rounded-3xl border overflow-hidden shadow-sm overflow-x-auto">
-        <table className="w-full text-left text-sm min-w-[600px]">
+        <table className="w-full text-left text-sm min-w-[700px]">
           <thead className="bg-slate-50 border-b font-bold text-slate-500">
             <tr>
               <th className="px-6 py-4">Peça/Serviço</th>
@@ -48,12 +48,16 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ maintena
             {maintenance.map(m => (
               <tr key={m.id} className="hover:bg-slate-50">
                 <td className="px-6 py-4 font-bold text-slate-800">{m.part_name}</td>
-                <td className="px-6 py-4 uppercase">{vehicles.find(v => v.id === m.vehicle_id)?.plate}</td>
+                <td className="px-6 py-4 uppercase font-medium">{vehicles.find(v => v.id === m.vehicle_id)?.plate}</td>
                 <td className="px-6 py-4">{m.km_at_purchase.toLocaleString()} km</td>
                 <td className="px-6 py-4">
-                  <div className="flex items-center gap-2">
-                    <ShieldCheck size={14} className="text-emerald-500" />
-                    {m.warranty_months} meses
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-1.5 text-emerald-600 font-medium">
+                      <ShieldCheck size={14} /> {m.warranty_months} meses
+                    </div>
+                    <div className="flex items-center gap-1.5 text-blue-600 font-medium">
+                      <Gauge size={14} /> {m.warranty_km.toLocaleString()} km
+                    </div>
                   </div>
                 </td>
                 <td className="px-6 py-4 font-bold text-rose-600">R$ {m.cost.toLocaleString()}</td>
@@ -83,18 +87,34 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ maintena
                 {vehicles.map(v => <option key={v.id} value={v.id}>{v.plate} - {v.model}</option>)}
               </select>
               <input placeholder="Peça ou Serviço" className="w-full p-3 bg-slate-50 border rounded-xl outline-none" onChange={e => setFormData({...formData, part_name: e.target.value})} />
+              
               <div className="grid grid-cols-2 gap-3">
-                <input type="number" placeholder="KM da Troca" className="p-3 bg-slate-50 border rounded-xl outline-none" onChange={e => setFormData({...formData, km_at_purchase: Number(e.target.value)})} />
-                <input type="number" placeholder="Garantia (Meses)" className="p-3 bg-slate-50 border rounded-xl outline-none" value={formData.warranty_months} onChange={e => setFormData({...formData, warranty_months: Number(e.target.value)})} />
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase ml-1 text-slate-400">KM na Troca</label>
+                  <input type="number" className="w-full p-3 bg-slate-50 border rounded-xl outline-none" onChange={e => setFormData({...formData, km_at_purchase: Number(e.target.value)})} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase ml-1 text-slate-400">Data da Compra</label>
+                  <input type="date" className="w-full p-3 bg-slate-50 border rounded-xl text-xs outline-none" value={formData.purchase_date} onChange={e => setFormData({...formData, purchase_date: e.target.value})} />
+                </div>
               </div>
+
               <div className="grid grid-cols-2 gap-3">
-                <input type="date" className="p-3 bg-slate-50 border rounded-xl text-xs outline-none" value={formData.purchase_date} onChange={e => setFormData({...formData, purchase_date: e.target.value})} />
-                <input type="number" placeholder="Custo R$" className="p-3 bg-slate-50 border rounded-xl outline-none" onChange={e => setFormData({...formData, cost: Number(e.target.value)})} />
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase ml-1 text-slate-400">Garantia (Meses)</label>
+                  <input type="number" className="w-full p-3 bg-slate-50 border rounded-xl outline-none" value={formData.warranty_months} onChange={e => setFormData({...formData, warranty_months: Number(e.target.value)})} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase ml-1 text-slate-400">Garantia (KM)</label>
+                  <input type="number" className="w-full p-3 bg-slate-50 border rounded-xl outline-none" value={formData.warranty_km} onChange={e => setFormData({...formData, warranty_km: Number(e.target.value)})} />
+                </div>
               </div>
+
+              <input type="number" placeholder="Custo R$" className="w-full p-3 bg-slate-50 border rounded-xl outline-none" onChange={e => setFormData({...formData, cost: Number(e.target.value)})} />
+
               <div className="flex gap-3 pt-4">
-                {/* Fixed: Disabled buttons while isSaving is true */}
-                <button disabled={isSaving} onClick={() => setIsModalOpen(false)} className="flex-1 py-3 font-bold border rounded-xl disabled:opacity-50">Cancelar</button>
-                <button disabled={isSaving} onClick={async () => { await onAddMaintenance(formData); setIsModalOpen(false); }} className="flex-1 py-3 font-bold bg-emerald-600 text-white rounded-xl disabled:opacity-70 flex items-center justify-center gap-2">
+                <button disabled={isSaving} onClick={() => setIsModalOpen(false)} className="flex-1 py-3 font-bold border rounded-xl">Cancelar</button>
+                <button disabled={isSaving} onClick={async () => { await onAddMaintenance(formData); setIsModalOpen(false); }} className="flex-1 py-3 font-bold bg-emerald-600 text-white rounded-xl flex items-center justify-center gap-2">
                   {isSaving ? <Loader2 className="animate-spin" size={20} /> : 'Salvar'}
                 </button>
               </div>
