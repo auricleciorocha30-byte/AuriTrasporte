@@ -24,7 +24,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
         amount: Number(newExpense.amount),
         category: (newExpense.category as ExpenseCategory) || ExpenseCategory.OTHER,
         date: newExpense.date || new Date().toISOString(),
-        tripId: newExpense.tripId
+        trip_id: newExpense.trip_id
       };
       onAddExpense(expense);
       setIsModalOpen(false);
@@ -62,7 +62,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
                 <tr key={expense.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900">{expense.description}</div>
-                    {expense.tripId && (
+                    {expense.trip_id && (
                       <div className="text-xs text-gray-400">Vinculado à viagem</div>
                     )}
                   </td>
@@ -137,7 +137,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Vincular a Viagem (Opcional)</label>
                   <select className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-rose-500 outline-none"
-                    onChange={e => setNewExpense({...newExpense, tripId: e.target.value || undefined})}
+                    onChange={e => setNewExpense({...newExpense, trip_id: e.target.value || undefined})}
                   >
                     <option value="">Sem vínculo</option>
                     {trips.map(t => (

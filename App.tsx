@@ -18,7 +18,6 @@ const App: React.FC = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   
-  // Auth States
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
@@ -58,13 +57,21 @@ const App: React.FC = () => {
         supabase.from('vehicles').select('*').order('plate', { ascending: true }),
         supabase.from('maintenance').select('*').order('purchase_date', { ascending: false })
       ]);
-      if (tripsRes.data) setTrips(tripsRes.data);
-      if (expRes.data) setExpenses(expRes.data);
-      if (vehRes.data) setVehicles(vehRes.data);
-      if (mainRes.data) setMaintenance(mainRes.data);
+      
+      if (tripsRes.error) throw tripsRes.error;
+      if (expRes.error) throw expRes.error;
+      if (vehRes.error) throw vehRes.error;
+      if (mainRes.error) throw mainRes.error;
+
+      setTrips(tripsRes.data || []);
+      setExpenses(expRes.data || []);
+      setVehicles(vehRes.data || []);
+      setMaintenance(mainRes.data || []);
       
       checkNotifications(tripsRes.data || [], mainRes.data || []);
-    } catch (err) { console.error(err); }
+    } catch (err: any) { 
+      console.error("Erro ao carregar dados:", err.message);
+    }
     finally { setLoading(false); }
   };
 
@@ -121,52 +128,109 @@ const App: React.FC = () => {
   };
 
   const addTrip = async (trip: Omit<Trip, 'id'>) => {
-    const { data, error } = await supabase.from('trips').insert([{ ...trip, user_id: session.user.id }]).select();
+    const sanitizedTrip = {
+      ...trip,
+      vehicle_id: trip.vehicle_id === "" ? null : trip.vehicle_id,
+      user_id: session.user.id
+    };
+
+    const { data, error } = await supabase.from('trips').insert([sanitizedTrip]).select();
+    
+    if (error) {
+      console.error("Erro ao salvar viagem:", error);
+      alert("Erro ao salvar viagem: " + error.message);
+      return;
+    }
+
     if (data) setTrips([data[0], ...trips]);
   };
 
   const deleteTrip = async (id: string) => {
     if (!confirm('Excluir esta viagem permanentemente?')) return;
     const { error } = await supabase.from('trips').delete().eq('id', id);
-    if (!error) setTrips(trips.filter(t => t.id !== id));
+    if (error) {
+      alert("Erro ao excluir: " + error.message);
+      return;
+    }
+    setTrips(trips.filter(t => t.id !== id));
   };
 
   const updateTripStatus = async (id: string, status: TripStatus) => {
     const { error } = await supabase.from('trips').update({ status }).eq('id', id);
-    if (!error) setTrips(trips.map(t => t.id === id ? { ...t, status } : t));
+    if (error) {
+      alert("Erro ao atualizar status: " + error.message);
+      return;
+    }
+    setTrips(trips.map(t => t.id === id ? { ...t, status } : t));
   };
 
   const addVehicle = async (veh: Omit<Vehicle, 'id'>) => {
     const { data, error } = await supabase.from('vehicles').insert([{ ...veh, user_id: session.user.id }]).select();
+    if (error) {
+      alert("Erro ao salvar veículo: " + error.message);
+      return;
+    }
     if (data) setVehicles([...vehicles, data[0]]);
   };
 
   const deleteVehicle = async (id: string) => {
     if (!confirm('Excluir este veículo? Isso também afetará viagens vinculadas.')) return;
     const { error } = await supabase.from('vehicles').delete().eq('id', id);
-    if (!error) setVehicles(vehicles.filter(v => v.id !== id));
+    if (error) {
+      alert("Erro ao excluir veículo: " + error.message);
+      return;
+    }
+    setVehicles(vehicles.filter(v => v.id !== id));
   };
 
   const addMaintenance = async (item: Omit<MaintenanceItem, 'id'>) => {
-    const { data, error } = await supabase.from('maintenance').insert([{ ...item, user_id: session.user.id }]).select();
+    const sanitizedItem = {
+      ...item,
+      vehicle_id: item.vehicle_id === "" ? null : item.vehicle_id,
+      user_id: session.user.id
+    };
+
+    const { data, error } = await supabase.from('maintenance').insert([sanitizedItem]).select();
+    if (error) {
+      alert("Erro ao salvar manutenção: " + error.message);
+      return;
+    }
     if (data) setMaintenance([data[0], ...maintenance]);
   };
 
   const deleteMaintenance = async (id: string) => {
     if (!confirm('Excluir registro de manutenção?')) return;
     const { error } = await supabase.from('maintenance').delete().eq('id', id);
-    if (!error) setMaintenance(maintenance.filter(m => m.id !== id));
+    if (error) {
+      alert("Erro ao excluir: " + error.message);
+      return;
+    }
+    setMaintenance(maintenance.filter(m => m.id !== id));
   };
 
   const addExpense = async (exp: Omit<Expense, 'id'>) => {
-    const { data, error } = await supabase.from('expenses').insert([{ ...exp, user_id: session.user.id }]).select();
+    const sanitizedExp = {
+      ...exp,
+      trip_id: exp.trip_id === "" ? null : exp.trip_id,
+      user_id: session.user.id
+    };
+
+    const { data, error } = await supabase.from('expenses').insert([sanitizedExp]).select();
+    if (error) {
+      alert("Erro ao salvar despesa: " + error.message);
+      return;
+    }
     if (data) setExpenses([data[0], ...expenses]);
   };
 
   const deleteExpense = async (id: string) => {
     if (!confirm('Excluir esta despesa?')) return;
     const { error } = await supabase.from('expenses').delete().eq('id', id);
-    if (!error) setExpenses(expenses.filter(e => e.id !== id));
+    if (error) {
+      alert("Erro ao excluir: " + error.message);
+      return;
+    }
+    setExpenses(expenses.filter(e => e.id !== id));
   };
 
   const filteredTrips = trips.filter(t => t.origin.toLowerCase().includes(searchTerm.toLowerCase()) || t.destination.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -349,19 +413,6 @@ const App: React.FC = () => {
               <button onClick={() => setShowInstallTip(false)} className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-xs font-bold transition-all shrink-0">Entendi</button>
             </div>
           )}
-
-          <div className="md:hidden mb-6">
-            <div className="relative w-full">
-              <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
-              <input 
-                type="text" 
-                placeholder="Pesquisar no sistema..." 
-                className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary-500 transition-all text-sm"
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-              />
-            </div>
-          </div>
 
           {currentView === AppView.DASHBOARD && <Dashboard trips={trips} expenses={expenses} />}
           {currentView === AppView.TRIPS && <TripManager trips={filteredTrips} vehicles={vehicles} onAddTrip={addTrip} onUpdateStatus={updateTripStatus} onDeleteTrip={deleteTrip} />}

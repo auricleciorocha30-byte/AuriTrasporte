@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Trip, TripStatus, Vehicle } from '../types';
 import { Plus, MapPin, Calendar, Truck, UserCheck, Percent, Navigation, RefreshCcw, X, Trash2 } from 'lucide-react';
 
@@ -25,10 +25,10 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
   const [destState, setDestState] = useState('RJ');
 
   const [formData, setFormData] = useState<any>({
-    distanceKm: 0,
-    agreedPrice: 0,
-    driverCommissionPercentage: 10,
-    cargoType: 'Geral',
+    distance_km: 0,
+    agreed_price: 0,
+    driver_commission_percentage: 10,
+    cargo_type: 'Geral',
     date: new Date().toISOString().split('T')[0],
     vehicle_id: '',
     status: TripStatus.SCHEDULED
@@ -39,7 +39,7 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
     setLoadingDist(true);
     setTimeout(() => {
       const simulatedDist = Math.floor(Math.random() * 800) + 100;
-      setFormData({ ...formData, distanceKm: simulatedDist });
+      setFormData({ ...formData, distance_km: simulatedDist });
       setLoadingDist(false);
     }, 1200);
   };
@@ -49,19 +49,19 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
       alert("Por favor, preencha origem e destino.");
       return;
     }
-    const commValue = formData.agreedPrice * (formData.driverCommissionPercentage / 100);
+    const commValue = formData.agreed_price * (formData.driver_commission_percentage / 100);
     onAddTrip({
       ...formData,
       origin: `${originCity} - ${originState}`,
       destination: `${destCity} - ${destState}`,
-      driverCommission: commValue
+      driver_commission: commValue
     });
     setIsModalOpen(false);
     setOriginCity('');
     setDestCity('');
   };
 
-  const commValue = formData.agreedPrice * (formData.driverCommissionPercentage / 100);
+  const commValue = (formData.agreed_price || 0) * ((formData.driver_commission_percentage || 0) / 100);
 
   return (
     <div className="space-y-6">
@@ -96,14 +96,14 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                 <span className="truncate">{trip.destination}</span>
               </h3>
               <div className="mt-2 flex flex-wrap gap-4 text-xs font-medium text-slate-500">
-                <span className="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded-lg"><Navigation size={14}/> {trip.distanceKm}km</span>
+                <span className="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded-lg"><Navigation size={14}/> {trip.distance_km}km</span>
                 <span className="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded-lg"><Truck size={14}/> {vehicles.find(v => v.id === trip.vehicle_id)?.plate || 'N/A'}</span>
-                <span className="text-amber-600 font-bold bg-amber-50 px-2 py-1 rounded-lg">Comissão: R$ {trip.driverCommission?.toFixed(2)}</span>
+                <span className="text-amber-600 font-bold bg-amber-50 px-2 py-1 rounded-lg">Comissão: R$ {trip.driver_commission?.toFixed(2)}</span>
               </div>
             </div>
             <div className="text-right flex flex-col justify-center border-t md:border-t-0 md:border-l border-slate-50 pt-4 md:pt-0 md:pl-6">
               <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Valor do Frete</p>
-              <p className="text-2xl font-black text-primary-600">R$ {trip.agreedPrice.toLocaleString()}</p>
+              <p className="text-2xl font-black text-primary-600">R$ {trip.agreed_price.toLocaleString()}</p>
             </div>
             <button 
               onClick={() => onDeleteTrip(trip.id)}
@@ -156,7 +156,7 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-tight ml-1">Distância e Veículo</label>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="flex gap-2">
-                    <input type="number" placeholder="KM" className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none" value={formData.distanceKm || ''} onChange={e => setFormData({...formData, distanceKm: Number(e.target.value)})} />
+                    <input type="number" placeholder="KM" className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none" value={formData.distance_km || ''} onChange={e => setFormData({...formData, distance_km: Number(e.target.value)})} />
                     <button onClick={calculateDistance} className="px-3 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200">
                       {loadingDist ? <RefreshCcw className="animate-spin" size={18} /> : <Navigation size={18} />}
                     </button>
@@ -171,9 +171,9 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-tight ml-1">Valores</label>
                 <div className="grid grid-cols-2 gap-2">
-                  <input type="number" placeholder="Frete R$" className="p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none" onChange={e => setFormData({...formData, agreedPrice: Number(e.target.value)})} />
+                  <input type="number" placeholder="Frete R$" className="p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none" onChange={e => setFormData({...formData, agreed_price: Number(e.target.value)})} />
                   <div className="relative">
-                    <input type="number" placeholder="Comissão %" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none" value={formData.driverCommissionPercentage} onChange={e => setFormData({...formData, driverCommissionPercentage: Number(e.target.value)})} />
+                    <input type="number" placeholder="Comissão %" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none" value={formData.driver_commission_percentage} onChange={e => setFormData({...formData, driver_commission_percentage: Number(e.target.value)})} />
                     <Percent className="absolute right-3 top-3.5 text-slate-400" size={16}/>
                   </div>
                 </div>

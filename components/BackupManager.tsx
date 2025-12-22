@@ -17,10 +17,12 @@ export const BackupManager: React.FC<{ data: any }> = ({ data }) => {
     URL.revokeObjectURL(url);
   };
 
-  const sqlCode = `-- TABELAS SUPABASE PARA AURILOG
+  const sqlCode = `-- TABELAS SUPABASE PARA AURILOG (EXECUTE NO SQL EDITOR)
+-- 0. Habilitar UUIDs
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
-CREATE TABLE vehicles (
+-- 1. Tabela de Veículos
+CREATE TABLE IF NOT EXISTS vehicles (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   plate TEXT NOT NULL,
   model TEXT NOT NULL,
@@ -30,16 +32,17 @@ CREATE TABLE vehicles (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE trips (
+-- 2. Tabela de Viagens
+CREATE TABLE IF NOT EXISTS trips (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   origin TEXT NOT NULL,
   destination TEXT NOT NULL,
-  distanceKm FLOAT,
-  agreedPrice FLOAT,
-  driverCommissionPercentage FLOAT,
-  driverCommission FLOAT,
+  distanceKm FLOAT DEFAULT 0,
+  agreedPrice FLOAT DEFAULT 0,
+  driverCommissionPercentage FLOAT DEFAULT 0,
+  driverCommission FLOAT DEFAULT 0,
   cargoType TEXT,
-  date DATE,
+  date DATE NOT NULL DEFAULT CURRENT_DATE,
   status TEXT DEFAULT 'Agendada',
   notes TEXT,
   vehicle_id UUID REFERENCES vehicles(id) ON DELETE SET NULL,
@@ -47,35 +50,38 @@ CREATE TABLE trips (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE expenses (
+-- 3. Tabela de Despesas
+CREATE TABLE IF NOT EXISTS expenses (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   description TEXT NOT NULL,
   amount FLOAT NOT NULL,
   category TEXT NOT NULL,
-  date DATE,
+  date DATE NOT NULL DEFAULT CURRENT_DATE,
   tripId UUID REFERENCES trips(id) ON DELETE SET NULL,
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE maintenance (
+-- 4. Tabela de Manutenção
+CREATE TABLE IF NOT EXISTS maintenance (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   vehicle_id UUID REFERENCES vehicles(id) ON DELETE CASCADE,
   part_name TEXT NOT NULL,
   km_at_purchase INTEGER,
   warranty_months INTEGER DEFAULT 12,
-  purchase_date DATE,
+  purchase_date DATE NOT NULL DEFAULT CURRENT_DATE,
   cost FLOAT DEFAULT 0,
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- RLS (SEGURANÇA)
+-- RLS (SEGURANÇA - CADA USUÁRIO VÊ APENAS O SEU)
 ALTER TABLE vehicles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE trips ENABLE ROW LEVEL SECURITY;
 ALTER TABLE expenses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE maintenance ENABLE ROW LEVEL SECURITY;
 
+-- Políticas de acesso (ALL para o dono do registro)
 CREATE POLICY "Own_Vehicles" ON vehicles FOR ALL USING (auth.uid() = user_id);
 CREATE POLICY "Own_Trips" ON trips FOR ALL USING (auth.uid() = user_id);
 CREATE POLICY "Own_Expenses" ON expenses FOR ALL USING (auth.uid() = user_id);
@@ -132,12 +138,12 @@ CREATE POLICY "Own_Maintenance" ON maintenance FOR ALL USING (auth.uid() = user_
         </div>
         
         <div className="mt-8 p-6 bg-primary-500/10 rounded-2xl border border-primary-500/20 text-sm">
-          <p className="font-bold text-primary-400 mb-2">Como usar este script?</p>
+          <p className="font-bold text-primary-400 mb-2">Importante para salvar os dados:</p>
           <ol className="list-decimal list-inside space-y-1 text-slate-400">
-            <li>Acesse o painel do seu projeto no Supabase.</li>
-            <li>Clique em <span className="text-white font-medium">SQL Editor</span> no menu lateral.</li>
-            <li>Crie uma nova consulta (<span className="text-white font-medium">New query</span>).</li>
-            <li>Cole o código acima e clique em <span className="text-primary-400 font-bold uppercase tracking-widest">Run</span>.</li>
+            <li>Vá no <span className="text-white font-medium">SQL Editor</span> do Supabase.</li>
+            <li>Cole o código acima e clique em <span className="text-white font-medium">Run</span>.</li>
+            <li>Certifique-se de que a coluna <span className="text-primary-400">user_id</span> está presente.</li>
+            <li>Sem o script SQL acima, as tabelas não saberão quem é o dono dos dados e o salvamento falhará por segurança (RLS).</li>
           </ol>
         </div>
       </div>

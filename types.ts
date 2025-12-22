@@ -40,11 +40,11 @@ export interface Trip {
   id: string;
   origin: string;
   destination: string;
-  distanceKm: number;
-  agreedPrice: number;
-  driverCommissionPercentage: number;
-  driverCommission: number;
-  cargoType: string;
+  distance_km: number;
+  agreed_price: number;
+  driver_commission_percentage: number;
+  driver_commission: number;
+  cargo_type: string;
   date: string;
   status: TripStatus;
   notes?: string;
@@ -63,7 +63,7 @@ export enum ExpenseCategory {
 
 export interface Expense {
   id: string;
-  tripId?: string;
+  trip_id?: string;
   description: string;
   amount: number;
   category: ExpenseCategory;
@@ -71,7 +71,6 @@ export interface Expense {
   user_id?: string;
 }
 
-// Fix: Added missing ANTTParams interface required by geminiService and FreightCalculator
 export interface ANTTParams {
   distance: number;
   axles: number;
@@ -82,7 +81,6 @@ export interface ANTTParams {
   profitMargin: number;
 }
 
-// Fix: Added missing FinancialSummary interface required by the Dashboard component
 export interface FinancialSummary {
   totalRevenue: number;
   totalExpenses: number;
