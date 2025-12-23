@@ -20,10 +20,13 @@ export const JornadaManager: React.FC = () => {
   }, [mode]);
 
   useEffect(() => {
+    // Alerta de limite de direção
     if (mode === 'DRIVING' && time >= LIMIT_DRIVING) {
-      setAlert("⚠️ LIMITE EXCEDIDO! Você está dirigindo há mais de 5h30. Pare para descansar!");
-    } else if (mode === 'RESTING' && time >= LIMIT_REST) {
-      setAlert("✅ DESCANSO CONCLUÍDO! Você já pode retomar sua viagem com segurança.");
+      setAlert("⚠️ LIMITE DE 5h30 ATINGIDO! Pare imediatamente para descansar.");
+    } 
+    // Alerta de descanso concluído
+    else if (mode === 'RESTING' && time >= LIMIT_REST) {
+      setAlert("✅ DESCANSO DE 30 MINUTOS CONCLUÍDO! Você pode retomar a jornada.");
     } else {
       setAlert(null);
     }
@@ -51,10 +54,10 @@ export const JornadaManager: React.FC = () => {
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 pb-12">
-      <div className={`rounded-[3rem] p-10 text-center text-white shadow-2xl transition-colors duration-500 relative overflow-hidden ${mode === 'DRIVING' ? 'bg-primary-900' : mode === 'RESTING' ? 'bg-emerald-900' : 'bg-slate-900'}`}>
+      <div className={`rounded-[3rem] p-10 text-center text-white shadow-2xl transition-all duration-500 relative overflow-hidden ${mode === 'DRIVING' ? 'bg-primary-900' : mode === 'RESTING' ? 'bg-emerald-900' : 'bg-slate-900'}`}>
         
         {alert && (
-          <div className="absolute top-6 left-1/2 -translate-x-1/2 w-[90%] bg-white p-4 rounded-2xl flex items-center gap-3 text-slate-900 animate-bounce shadow-2xl z-10">
+          <div className="absolute top-6 left-1/2 -translate-x-1/2 w-[90%] bg-white p-4 rounded-2xl flex items-center gap-3 text-slate-900 animate-bounce shadow-2xl z-20">
             <BellRing className={mode === 'DRIVING' ? 'text-rose-500' : 'text-emerald-500'} />
             <p className="font-black text-sm">{alert}</p>
           </div>
@@ -71,22 +74,22 @@ export const JornadaManager: React.FC = () => {
 
         <div className="flex flex-col md:flex-row items-center justify-center gap-4">
           {mode !== 'DRIVING' ? (
-            <button onClick={() => handleAction('DRIVING')} className="w-full md:w-64 py-5 bg-primary-600 hover:bg-primary-700 rounded-[2rem] font-black text-xl flex items-center justify-center gap-3 transition-all">
+            <button onClick={() => handleAction('DRIVING')} className="w-full md:w-64 py-5 bg-primary-600 hover:bg-primary-700 rounded-[2rem] font-black text-xl flex items-center justify-center gap-3 shadow-lg transition-all active:scale-95">
               <Play size={24}/> Iniciar Direção
             </button>
           ) : (
-            <button onClick={() => handleAction('IDLE')} className="w-full md:w-64 py-5 bg-rose-500 hover:bg-rose-600 rounded-[2rem] font-black text-xl flex items-center justify-center gap-3 transition-all">
-              <Square size={24}/> Parar Direção
+            <button onClick={() => handleAction('IDLE')} className="w-full md:w-64 py-5 bg-rose-500 hover:bg-rose-600 rounded-[2rem] font-black text-xl flex items-center justify-center gap-3 shadow-lg transition-all active:scale-95">
+              <Square size={24}/> Parar
             </button>
           )}
 
           {mode !== 'RESTING' ? (
-            <button onClick={() => handleAction('RESTING')} className="w-full md:w-64 py-5 bg-slate-800 hover:bg-slate-700 rounded-[2rem] font-black text-xl flex items-center justify-center gap-3 transition-all">
+            <button onClick={() => handleAction('RESTING')} className="w-full md:w-64 py-5 bg-slate-800 hover:bg-slate-700 rounded-[2rem] font-black text-xl flex items-center justify-center gap-3 shadow-lg transition-all active:scale-95">
               <Coffee size={24}/> Iniciar Descanso
             </button>
           ) : (
-            <button onClick={() => handleAction('IDLE')} className="w-full md:w-64 py-5 bg-emerald-600 hover:bg-emerald-700 rounded-[2rem] font-black text-xl flex items-center justify-center gap-3 transition-all">
-              <Square size={24}/> Finalizar Descanso
+            <button onClick={() => handleAction('IDLE')} className="w-full md:w-64 py-5 bg-emerald-600 hover:bg-emerald-700 rounded-[2rem] font-black text-xl flex items-center justify-center gap-3 shadow-lg transition-all active:scale-95">
+              <Square size={24}/> Finalizar
             </button>
           )}
         </div>
@@ -94,10 +97,10 @@ export const JornadaManager: React.FC = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white p-8 rounded-[2.5rem] border shadow-sm">
-          <h3 className="text-xl font-black mb-6 flex items-center gap-3"><History/> Histórico da Sessão</h3>
+          <h3 className="text-xl font-black mb-6 flex items-center gap-3"><History/> Registros Recentes</h3>
           <div className="space-y-4">
             {logs.length === 0 ? (
-              <p className="text-slate-400 text-sm py-4">Inicie uma atividade para registrar sua jornada.</p>
+              <p className="text-slate-400 text-sm py-4">Nenhum registro nesta sessão.</p>
             ) : logs.map((log, i) => (
               <div key={i} className={`p-4 rounded-2xl flex justify-between items-center border ${log.type === 'Direção' ? 'bg-blue-50 border-blue-100' : 'bg-emerald-50 border-emerald-100'}`}>
                 <div>
@@ -111,12 +114,11 @@ export const JornadaManager: React.FC = () => {
         </div>
 
         <div className="bg-amber-50 p-8 rounded-[2.5rem] border border-amber-100">
-           <h3 className="text-xl font-black text-amber-900 mb-6 flex items-center gap-3"><AlertCircle/> Regras da Lei 13.103</h3>
+           <h3 className="text-xl font-black text-amber-900 mb-6 flex items-center gap-3"><AlertCircle/> Lei do Motorista</h3>
            <ul className="space-y-4 text-amber-800 text-sm font-bold">
-              <li className="flex gap-3">🚩 Máximo de 5h30 contínuas de direção.</li>
-              <li className="flex gap-3">🚩 30 min de descanso a cada 6h de jornada.</li>
-              <li className="flex gap-3">🚩 Mínimo de 11h de descanso entre jornadas.</li>
-              <li className="flex gap-3">🚩 Tempo de espera não conta como jornada.</li>
+              <li className="flex gap-3">✅ 5h30 de direção / 30 min de descanso.</li>
+              <li className="flex gap-3">✅ Mínimo de 11h de descanso diário.</li>
+              <li className="flex gap-3">✅ A cada 24h, o motorista tem direito a descanso.</li>
            </ul>
         </div>
       </div>
