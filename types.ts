@@ -39,11 +39,16 @@ export interface MaintenanceItem {
   user_id?: string;
 }
 
+export interface TripStop {
+  city: string;
+  state: string;
+}
+
 export interface Trip {
   id: string;
   origin: string;
   destination: string;
-  stops?: string[]; // Novos destinos/paradas
+  stops?: TripStop[]; 
   distance_km: number;
   agreed_price: number;
   driver_commission_percentage: number;

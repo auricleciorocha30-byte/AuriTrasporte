@@ -1,27 +1,36 @@
 
 import React, { useState } from 'react';
 import { GoogleGenAI } from "@google/genai";
-import { Fuel, MapPin, Loader2, Navigation, Star, Search } from 'lucide-react';
+import { Fuel, MapPin, Loader2, Navigation, Search, Wrench, Hammer } from 'lucide-react';
+
+type ServiceType = 'stations' | 'tire_repair' | 'mechanic';
 
 export const StationLocator: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [stations, setStations] = useState<any[]>([]);
+  const [selectedType, setSelectedType] = useState<ServiceType>('stations');
 
-  const findStations = async () => {
+  const findServices = async () => {
     setLoading(true);
     try {
-      // 1. Obter Localização
       const pos: any = await new Promise((res, rej) => {
         navigator.geolocation.getCurrentPosition(res, rej);
       });
 
       const { latitude, longitude } = pos.coords;
 
-      // 2. Usar Gemini Grounding para achar postos reais
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      
+      let query = "";
+      switch(selectedType) {
+        case 'stations': query = "Postos de combustível com pátio para caminhões e serviços 24h"; break;
+        case 'tire_repair': query = "Borracharias especializadas em caminhões e pneus pesados"; break;
+        case 'mechanic': query = "Oficinas mecânicas para caminhões, diesel e suspensão pesada"; break;
+      }
+
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
-        contents: "Quais os melhores postos de combustível com serviços para caminhoneiros (banho, pátio, restaurante) perto de mim?",
+        contents: `Localize ${query} perto das coordenadas lat:${latitude}, lng:${longitude}`,
         config: {
           tools: [{googleMaps: {}}],
           toolConfig: {
@@ -32,46 +41,48 @@ export const StationLocator: React.FC = () => {
         },
       });
 
-      // Extrair metadados do Maps
       const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
       const mapsData = chunks.filter((c: any) => c.maps).map((c: any) => c.maps);
       
       setStations(mapsData.length > 0 ? mapsData : []);
     } catch (err: any) {
-      alert("Erro ao buscar postos. Certifique-se de que a localização está habilitada.");
+      alert("Erro ao buscar serviços. Certifique-se de que a localização está habilitada.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
-      <div className="bg-gradient-to-br from-emerald-600 to-teal-800 p-10 rounded-[3rem] text-white shadow-xl relative overflow-hidden">
-        <Fuel size={120} className="absolute -bottom-10 -right-10 opacity-10 rotate-12" />
-        <h2 className="text-3xl font-black mb-4">Postos e Serviços</h2>
-        <p className="text-emerald-100 mb-10 max-w-md font-medium">Localize postos com pátio, banho e bons preços de diesel em tempo real usando inteligência geográfica.</p>
+    <div className="max-w-4xl mx-auto space-y-8 pb-12">
+      <div className="bg-slate-900 p-10 rounded-[3rem] text-white shadow-xl relative overflow-hidden">
+        <h2 className="text-3xl font-black mb-4">Serviços na Estrada</h2>
+        <p className="text-slate-400 mb-10 max-w-md font-medium">Encontre suporte imediato dependendo do ocorrido.</p>
         
-        <button onClick={findStations} disabled={loading} className="bg-white text-emerald-800 px-10 py-5 rounded-2xl font-black text-lg flex items-center gap-3 shadow-xl active:scale-95 transition-all disabled:opacity-50">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          <ServiceTab active={selectedType === 'stations'} icon={Fuel} label="Postos" onClick={() => setSelectedType('stations')} />
+          <ServiceTab active={selectedType === 'tire_repair'} icon={Hammer} label="Borracharias" onClick={() => setSelectedType('tire_repair')} />
+          <ServiceTab active={selectedType === 'mechanic'} icon={Wrench} label="Oficinas" onClick={() => setSelectedType('mechanic')} />
+        </div>
+
+        <button onClick={findServices} disabled={loading} className="w-full md:w-auto bg-primary-600 text-white px-10 py-5 rounded-2xl font-black text-lg flex items-center justify-center gap-3 shadow-xl active:scale-95 transition-all disabled:opacity-50">
           {loading ? <Loader2 className="animate-spin" /> : <Search />}
-          {loading ? 'Buscando postos...' : 'Buscar Postos ao Redor'}
+          {loading ? 'Buscando...' : `Buscar ${selectedType === 'stations' ? 'Postos' : selectedType === 'tire_repair' ? 'Borracharias' : 'Oficinas'}`}
         </button>
       </div>
 
       <div className="grid gap-4">
         {stations.map((s, i) => (
-          <div key={i} className="bg-white p-6 rounded-[2rem] border shadow-sm flex justify-between items-center group hover:border-emerald-200 transition-all">
+          <div key={i} className="bg-white p-6 rounded-[2rem] border shadow-sm flex justify-between items-center hover:border-primary-300 transition-all animate-fade-in">
             <div className="flex gap-4 items-center">
-              <div className="bg-emerald-50 text-emerald-600 p-4 rounded-2xl">
-                <Fuel size={24} />
+              <div className="bg-slate-100 text-slate-600 p-4 rounded-2xl">
+                {selectedType === 'stations' ? <Fuel size={24}/> : selectedType === 'tire_repair' ? <Hammer size={24}/> : <Wrench size={24}/>}
               </div>
               <div>
-                <h3 className="text-xl font-black text-slate-800">{s.title || 'Posto de Combustível'}</h3>
-                <p className="text-sm text-slate-500 font-bold flex items-center gap-1">
-                  <MapPin size={14}/> Localização identificada via Maps
-                </p>
+                <h3 className="text-xl font-black text-slate-800">{s.title || 'Serviço Localizado'}</h3>
+                <p className="text-sm text-slate-500 font-bold flex items-center gap-1"><MapPin size={14}/> Aberto no Google Maps</p>
               </div>
             </div>
-            <button onClick={() => window.open(s.uri, '_blank')} className="bg-slate-50 p-4 rounded-2xl text-slate-600 hover:bg-emerald-600 hover:text-white transition-all shadow-sm">
+            <button onClick={() => window.open(s.uri, '_blank')} className="bg-primary-50 p-4 rounded-2xl text-primary-600 hover:bg-primary-600 hover:text-white transition-all">
               <Navigation size={24}/>
             </button>
           </div>
@@ -79,11 +90,17 @@ export const StationLocator: React.FC = () => {
 
         {stations.length === 0 && !loading && (
           <div className="text-center py-20 bg-slate-100 rounded-[3rem] border-2 border-dashed border-slate-200">
-             <Fuel size={48} className="mx-auto text-slate-300 mb-4" />
-             <p className="text-slate-500 font-black">Clique no botão acima para encontrar serviços próximos.</p>
+             <Search size={48} className="mx-auto text-slate-300 mb-4" />
+             <p className="text-slate-500 font-black">Selecione uma categoria e busque serviços próximos.</p>
           </div>
         )}
       </div>
     </div>
   );
 };
+
+const ServiceTab = ({ active, icon: Icon, label, onClick }: any) => (
+  <button onClick={onClick} className={`flex items-center gap-3 p-4 rounded-2xl font-bold transition-all ${active ? 'bg-white text-slate-900 shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
+    <Icon size={20} /> <span>{label}</span>
+  </button>
+);

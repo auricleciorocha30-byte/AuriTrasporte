@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Trip, TripStatus, Vehicle } from '../types';
+import { Trip, TripStatus, Vehicle, TripStop } from '../types';
 import { Plus, MapPin, Calendar, Truck, UserCheck, Navigation, RefreshCcw, X, Trash2, Loader2, Map as MapIcon, ChevronRight, Percent } from 'lucide-react';
 
 interface TripManagerProps {
@@ -20,8 +20,8 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
   
   const [origin, setOrigin] = useState({ city: '', state: 'SP' });
   const [destination, setDestination] = useState({ city: '', state: 'SP' });
-  const [stops, setStops] = useState<string[]>([]);
-  const [newStop, setNewStop] = useState('');
+  const [stops, setStops] = useState<TripStop[]>([]);
+  const [newStop, setNewStop] = useState({ city: '', state: 'SP' });
 
   const [formData, setFormData] = useState<any>({
     distance_km: 0,
@@ -37,21 +37,20 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
     if (!origin.city || !destination.city) return alert("Preencha origem e destino!");
     const originStr = `${origin.city}, ${origin.state}`;
     const destStr = `${destination.city}, ${destination.state}`;
-    const waypoints = stops.join('|');
+    const waypoints = stops.map(s => `${s.city}, ${s.state}`).join('|');
     const url = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(originStr)}&destination=${encodeURIComponent(destStr)}&waypoints=${encodeURIComponent(waypoints)}&travelmode=driving`;
     window.open(url, '_blank');
   };
 
   const handleAddStop = () => {
-    if (newStop.trim()) {
-      setStops([...stops, newStop.trim()]);
-      setNewStop('');
+    if (newStop.city.trim()) {
+      setStops([...stops, { ...newStop }]);
+      setNewStop({ city: '', state: 'SP' });
     }
   };
 
   const estimateDistance = async () => {
     setLoadingDist(true);
-    // Simulação de cálculo baseado na quantidade de paradas e estados
     setTimeout(() => {
       const base = 300;
       const stopExtra = stops.length * 120;
@@ -76,7 +75,6 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
       driver_commission: commValue
     });
     
-    // Reset
     setIsModalOpen(false);
     setStops([]);
     setOrigin({ city: '', state: 'SP' });
@@ -117,7 +115,8 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                   </h3>
                   {trip.stops && trip.stops.length > 0 && (
                     <div className="mt-2 p-2 bg-slate-50 rounded-xl text-xs font-bold text-slate-500 flex gap-2 overflow-x-auto">
-                      <span className="text-primary-600 shrink-0">Paradas:</span> {trip.stops.join(' → ')}
+                      <span className="text-primary-600 shrink-0">Rota:</span> 
+                      {trip.stops.map(s => `${s.city}/${s.state}`).join(' → ')}
                     </div>
                   )}
                   <div className="mt-4 flex flex-wrap gap-4 items-center">
@@ -129,7 +128,6 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                <div className="md:text-right border-t md:border-t-0 md:border-l border-slate-100 pt-4 md:pt-0 md:pl-8 flex flex-col justify-center min-w-[150px]">
                   <p className="text-xs font-black text-slate-400 uppercase mb-1">Valor Frete</p>
                   <p className="text-2xl font-black text-primary-600">R$ {trip.agreed_price.toLocaleString()}</p>
-                  <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase">Lucro Bruto: R$ {(trip.agreed_price - (trip.driver_commission || 0)).toLocaleString()}</p>
                </div>
             </div>
             <button onClick={() => onDeleteTrip(trip.id)} className="absolute top-4 right-4 text-slate-300 hover:text-rose-500 transition-opacity opacity-0 group-hover:opacity-100"><Trash2 size={20}/></button>
@@ -146,12 +144,11 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
             </div>
             
             <div className="space-y-6">
-              {/* Origem e Destino com Estado */}
               <div className="space-y-4">
                 <div className="space-y-1">
-                  <label className="text-xs font-black uppercase text-slate-400 ml-1 flex items-center gap-1"><MapPin size={12}/> Origem (Cidade e Estado)</label>
+                  <label className="text-xs font-black uppercase text-slate-400 ml-1 flex items-center gap-1"><MapPin size={12}/> Origem</label>
                   <div className="flex gap-2">
-                    <input placeholder="Ex: São Paulo" className="flex-1 p-4 bg-slate-50 rounded-2xl border border-slate-200 outline-none focus:ring-2 focus:ring-primary-500 font-bold" value={origin.city} onChange={e => setOrigin({...origin, city: e.target.value})} />
+                    <input placeholder="Cidade" className="flex-1 p-4 bg-slate-50 rounded-2xl border border-slate-200 font-bold" value={origin.city} onChange={e => setOrigin({...origin, city: e.target.value})} />
                     <select className="w-24 p-4 bg-slate-50 rounded-2xl border border-slate-200 font-black text-primary-700" value={origin.state} onChange={e => setOrigin({...origin, state: e.target.value})}>
                       {BRAZILIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
@@ -159,9 +156,9 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs font-black uppercase text-slate-400 ml-1 flex items-center gap-1"><MapPin size={12}/> Destino Final (Cidade e Estado)</label>
+                  <label className="text-xs font-black uppercase text-slate-400 ml-1 flex items-center gap-1"><MapPin size={12}/> Destino Final</label>
                   <div className="flex gap-2">
-                    <input placeholder="Ex: Santos" className="flex-1 p-4 bg-slate-50 rounded-2xl border border-slate-200 outline-none focus:ring-2 focus:ring-primary-500 font-bold" value={destination.city} onChange={e => setDestination({...destination, city: e.target.value})} />
+                    <input placeholder="Cidade" className="flex-1 p-4 bg-slate-50 rounded-2xl border border-slate-200 font-bold" value={destination.city} onChange={e => setDestination({...destination, city: e.target.value})} />
                     <select className="w-24 p-4 bg-slate-50 rounded-2xl border border-slate-200 font-black text-primary-700" value={destination.state} onChange={e => setDestination({...destination, state: e.target.value})}>
                       {BRAZILIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
@@ -169,83 +166,73 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                 </div>
               </div>
 
-              {/* Paradas Intermediárias / Novos Destinos */}
               <div className="space-y-2">
-                <label className="text-xs font-black uppercase text-slate-400 ml-1">Paradas / Novos Destinos na Rota</label>
+                <label className="text-xs font-black uppercase text-slate-400 ml-1">Novas Paradas / Pontos de Passagem</label>
                 <div className="flex gap-2">
-                  <input placeholder="Ex: Campinas, SP" className="flex-1 p-4 bg-slate-50 rounded-2xl border border-slate-200 outline-none" value={newStop} onChange={e => setNewStop(e.target.value)} onKeyPress={e => e.key === 'Enter' && handleAddStop()} />
-                  <button onClick={handleAddStop} className="p-4 bg-slate-100 rounded-2xl hover:bg-slate-200 transition-colors text-primary-600"><Plus size={24}/></button>
+                  <input placeholder="Cidade" className="flex-1 p-4 bg-slate-50 rounded-2xl border border-slate-200" value={newStop.city} onChange={e => setNewStop({...newStop, city: e.target.value})} />
+                  <select className="w-24 p-4 bg-slate-50 rounded-2xl border border-slate-200 font-bold" value={newStop.state} onChange={e => setNewStop({...newStop, state: e.target.value})}>
+                    {BRAZILIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                  <button onClick={handleAddStop} className="p-4 bg-slate-100 rounded-2xl hover:bg-slate-200 text-primary-600"><Plus size={24}/></button>
                 </div>
                 {stops.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-2">
                     {stops.map((s, i) => (
                       <span key={i} className="bg-primary-50 text-primary-700 px-3 py-2 rounded-xl text-xs font-black flex items-center gap-2 border border-primary-100">
-                        {s} <button onClick={() => setStops(stops.filter((_, idx) => idx !== i))} className="hover:text-rose-500"><X size={14}/></button>
+                        {s.city}/{s.state} <button onClick={() => setStops(stops.filter((_, idx) => idx !== i))}><X size={14}/></button>
                       </span>
                     ))}
                   </div>
                 )}
               </div>
 
-              {/* Distância Manual e Botões de Rota */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-xs font-black uppercase text-slate-400 ml-1">Distância Total (KM) - Manual</label>
+                  <label className="text-xs font-black uppercase text-slate-400 ml-1">Distância Total (KM)</label>
                   <div className="relative">
                     <Navigation className="absolute left-4 top-4 text-slate-400" size={20}/>
                     <input type="number" placeholder="0" className="w-full pl-12 pr-4 py-4 bg-slate-50 rounded-2xl border border-slate-200 font-black text-xl outline-none" value={formData.distance_km || ''} onChange={e => setFormData({...formData, distance_km: Number(e.target.value)})} />
                   </div>
                 </div>
                 <div className="flex flex-col gap-2 justify-end">
-                   <button onClick={estimateDistance} className="flex-1 p-3 bg-slate-900 text-white rounded-2xl font-black text-sm flex items-center justify-center gap-2 hover:bg-slate-800 transition-all">
-                      {loadingDist ? <Loader2 className="animate-spin" size={18}/> : <Navigation size={18}/>} Sugerir Distância
+                   <button onClick={estimateDistance} className="flex-1 p-3 bg-slate-900 text-white rounded-2xl font-black text-sm flex items-center gap-2 hover:bg-slate-800 transition-all">
+                      {loadingDist ? <Loader2 className="animate-spin" size={18}/> : <Navigation size={18}/>} Estimar KM
                    </button>
                    <button onClick={openGoogleMapsRoute} className="flex-1 p-3 border-2 border-primary-600 text-primary-600 rounded-2xl font-black text-sm flex items-center justify-center gap-2 hover:bg-primary-50 transition-all">
-                      <MapIcon size={18}/> Abrir Maps
+                      <MapIcon size={18}/> Rota no Maps
                    </button>
                 </div>
               </div>
 
-              {/* Financeiro: Frete e Comissão */}
               <div className="bg-slate-50 p-6 rounded-[2.5rem] border border-slate-200 space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-xs font-black uppercase text-slate-400 ml-1">Valor do Frete (R$)</label>
-                    <input type="number" placeholder="0.00" className="w-full p-4 bg-white rounded-2xl border border-slate-200 font-black text-xl text-primary-600 outline-none focus:ring-2 focus:ring-primary-500" value={formData.agreed_price || ''} onChange={e => setFormData({...formData, agreed_price: Number(e.target.value)})} />
+                    <label className="text-xs font-black uppercase text-slate-400 ml-1">Frete (R$)</label>
+                    <input type="number" placeholder="0.00" className="w-full p-4 bg-white rounded-2xl border border-slate-200 font-black text-xl text-primary-600 outline-none" value={formData.agreed_price || ''} onChange={e => setFormData({...formData, agreed_price: Number(e.target.value)})} />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-black uppercase text-slate-400 ml-1">Comissão Motorista (%)</label>
-                    <div className="relative">
-                      <Percent className="absolute right-4 top-4 text-slate-400" size={20}/>
-                      <input type="number" placeholder="10" className="w-full p-4 bg-white rounded-2xl border border-slate-200 font-black text-xl text-amber-600 outline-none focus:ring-2 focus:ring-amber-500" value={formData.driver_commission_percentage} onChange={e => setFormData({...formData, driver_commission_percentage: Number(e.target.value)})} />
-                    </div>
+                    <label className="text-xs font-black uppercase text-slate-400 ml-1">Comissão (%)</label>
+                    <input type="number" className="w-full p-4 bg-white rounded-2xl border border-slate-200 font-black text-xl text-amber-600 outline-none" value={formData.driver_commission_percentage} onChange={e => setFormData({...formData, driver_commission_percentage: Number(e.target.value)})} />
                   </div>
                 </div>
-                {formData.agreed_price > 0 && (
-                  <div className="flex justify-between items-center pt-2 border-t border-slate-200 px-2">
-                    <span className="text-xs font-bold text-slate-500">Valor Comissão:</span>
-                    <span className="text-sm font-black text-amber-700">R$ {(formData.agreed_price * (formData.driver_commission_percentage / 100)).toLocaleString()}</span>
-                  </div>
-                )}
               </div>
 
-              {/* Veículo e Data */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-xs font-black uppercase text-slate-400 ml-1">Veículo</label>
                   <select className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-200 font-bold outline-none" value={formData.vehicle_id} onChange={e => setFormData({...formData, vehicle_id: e.target.value})}>
                     <option value="">Selecionar...</option>
-                    {vehicles.map(v => <option key={v.id} value={v.id}>{v.plate} - {v.model}</option>)}
+                    {vehicles.map(v => <option key={v.id} value={v.id}>{v.plate}</option>)}
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-black uppercase text-slate-400 ml-1">Data de Saída</label>
+                  <label className="text-xs font-black uppercase text-slate-400 ml-1">Data</label>
                   <input type="date" className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-200 font-bold outline-none" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} />
                 </div>
               </div>
 
-              <button disabled={isSaving} onClick={handleSave} className="w-full py-5 bg-primary-600 text-white rounded-[2rem] font-black text-xl shadow-xl hover:bg-primary-700 active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50">
-                 {isSaving ? <Loader2 className="animate-spin"/> : <Truck/>} Salvar Viagem e Iniciar
+              <button disabled={isSaving} onClick={handleSave} className="w-full py-5 bg-primary-600 text-white rounded-[2rem] font-black text-xl shadow-xl hover:bg-primary-700 active:scale-95 transition-all flex items-center justify-center gap-3">
+                 {isSaving ? <Loader2 className="animate-spin"/> : <Truck/>} Confirmar Viagem
               </button>
             </div>
           </div>
