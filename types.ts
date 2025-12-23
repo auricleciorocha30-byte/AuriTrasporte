@@ -6,7 +6,9 @@ export enum AppView {
   CALCULATOR = 'CALCULATOR',
   VEHICLES = 'VEHICLES',
   MAINTENANCE = 'MAINTENANCE',
-  BACKUP = 'BACKUP'
+  BACKUP = 'BACKUP',
+  JORNADA = 'JORNADA',
+  STATIONS = 'STATIONS'
 }
 
 export enum TripStatus {
@@ -31,7 +33,7 @@ export interface MaintenanceItem {
   part_name: string;
   km_at_purchase: number;
   warranty_months: number;
-  warranty_km: number; // Nova coluna solicitada
+  warranty_km: number;
   purchase_date: string;
   cost: number;
   user_id?: string;
@@ -41,6 +43,7 @@ export interface Trip {
   id: string;
   origin: string;
   destination: string;
+  stops?: string[]; // Novos destinos/paradas
   distance_km: number;
   agreed_price: number;
   driver_commission_percentage: number;
