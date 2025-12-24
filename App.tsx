@@ -172,6 +172,73 @@ const App: React.FC = () => {
     setIsMobileMenuOpen(false);
   };
 
+  // Funções de CRUD com tratamento de erros e limpeza de dados
+  const handleAddTrip = async (tripData: any) => {
+    setIsSaving(true);
+    try {
+      // Limpeza de campos: converte strings vazias de FKs em null
+      const cleanTrip = {
+        ...tripData,
+        user_id: session.user.id,
+        vehicle_id: tripData.vehicle_id === "" ? null : tripData.vehicle_id
+      };
+      
+      const { error } = await supabase.from('trips').insert([cleanTrip]);
+      if (error) throw error;
+      
+      await fetchData();
+    } catch (err: any) {
+      alert("Erro ao salvar viagem: " + err.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleUpdateTripStatus = async (id: string, status: TripStatus) => {
+    setIsSaving(true);
+    try {
+      const { error } = await supabase.from('trips').update({ status }).eq('id', id);
+      if (error) throw error;
+      await fetchData();
+    } catch (err: any) {
+      alert("Erro ao atualizar status: " + err.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteTrip = async (id: string) => {
+    if (!window.confirm("Deseja realmente excluir esta viagem?")) return;
+    setIsSaving(true);
+    try {
+      const { error } = await supabase.from('trips').delete().eq('id', id);
+      if (error) throw error;
+      await fetchData();
+    } catch (err: any) {
+      alert("Erro ao excluir: " + err.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleAddExpense = async (expenseData: any) => {
+    setIsSaving(true);
+    try {
+      const cleanExpense = {
+        ...expenseData,
+        user_id: session.user.id,
+        trip_id: expenseData.trip_id === "" ? null : expenseData.trip_id
+      };
+      const { error } = await supabase.from('expenses').insert([cleanExpense]);
+      if (error) throw error;
+      await fetchData();
+    } catch (err: any) {
+      alert("Erro ao salvar despesa: " + err.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <div className="flex h-screen bg-slate-50 font-sans overflow-hidden">
       <aside className={`fixed md:relative z-40 w-64 h-full bg-slate-900 text-slate-300 p-4 transition-transform duration-300 ease-in-out ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
@@ -265,10 +332,27 @@ const App: React.FC = () => {
           ) : (
             <>
               {currentView === AppView.DASHBOARD && <Dashboard trips={trips} expenses={expenses} />}
-              {currentView === AppView.TRIPS && <TripManager trips={trips.filter(t => t.origin.includes(searchTerm) || t.destination.includes(searchTerm))} vehicles={vehicles} onAddTrip={async (t) => {await supabase.from('trips').insert([{...t, user_id: session.user.id}]); fetchData();}} onUpdateStatus={async (id, status) => {await supabase.from('trips').update({status}).eq('id', id); fetchData();}} onDeleteTrip={async (id) => {await supabase.from('trips').delete().eq('id', id); fetchData();}} />}
+              {currentView === AppView.TRIPS && (
+                <TripManager 
+                  trips={trips.filter(t => t.origin.includes(searchTerm) || t.destination.includes(searchTerm))} 
+                  vehicles={vehicles} 
+                  onAddTrip={handleAddTrip} 
+                  onUpdateStatus={handleUpdateTripStatus} 
+                  onDeleteTrip={handleDeleteTrip} 
+                  isSaving={isSaving}
+                />
+              )}
               {currentView === AppView.VEHICLES && <VehicleManager vehicles={vehicles} onAddVehicle={async (v) => {await supabase.from('vehicles').insert([{...v, user_id: session.user.id}]); fetchData();}} onDeleteVehicle={async (id) => {await supabase.from('vehicles').delete().eq('id', id); fetchData();}} />}
               {currentView === AppView.MAINTENANCE && <MaintenanceManager maintenance={maintenance} vehicles={vehicles} onAddMaintenance={async (m) => {await supabase.from('maintenance').insert([{...m, user_id: session.user.id}]); fetchData();}} onDeleteMaintenance={async (id) => {await supabase.from('maintenance').delete().eq('id', id); fetchData();}} />}
-              {currentView === AppView.EXPENSES && <ExpenseManager expenses={expenses} trips={trips} onAddExpense={async (e) => {await supabase.from('expenses').insert([{...e, user_id: session.user.id}]); fetchData();}} onDeleteExpense={async (id) => {await supabase.from('expenses').delete().eq('id', id); fetchData();}} />}
+              {currentView === AppView.EXPENSES && (
+                <ExpenseManager 
+                  expenses={expenses} 
+                  trips={trips} 
+                  onAddExpense={handleAddExpense} 
+                  onDeleteExpense={async (id) => {await supabase.from('expenses').delete().eq('id', id); fetchData();}} 
+                  isSaving={isSaving}
+                />
+              )}
               {currentView === AppView.CALCULATOR && <FreightCalculator />}
               {currentView === AppView.JORNADA && (
                 <JornadaManager 
