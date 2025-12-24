@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, Truck, Wallet, Calculator, Menu, X, LogOut, Bell, Search, Database, CheckSquare, Settings, Lock, User as UserIcon, Loader2, AlertCircle, Timer, Fuel, Sparkles } from 'lucide-react';
+import { LayoutDashboard, Truck, Wallet, Calculator, Menu, X, LogOut, Bell, Search, Database, CheckSquare, Settings, Lock, User as UserIcon, Loader2, AlertCircle, Timer, Fuel, Sparkles, Printer, Share2 } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { TripManager } from './components/TripManager';
 import { ExpenseManager } from './components/ExpenseManager';
@@ -188,6 +188,10 @@ const App: React.FC = () => {
     }
   };
 
+  const handlePrint = () => {
+    window.print();
+  };
+
   if (!session) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6 animate-fade-in">
@@ -271,7 +275,7 @@ const App: React.FC = () => {
           </div>
           <button onClick={() => setIsMobileMenuOpen(false)} className="md:hidden p-1 text-slate-500"><X size={20} /></button>
         </div>
-        <nav className="space-y-1 overflow-y-auto max-h-[calc(100vh-180px)]">
+        <nav className="space-y-1 overflow-y-auto max-h-[calc(100vh-220px)]">
           <MenuBtn icon={LayoutDashboard} label="Dashboard" active={currentView === AppView.DASHBOARD} onClick={() => setCurrentView(AppView.DASHBOARD)} />
           <MenuBtn icon={Truck} label="Viagens" active={currentView === AppView.TRIPS} onClick={() => setCurrentView(AppView.TRIPS)} />
           <MenuBtn icon={Settings} label="Veículos" active={currentView === AppView.VEHICLES} onClick={() => setCurrentView(AppView.VEHICLES)} />
@@ -282,8 +286,18 @@ const App: React.FC = () => {
           <MenuBtn icon={Timer} label="Jornada" active={currentView === AppView.JORNADA} onClick={() => setCurrentView(AppView.JORNADA)} />
           <MenuBtn icon={Fuel} label="Postos Próximos" active={currentView === AppView.STATIONS} onClick={() => setCurrentView(AppView.STATIONS)} />
         </nav>
-        <div className="absolute bottom-6 left-4 right-4">
-          <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-rose-400 hover:bg-rose-500/10 transition-all font-bold">
+        
+        <div className="absolute bottom-6 left-4 right-4 space-y-2">
+          <button 
+            onClick={handlePrint} 
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-primary-400 hover:bg-primary-500/10 transition-all font-bold text-sm"
+          >
+            <Printer size={20} /> <span>Relatório / PDF</span>
+          </button>
+          <button 
+            onClick={handleLogout} 
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-rose-400 hover:bg-rose-500/10 transition-all font-bold text-sm"
+          >
             <LogOut size={20} /> <span>Sair</span>
           </button>
         </div>

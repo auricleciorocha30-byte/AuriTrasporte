@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="pt-BR">
   <head>
@@ -37,11 +38,11 @@
     </script>
     <style>
       :root {
-        font-size: 18px; /* Aumentado de 16px para 18px para melhor visibilidade */
+        font-size: 18px;
       }
       @media (max-width: 768px) {
         :root {
-          font-size: 16px; /* Ajuste para mobile para não ficar excessivo */
+          font-size: 16px;
         }
       }
       body { 
@@ -56,20 +57,48 @@
       .safe-top { padding-top: env(safe-area-inset-top); }
       .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
       
-      @keyframes slideLeft {
-        from { transform: translateX(0); }
-        to { transform: translateX(-100%); }
-      }
-      
       @keyframes fadeIn {
         from { opacity: 0; transform: translateY(10px); }
         to { opacity: 1; transform: translateY(0); }
       }
       .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
       
-      /* Ajuste fino em inputs e selects para acompanhar a fonte maior */
       input, select, button {
         font-size: 1rem;
+      }
+
+      /* Estilos para Impressão / PDF */
+      @media print {
+        aside, header, button, .no-print, [role="button"], select {
+          display: none !important;
+        }
+        main {
+          margin: 0 !important;
+          padding: 0 !important;
+          width: 100% !important;
+          background: white !important;
+        }
+        .overflow-y-auto {
+          overflow: visible !important;
+          height: auto !important;
+        }
+        body {
+          background: white !important;
+        }
+        .bg-slate-50, .bg-slate-900 {
+          background: white !important;
+          color: black !important;
+        }
+        .text-white {
+          color: black !important;
+        }
+        .shadow-sm, .shadow-xl, .shadow-2xl {
+          box-shadow: none !important;
+          border: 1px solid #e2e8f0 !important;
+        }
+        .rounded-3xl, .rounded-[2.5rem] {
+          border-radius: 8px !important;
+        }
       }
     </style>
   <script type="importmap">
