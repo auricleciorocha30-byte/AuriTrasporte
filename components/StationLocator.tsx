@@ -88,13 +88,21 @@ export const StationLocator: React.FC = () => {
       const queryText = `${queryLabel} ${locationContext}`;
       setLastQuery(queryText);
 
-      const config: any = { tools: [{googleMaps: {}}] };
+      // Ensure config follows maps grounding rules
+      const config: any = { 
+        tools: [{googleMaps: {}}],
+      };
       if (latitude && longitude) {
-        config.toolConfig = { retrievalConfig: { latLng: { latitude, longitude } } };
+        config.toolConfig = { 
+          retrievalConfig: { 
+            latLng: { latitude, longitude } 
+          } 
+        };
       }
 
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        // Use correct Gemini 2.5 model for maps grounding
+        model: "gemini-2.5-flash-lite-latest",
         contents: `Encontre ${queryText}`,
         config: config,
       });

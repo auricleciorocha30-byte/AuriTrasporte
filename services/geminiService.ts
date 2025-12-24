@@ -14,14 +14,14 @@ export const getDistanceEstimation = async (origin: string, destination: string,
     routeDescription += `Destino Final: ${destination}`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      // Use the latest model and the correct generateContent pattern
+      model: 'gemini-2.5-flash-lite-latest',
       contents: `Calcule a distância total de condução rodoviária (em quilômetros) para a seguinte rota completa no Brasil:\n\n${routeDescription}\n\nRetorne APENAS o número total de quilômetros, sem texto adicional.`,
       config: {
         tools: [{ googleMaps: {} }],
       },
     });
 
-    // Fix: access .text property directly
     const text = response.text || "";
     // Remove caracteres não numéricos mas mantém o número (ex: "1.250 km" -> 1250)
     const kmStr = text.replace(/[^\d]/g, '');
@@ -44,6 +44,7 @@ export const getFinancialInsights = async (trips: Trip[], expenses: Expense[]): 
     });
 
     const response = await ai.models.generateContent({
+      // Use the specified model for text tasks
       model: 'gemini-3-flash-preview',
       contents: `
         Atue como um consultor financeiro especialista em logística e transporte rodoviário de cargas no Brasil.
@@ -63,7 +64,6 @@ export const getFinancialInsights = async (trips: Trip[], expenses: Expense[]): 
       }
     });
 
-    // Fix: access .text property directly
     return response.text || "Não foi possível gerar insights no momento.";
   } catch (error) {
     console.error("Error fetching insights:", error);
@@ -74,7 +74,6 @@ export const getFinancialInsights = async (trips: Trip[], expenses: Expense[]): 
 export const getSmartFreightEstimation = async (params: ANTTParams): Promise<{ minPrice: number, marketPrice: number, reasoning: string }> => {
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    // Fix: Handle optional tollCost property with default value
     const prompt = `
       Você é uma calculadora inteligente de fretes baseada na tabela da ANTT do Brasil.
       
@@ -89,7 +88,8 @@ export const getSmartFreightEstimation = async (params: ANTTParams): Promise<{ m
     `;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      // Use specified model for coding/reasoning tasks
+      model: 'gemini-3-pro-preview',
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -104,12 +104,10 @@ export const getSmartFreightEstimation = async (params: ANTTParams): Promise<{ m
       }
     });
 
-    // Fix: access .text property directly
     const text = response.text;
     if (!text) throw new Error("Sem resposta da IA");
     return JSON.parse(text);
   } catch (error) {
-    // Fix: Handle optional tollCost and otherCosts properties in fallback calculation
     const baseRate = 1.2 * params.axles;
     const cost = (params.distance * baseRate) + (params.tollCost || 0) + (params.otherCosts || 0);
     return {
