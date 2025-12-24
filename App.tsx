@@ -61,9 +61,12 @@ const App: React.FC = () => {
     if (session?.user) fetchData();
   }, [session]);
 
-  useEffect(() => {
-    localStorage.setItem('aurilog_dismissed_notifications', JSON.stringify(dismissedIds));
-  }, [dismissedIds]);
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setSession(null);
+    setCurrentView(AppView.DASHBOARD);
+    window.location.reload(); // Garante limpeza total do estado
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -120,13 +123,18 @@ const App: React.FC = () => {
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthLoading(true);
+    setError('');
     try {
+      let res;
       if (isSignUp) {
-        await supabase.auth.signUp({ email, password });
+        res = await supabase.auth.signUp({ email, password });
       } else {
-        await supabase.auth.signInWithPassword({ email, password });
+        res = await supabase.auth.signInWithPassword({ email, password });
       }
-    } catch (err: any) { setError(err.message); }
+      if (res.error) throw res.error;
+    } catch (err: any) { 
+      setError(err.message); 
+    }
     finally { setAuthLoading(false); }
   };
 
@@ -159,7 +167,7 @@ const App: React.FC = () => {
           <MenuBtn icon={Database} label="Backup & Restaurar" active={currentView === AppView.BACKUP} onClick={() => handleViewChange(AppView.BACKUP)} />
         </nav>
         <div className="absolute bottom-6 left-4 right-4">
-          <button onClick={() => supabase.auth.signOut()} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-rose-400 hover:bg-rose-500/10 transition-all font-bold">
+          <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-rose-400 hover:bg-rose-500/10 transition-all font-bold">
             <LogOut size={20} /> <span>Sair</span>
           </button>
         </div>
@@ -202,14 +210,28 @@ const App: React.FC = () => {
 
         <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50">
           {!session ? (
-            <div className="flex flex-col items-center justify-center min-h-[70vh]">
-               <h1 className="text-2xl font-black mb-6">Autenticação Necessária</h1>
-               <form onSubmit={handleAuth} className="w-full max-w-sm space-y-4">
-                  <input type="email" placeholder="E-mail" className="w-full p-4 rounded-2xl border" value={email} onChange={e => setEmail(e.target.value)} />
-                  <input type="password" placeholder="Senha" className="w-full p-4 rounded-2xl border" value={password} onChange={e => setPassword(e.target.value)} />
-                  <button className="w-full p-4 bg-primary-600 text-white rounded-2xl font-bold">{isSignUp ? 'Cadastrar' : 'Entrar'}</button>
-               </form>
-               <button onClick={() => setIsSignUp(!isSignUp)} className="mt-4 text-primary-600 font-bold">{isSignUp ? 'Já tenho conta' : 'Criar nova conta'}</button>
+            <div className="flex flex-col items-center justify-center min-h-[70vh] p-4">
+               <div className="bg-white p-8 rounded-[3rem] shadow-xl w-full max-w-md border border-slate-100">
+                  <div className="flex justify-center mb-6">
+                    <Truck className="text-primary-600" size={48} />
+                  </div>
+                  <h1 className="text-2xl font-black mb-2 text-center">Bem-vindo ao AuriLog</h1>
+                  <p className="text-slate-500 text-center mb-8 font-medium">Faça login para gerenciar sua frota.</p>
+                  
+                  <form onSubmit={handleAuth} className="space-y-4">
+                      <input type="email" placeholder="E-mail" className="w-full p-4 rounded-2xl border border-slate-200 font-bold focus:ring-2 focus:ring-primary-500 outline-none" value={email} onChange={e => setEmail(e.target.value)} required />
+                      <input type="password" placeholder="Senha" className="w-full p-4 rounded-2xl border border-slate-200 font-bold focus:ring-2 focus:ring-primary-500 outline-none" value={password} onChange={e => setPassword(e.target.value)} required />
+                      
+                      {error && <p className="text-rose-500 text-sm font-bold text-center px-2">{error}</p>}
+                      
+                      <button disabled={authLoading} className="w-full p-4 bg-primary-600 text-white rounded-2xl font-black text-lg shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2">
+                        {authLoading ? <Loader2 className="animate-spin" /> : (isSignUp ? 'Criar Conta' : 'Entrar na Conta')}
+                      </button>
+                  </form>
+                  <button onClick={() => setIsSignUp(!isSignUp)} className="mt-6 w-full text-primary-600 font-bold text-sm">
+                    {isSignUp ? 'Já tem uma conta? Entre agora' : 'Não tem conta? Cadastre-se grátis'}
+                  </button>
+               </div>
             </div>
           ) : (
             <>

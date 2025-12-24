@@ -92,14 +92,14 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center px-2">
         <h2 className="text-2xl font-black">Minhas Viagens</h2>
         <button onClick={() => setIsModalOpen(true)} className="bg-primary-600 text-white px-6 py-3 rounded-2xl flex items-center gap-2 font-bold shadow-lg active:scale-95 transition-all">
           <Plus size={20} /> Nova Viagem
         </button>
       </div>
 
-      <div className="grid gap-4">
+      <div className="grid gap-4 px-2">
         {trips.map(trip => (
           <div key={trip.id} className="bg-white p-6 rounded-[2rem] border shadow-sm relative group animate-fade-in hover:border-primary-200 transition-colors">
             <div className="flex flex-col md:flex-row justify-between gap-6">
@@ -129,25 +129,25 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                   <p className="text-2xl font-black text-primary-600">R$ {trip.agreed_price.toLocaleString()}</p>
                </div>
             </div>
-            <button onClick={() => onDeleteTrip(trip.id)} className="absolute top-4 right-4 text-slate-300 hover:text-rose-500 transition-opacity opacity-0 group-hover:opacity-100"><Trash2 size={20}/></button>
+            <button onClick={() => onDeleteTrip(trip.id)} className="absolute top-4 right-4 text-slate-300 hover:text-rose-500 transition-opacity opacity-100 md:opacity-0 md:group-hover:opacity-100"><Trash2 size={20}/></button>
           </div>
         ))}
       </div>
 
       {isModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white w-full max-w-xl rounded-[3rem] p-8 shadow-2xl my-8 animate-fade-in relative">
-            <div className="flex justify-between items-center mb-8">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-start justify-center p-4 z-50 overflow-y-auto pt-10">
+          <div className="bg-white w-full max-w-xl rounded-[2.5rem] shadow-2xl animate-fade-in relative mb-10">
+            <div className="flex justify-between items-center p-8 pb-4 sticky top-0 bg-white rounded-t-[2.5rem] z-10 border-b border-slate-50">
               <h3 className="text-2xl font-black">Nova Viagem</h3>
               <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-2"><X size={28} /></button>
             </div>
             
-            <div className="space-y-6">
+            <div className="p-8 space-y-6 pt-6">
               {/* Origem */}
               <div className="space-y-1">
                 <label className="text-xs font-black uppercase text-slate-400 ml-1">Origem</label>
                 <div className="flex gap-2">
-                  <input placeholder="Cidade" className="flex-1 p-4 bg-slate-50 rounded-2xl border border-slate-200 font-bold" value={origin.city} onChange={e => setOrigin({...origin, city: e.target.value})} />
+                  <input placeholder="Cidade de Origem" className="flex-1 p-4 bg-slate-50 rounded-2xl border border-slate-200 font-bold focus:bg-white focus:ring-2 focus:ring-primary-500 outline-none transition-all" value={origin.city} onChange={e => setOrigin({...origin, city: e.target.value})} />
                   <select className="w-24 p-4 bg-slate-50 rounded-2xl border border-slate-200 font-black text-primary-700" value={origin.state} onChange={e => setOrigin({...origin, state: e.target.value})}>
                     {BRAZILIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
@@ -158,80 +158,80 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
               <div className="space-y-1">
                 <label className="text-xs font-black uppercase text-slate-400 ml-1">Destino Final</label>
                 <div className="flex gap-2">
-                  <input placeholder="Cidade" className="flex-1 p-4 bg-slate-50 rounded-2xl border border-slate-200 font-bold" value={destination.city} onChange={e => setDestination({...destination, city: e.target.value})} />
+                  <input placeholder="Cidade de Destino" className="flex-1 p-4 bg-slate-50 rounded-2xl border border-slate-200 font-bold focus:bg-white focus:ring-2 focus:ring-primary-500 outline-none transition-all" value={destination.city} onChange={e => setDestination({...destination, city: e.target.value})} />
                   <select className="w-24 p-4 bg-slate-50 rounded-2xl border border-slate-200 font-black text-primary-700" value={destination.state} onChange={e => setDestination({...destination, state: e.target.value})}>
                     {BRAZILIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
               </div>
 
-              {/* Paradas com UF */}
+              {/* Paradas */}
               <div className="space-y-2">
                 <label className="text-xs font-black uppercase text-slate-400 ml-1">Novas Paradas / Destinos</label>
                 <div className="flex gap-2">
-                  <input placeholder="Cidade" className="flex-1 p-4 bg-slate-50 rounded-2xl border border-slate-200" value={newStop.city} onChange={e => setNewStop({...newStop, city: e.target.value})} />
+                  <input placeholder="Cidade de Parada" className="flex-1 p-4 bg-slate-50 rounded-2xl border border-slate-200 font-bold" value={newStop.city} onChange={e => setNewStop({...newStop, city: e.target.value})} />
                   <select className="w-24 p-4 bg-slate-50 rounded-2xl border border-slate-200 font-bold" value={newStop.state} onChange={e => setNewStop({...newStop, state: e.target.value})}>
                     {BRAZILIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
-                  <button onClick={handleAddStop} className="p-4 bg-slate-100 rounded-2xl hover:bg-slate-200 text-primary-600"><Plus size={24}/></button>
+                  <button onClick={handleAddStop} className="p-4 bg-slate-100 rounded-2xl hover:bg-slate-200 text-primary-600 transition-all"><Plus size={24}/></button>
                 </div>
                 {stops.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-2">
                     {stops.map((s, i) => (
                       <span key={i} className="bg-primary-50 text-primary-700 px-3 py-2 rounded-xl text-xs font-black flex items-center gap-2 border border-primary-100">
-                        {s.city}/{s.state} <button onClick={() => setStops(stops.filter((_, idx) => idx !== i))}><X size={14}/></button>
+                        {s.city}/{s.state} <button onClick={() => setStops(stops.filter((_, idx) => idx !== i))} className="p-1 hover:bg-primary-200 rounded-full transition-colors"><X size={14}/></button>
                       </span>
                     ))}
                   </div>
                 )}
               </div>
 
-              {/* Distância Manual */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Distância */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
                 <div className="space-y-1">
-                  <label className="text-xs font-black uppercase text-slate-400 ml-1">Distância (KM)</label>
-                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-200 font-black text-xl outline-none" value={formData.distance_km || ''} onChange={e => setFormData({...formData, distance_km: Number(e.target.value)})} />
+                  <label className="text-xs font-black uppercase text-slate-400 ml-1">Distância Estimada (KM)</label>
+                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-200 font-black text-xl outline-none focus:bg-white" value={formData.distance_km || ''} onChange={e => setFormData({...formData, distance_km: Number(e.target.value)})} />
                 </div>
                 <div className="flex flex-col gap-2 justify-end">
-                   <button onClick={estimateDistance} className="p-3 bg-slate-900 text-white rounded-2xl font-black text-sm flex items-center justify-center gap-2">
+                   <button onClick={estimateDistance} className="p-3 bg-slate-900 text-white rounded-2xl font-black text-sm flex items-center justify-center gap-2 hover:bg-slate-800 transition-all">
                       {loadingDist ? <Loader2 className="animate-spin" size={18}/> : <Navigation size={18}/>} Estimar KM
                    </button>
-                   <button onClick={openGoogleMapsRoute} className="p-3 border-2 border-primary-600 text-primary-600 rounded-2xl font-black text-sm flex items-center justify-center gap-2">
+                   <button onClick={openGoogleMapsRoute} className="p-3 border-2 border-primary-600 text-primary-600 rounded-2xl font-black text-sm flex items-center justify-center gap-2 hover:bg-primary-50 transition-all">
                       <MapIcon size={18}/> Ver no Maps
                    </button>
                 </div>
               </div>
 
               {/* Financeiro */}
-              <div className="bg-slate-50 p-6 rounded-[2.5rem] border border-slate-200 space-y-4">
+              <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-200 space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-xs font-black uppercase text-slate-400 ml-1">Frete (R$)</label>
-                    <input type="number" className="w-full p-4 bg-white rounded-2xl border border-slate-200 font-black text-xl text-primary-600 outline-none" value={formData.agreed_price || ''} onChange={e => setFormData({...formData, agreed_price: Number(e.target.value)})} />
+                    <label className="text-xs font-black uppercase text-slate-400 ml-1">Valor do Frete (R$)</label>
+                    <input type="number" className="w-full p-4 bg-white rounded-2xl border border-slate-200 font-black text-xl text-primary-600 outline-none focus:ring-2 focus:ring-primary-500" value={formData.agreed_price || ''} onChange={e => setFormData({...formData, agreed_price: Number(e.target.value)})} />
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-black uppercase text-slate-400 ml-1">Comissão (%)</label>
-                    <input type="number" className="w-full p-4 bg-white rounded-2xl border border-slate-200 font-black text-xl text-amber-600 outline-none" value={formData.driver_commission_percentage} onChange={e => setFormData({...formData, driver_commission_percentage: Number(e.target.value)})} />
+                    <input type="number" className="w-full p-4 bg-white rounded-2xl border border-slate-200 font-black text-xl text-amber-600 outline-none focus:ring-2 focus:ring-amber-500" value={formData.driver_commission_percentage} onChange={e => setFormData({...formData, driver_commission_percentage: Number(e.target.value)})} />
                   </div>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-xs font-black uppercase text-slate-400 ml-1">Veículo</label>
-                  <select className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-200 font-bold outline-none" value={formData.vehicle_id} onChange={e => setFormData({...formData, vehicle_id: e.target.value})}>
+                  <label className="text-xs font-black uppercase text-slate-400 ml-1">Veículo Utilizado</label>
+                  <select className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-200 font-bold outline-none focus:bg-white" value={formData.vehicle_id} onChange={e => setFormData({...formData, vehicle_id: e.target.value})}>
                     <option value="">Selecionar...</option>
-                    {vehicles.map(v => <option key={v.id} value={v.id}>{v.plate}</option>)}
+                    {vehicles.map(v => <option key={v.id} value={v.id}>{v.plate} - {v.model}</option>)}
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-black uppercase text-slate-400 ml-1">Data</label>
-                  <input type="date" className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-200 font-bold outline-none" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} />
+                  <label className="text-xs font-black uppercase text-slate-400 ml-1">Data da Viagem</label>
+                  <input type="date" className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-200 font-bold outline-none focus:bg-white" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} />
                 </div>
               </div>
 
-              <button disabled={isSaving} onClick={handleSave} className="w-full py-5 bg-primary-600 text-white rounded-[2rem] font-black text-xl shadow-xl hover:bg-primary-700 active:scale-95 transition-all flex items-center justify-center gap-3">
-                 {isSaving ? <Loader2 className="animate-spin"/> : <Truck/>} Salvar Viagem
+              <button disabled={isSaving} onClick={handleSave} className="w-full py-5 bg-primary-600 text-white rounded-[1.5rem] font-black text-xl shadow-xl hover:bg-primary-700 active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50 mt-4">
+                 {isSaving ? <Loader2 className="animate-spin"/> : <Truck/>} Salvar Registro
               </button>
             </div>
           </div>
