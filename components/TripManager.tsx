@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { Trip, TripStatus, Vehicle, TripStop } from '../types';
-// Added Loader2 to the imports from lucide-react
-import { Plus, MapPin, Calendar, Truck, UserCheck, Navigation, X, Trash2, Map as MapIcon, ChevronRight, Percent, Loader2 } from 'lucide-react';
+import { Plus, MapPin, Calendar, Truck, UserCheck, Navigation, X, Trash2, Map as MapIcon, ChevronRight, Percent, Loader2, Edit2 } from 'lucide-react';
 
 interface TripManagerProps {
   trips: Trip[];
   vehicles: Vehicle[];
   onAddTrip: (trip: Omit<Trip, 'id'>) => void;
+  onUpdateTrip: (id: string, trip: Partial<Trip>) => void;
   onUpdateStatus: (id: string, status: TripStatus) => void;
   onDeleteTrip: (id: string) => void;
   isSaving?: boolean;
@@ -14,8 +15,9 @@ interface TripManagerProps {
 
 const BRAZILIAN_STATES = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'];
 
-export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAddTrip, onUpdateStatus, onDeleteTrip, isSaving }) => {
+export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAddTrip, onUpdateTrip, onUpdateStatus, onDeleteTrip, isSaving }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingTripId, setEditingTripId] = useState<string | null>(null);
   
   const [origin, setOrigin] = useState({ city: '', state: 'SP' });
   const [destination, setDestination] = useState({ city: '', state: 'SP' });
@@ -29,22 +31,57 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
     cargo_type: 'Geral',
     date: new Date().toISOString().split('T')[0],
     vehicle_id: '',
-    status: TripStatus.SCHEDULED
+    status: TripStatus.SCHEDULED,
+    notes: ''
   });
+
+  const resetForm = () => {
+    setEditingTripId(null);
+    setStops([]);
+    setOrigin({ city: '', state: 'SP' });
+    setDestination({ city: '', state: 'SP' });
+    setFormData({
+      distance_km: 0,
+      agreed_price: 0,
+      driver_commission_percentage: 10,
+      cargo_type: 'Geral',
+      date: new Date().toISOString().split('T')[0],
+      vehicle_id: '',
+      status: TripStatus.SCHEDULED,
+      notes: ''
+    });
+  };
+
+  const handleEdit = (trip: Trip) => {
+    setEditingTripId(trip.id);
+    const [origCity, origState] = trip.origin.split(' - ');
+    const [destCity, destState] = trip.destination.split(' - ');
+    
+    setOrigin({ city: origCity, state: origState || 'SP' });
+    setDestination({ city: destCity, state: destState || 'SP' });
+    setStops(trip.stops || []);
+    setFormData({
+      distance_km: trip.distance_km,
+      agreed_price: trip.agreed_price,
+      driver_commission_percentage: trip.driver_commission_percentage,
+      cargo_type: trip.cargo_type,
+      date: trip.date,
+      vehicle_id: trip.vehicle_id || '',
+      status: trip.status,
+      notes: trip.notes || ''
+    });
+    setIsModalOpen(true);
+  };
 
   const openGoogleMapsRoute = () => {
     if (!origin.city || !destination.city) return alert("Preencha origem e destino!");
-    
     const originStr = `${origin.city}, ${origin.state}, Brasil`;
     const destStr = `${destination.city}, ${destination.state}, Brasil`;
-    
     let url = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(originStr)}&destination=${encodeURIComponent(destStr)}&travelmode=driving`;
-    
     if (stops.length > 0) {
       const waypointsStr = stops.map(s => `${s.city}, ${s.state}, Brasil`).join('|');
       url += `&waypoints=${encodeURIComponent(waypointsStr)}`;
     }
-    
     window.open(url, '_blank');
   };
 
@@ -62,34 +99,29 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
     }
 
     const commValue = formData.agreed_price * (formData.driver_commission_percentage / 100);
-    await onAddTrip({
+    const payload = {
       ...formData,
       origin: `${origin.city} - ${origin.state}`,
       destination: `${destination.city} - ${destination.state}`,
       stops: stops,
       driver_commission: commValue
-    });
+    };
+
+    if (editingTripId) {
+      await onUpdateTrip(editingTripId, payload);
+    } else {
+      await onAddTrip(payload);
+    }
     
     setIsModalOpen(false);
-    setStops([]);
-    setOrigin({ city: '', state: 'SP' });
-    setDestination({ city: '', state: 'SP' });
-    setFormData({
-      distance_km: 0,
-      agreed_price: 0,
-      driver_commission_percentage: 10,
-      cargo_type: 'Geral',
-      date: new Date().toISOString().split('T')[0],
-      vehicle_id: '',
-      status: TripStatus.SCHEDULED
-    });
+    resetForm();
   };
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center px-2">
         <h2 className="text-2xl font-black text-slate-900">Minhas Viagens</h2>
-        <button onClick={() => setIsModalOpen(true)} className="bg-primary-600 text-white px-6 py-3 rounded-2xl flex items-center gap-2 font-bold shadow-lg active:scale-95 transition-all">
+        <button onClick={() => { resetForm(); setIsModalOpen(true); }} className="bg-primary-600 text-white px-6 py-3 rounded-2xl flex items-center gap-2 font-bold shadow-lg active:scale-95 transition-all">
           <Plus size={20} /> Nova Viagem
         </button>
       </div>
@@ -100,7 +132,17 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
             <div className="flex flex-col md:flex-row justify-between gap-6">
                <div className="flex-1">
                   <div className="flex items-center gap-3 mb-3">
-                    <span className={`text-[10px] font-black uppercase px-3 py-1 rounded-full ${trip.status === TripStatus.COMPLETED ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>{trip.status}</span>
+                    <select 
+                      value={trip.status} 
+                      onChange={(e) => onUpdateStatus(trip.id, e.target.value as TripStatus)}
+                      className={`text-[10px] font-black uppercase px-3 py-1 rounded-full border-none cursor-pointer focus:ring-2 focus:ring-primary-500 ${
+                        trip.status === TripStatus.COMPLETED ? 'bg-emerald-100 text-emerald-700' : 
+                        trip.status === TripStatus.IN_PROGRESS ? 'bg-blue-100 text-blue-700' :
+                        trip.status === TripStatus.CANCELLED ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-700'
+                      }`}
+                    >
+                      {Object.values(TripStatus).map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
                     <span className="text-sm font-bold text-slate-400">{new Date(trip.date).toLocaleDateString()}</span>
                   </div>
                   <h3 className="text-xl font-black text-slate-800 flex items-center gap-2 flex-wrap">
@@ -124,16 +166,30 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                   <p className="text-2xl font-black text-primary-600">R$ {trip.agreed_price.toLocaleString()}</p>
                </div>
             </div>
-            <button onClick={() => onDeleteTrip(trip.id)} className="absolute top-4 right-4 text-slate-300 hover:text-rose-500 transition-opacity opacity-100 md:opacity-0 md:group-hover:opacity-100"><Trash2 size={20}/></button>
+            
+            <div className="absolute top-4 right-4 flex items-center gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+              <button onClick={() => handleEdit(trip)} className="p-2 text-slate-400 hover:text-primary-600 transition-colors">
+                <Edit2 size={20}/>
+              </button>
+              <button onClick={() => onDeleteTrip(trip.id)} className="p-2 text-slate-400 hover:text-rose-500 transition-colors">
+                <Trash2 size={20}/>
+              </button>
+            </div>
           </div>
         ))}
+        {trips.length === 0 && (
+          <div className="text-center py-20 bg-white rounded-[2.5rem] border-2 border-dashed border-slate-200">
+            <Truck size={48} className="mx-auto text-slate-200 mb-4" />
+            <p className="text-slate-400 font-bold">Nenhuma viagem registrada.</p>
+          </div>
+        )}
       </div>
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-start justify-center p-4 z-50 overflow-y-auto">
           <div className="bg-white w-full max-w-xl rounded-[2.5rem] shadow-2xl animate-fade-in relative mt-16 mb-10 overflow-hidden">
             <div className="flex justify-between items-center p-8 pb-4 border-b border-slate-50">
-              <h3 className="text-2xl font-black">Nova Viagem</h3>
+              <h3 className="text-2xl font-black">{editingTripId ? 'Editar Viagem' : 'Nova Viagem'}</h3>
               <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-2"><X size={28} /></button>
             </div>
             
@@ -217,8 +273,13 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                 </div>
               </div>
 
+              <div className="space-y-1">
+                <label className="text-xs font-black uppercase text-slate-400 ml-1">Observações</label>
+                <textarea className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-200 font-bold outline-none focus:bg-white" rows={2} value={formData.notes} onChange={e => setFormData({...formData, notes: e.target.value})} />
+              </div>
+
               <button disabled={isSaving} onClick={handleSave} className="w-full py-5 bg-primary-600 text-white rounded-[1.5rem] font-black text-xl shadow-xl hover:bg-primary-700 active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50 mt-4">
-                 {isSaving ? <Loader2 className="animate-spin"/> : <Truck/>} Salvar Registro
+                 {isSaving ? <Loader2 className="animate-spin"/> : <Truck/>} {editingTripId ? 'Atualizar Viagem' : 'Salvar Registro'}
               </button>
             </div>
           </div>

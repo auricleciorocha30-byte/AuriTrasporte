@@ -41,7 +41,6 @@ const App: React.FC = () => {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
   
-  // Estado Global da Jornada para continuidade entre telas
   const [jornadaMode, setJornadaMode] = useState<'IDLE' | 'DRIVING' | 'RESTING'>(() => {
     return (localStorage.getItem('aurilog_jornada_mode') as any) || 'IDLE';
   });
@@ -84,6 +83,11 @@ const App: React.FC = () => {
       localStorage.removeItem('aurilog_jornada_start');
     }
   }, [jornadaMode, jornadaStartTime, jornadaLogs]);
+
+  // FIX: Persistência das notificações dispensadas
+  useEffect(() => {
+    localStorage.setItem('aurilog_dismissed_notifications', JSON.stringify(dismissedIds));
+  }, [dismissedIds]);
 
   const handleLogout = async () => {
     try {
@@ -172,36 +176,39 @@ const App: React.FC = () => {
     setIsMobileMenuOpen(false);
   };
 
-  // Funções de CRUD com tratamento de erros e limpeza de dados
   const handleAddTrip = async (tripData: any) => {
     setIsSaving(true);
     try {
-      // Limpeza de campos: converte strings vazias de FKs em null
       const cleanTrip: any = {
         ...tripData,
         user_id: session.user.id,
         vehicle_id: tripData.vehicle_id === "" ? null : tripData.vehicle_id
       };
-
-      // MELHORIA DE RESILIÊNCIA: 
-      // Se a lista de paradas estiver vazia, removemos o campo do objeto de inserção.
-      // Isso permite que o sistema funcione mesmo em bancos de dados que ainda não possuem a coluna 'stops'.
       if (!cleanTrip.stops || cleanTrip.stops.length === 0) {
         delete cleanTrip.stops;
       }
-      
       const { error } = await supabase.from('trips').insert([cleanTrip]);
-      if (error) {
-        // Se o erro for especificamente a falta da coluna 'stops', damos um aviso mais amigável
-        if (error.message.includes("column 'stops'")) {
-          throw new Error("A coluna 'stops' está faltando no seu banco. Por favor, execute o script SQL de atualização no Supabase.");
-        }
-        throw error;
-      }
-      
+      if (error) throw error;
       await fetchData();
     } catch (err: any) {
       alert("Erro ao salvar viagem: " + err.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleUpdateTrip = async (id: string, tripData: any) => {
+    setIsSaving(true);
+    try {
+      const cleanTrip: any = {
+        ...tripData,
+        vehicle_id: tripData.vehicle_id === "" ? null : tripData.vehicle_id
+      };
+      const { error } = await supabase.from('trips').update(cleanTrip).eq('id', id);
+      if (error) throw error;
+      await fetchData();
+    } catch (err: any) {
+      alert("Erro ao atualizar viagem: " + err.message);
     } finally {
       setIsSaving(false);
     }
@@ -328,7 +335,9 @@ const App: React.FC = () => {
                   <p className="text-slate-500 text-center mb-8 font-medium">Faça login para gerenciar sua frota.</p>
                   
                   <form onSubmit={handleAuth} className="space-y-4">
+                      {/* Fixed: Use e.target.value instead of undefined target.value */}
                       <input type="email" placeholder="E-mail" className="w-full p-4 rounded-2xl border border-slate-200 font-bold focus:ring-2 focus:ring-primary-500 outline-none" value={email} onChange={e => setEmail(e.target.value)} required />
+                      {/* Fixed: Use e.target.value instead of undefined target.value */}
                       <input type="password" placeholder="Senha" className="w-full p-4 rounded-2xl border border-slate-200 font-bold focus:ring-2 focus:ring-primary-500 outline-none" value={password} onChange={e => setPassword(e.target.value)} required />
                       
                       {error && <p className="text-rose-500 text-sm font-bold text-center px-2">{error}</p>}
@@ -347,9 +356,10 @@ const App: React.FC = () => {
               {currentView === AppView.DASHBOARD && <Dashboard trips={trips} expenses={expenses} />}
               {currentView === AppView.TRIPS && (
                 <TripManager 
-                  trips={trips.filter(t => t.origin.includes(searchTerm) || t.destination.includes(searchTerm))} 
+                  trips={trips.filter(t => t.origin.toLowerCase().includes(searchTerm.toLowerCase()) || t.destination.toLowerCase().includes(searchTerm.toLowerCase()))} 
                   vehicles={vehicles} 
                   onAddTrip={handleAddTrip} 
+                  onUpdateTrip={handleUpdateTrip}
                   onUpdateStatus={handleUpdateTripStatus} 
                   onDeleteTrip={handleDeleteTrip} 
                   isSaving={isSaving}
