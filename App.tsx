@@ -177,14 +177,27 @@ const App: React.FC = () => {
     setIsSaving(true);
     try {
       // Limpeza de campos: converte strings vazias de FKs em null
-      const cleanTrip = {
+      const cleanTrip: any = {
         ...tripData,
         user_id: session.user.id,
         vehicle_id: tripData.vehicle_id === "" ? null : tripData.vehicle_id
       };
+
+      // MELHORIA DE RESILIÊNCIA: 
+      // Se a lista de paradas estiver vazia, removemos o campo do objeto de inserção.
+      // Isso permite que o sistema funcione mesmo em bancos de dados que ainda não possuem a coluna 'stops'.
+      if (!cleanTrip.stops || cleanTrip.stops.length === 0) {
+        delete cleanTrip.stops;
+      }
       
       const { error } = await supabase.from('trips').insert([cleanTrip]);
-      if (error) throw error;
+      if (error) {
+        // Se o erro for especificamente a falta da coluna 'stops', damos um aviso mais amigável
+        if (error.message.includes("column 'stops'")) {
+          throw new Error("A coluna 'stops' está faltando no seu banco. Por favor, execute o script SQL de atualização no Supabase.");
+        }
+        throw error;
+      }
       
       await fetchData();
     } catch (err: any) {
