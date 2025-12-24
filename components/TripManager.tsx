@@ -36,10 +36,17 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
 
   const openGoogleMapsRoute = () => {
     if (!origin.city || !destination.city) return alert("Preencha origem e destino!");
+    
     const originStr = `${origin.city}, ${origin.state}, Brasil`;
     const destStr = `${destination.city}, ${destination.state}, Brasil`;
-    const waypoints = stops.map(s => `${s.city}, ${s.state}, Brasil`).join('|');
-    const url = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(originStr)}&destination=${encodeURIComponent(destStr)}&waypoints=${encodeURIComponent(waypoints)}&travelmode=driving`;
+    
+    let url = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(originStr)}&destination=${encodeURIComponent(destStr)}&travelmode=driving`;
+    
+    if (stops.length > 0) {
+      const waypointsStr = stops.map(s => `${s.city}, ${s.state}, Brasil`).join('|');
+      url += `&waypoints=${encodeURIComponent(waypointsStr)}`;
+    }
+    
     window.open(url, '_blank');
   };
 
@@ -54,7 +61,6 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
     if (!origin.city || !destination.city) return alert("Preencha origem e destino para calcular.");
     setLoadingDist(true);
     try {
-      // Enviamos strings completas com Cidade, UF e País para o Maps
       const originFull = `${origin.city}, ${origin.state}, Brasil`;
       const destFull = `${destination.city}, ${destination.state}, Brasil`;
       
@@ -63,7 +69,7 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
       if (km > 0) {
         setFormData({ ...formData, distance_km: km });
       } else {
-        alert("Não foi possível calcular a distância automática. O Maps pode não ter encontrado uma rota terrestre. Por favor, insira manualmente.");
+        alert("Não foi possível calcular a distância automática. Por favor, insira manualmente.");
       }
     } catch (err) {
       console.error(err);
@@ -106,7 +112,7 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center px-2">
-        <h2 className="text-2xl font-black">Minhas Viagens</h2>
+        <h2 className="text-2xl font-black text-slate-900">Minhas Viagens</h2>
         <button onClick={() => setIsModalOpen(true)} className="bg-primary-600 text-white px-6 py-3 rounded-2xl flex items-center gap-2 font-bold shadow-lg active:scale-95 transition-all">
           <Plus size={20} /> Nova Viagem
         </button>

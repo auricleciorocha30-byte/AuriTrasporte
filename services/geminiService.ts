@@ -5,23 +5,26 @@ import { Trip, Expense, ANTTParams } from '../types';
 export const getDistanceEstimation = async (origin: string, destination: string, stops: any[]): Promise<number> => {
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const stopsText = stops.length > 0 
-      ? ` passando por estas cidades intermediárias: ${stops.map(s => `${s.city}-${s.state}`).join(', ')}` 
-      : '';
     
-    // Usamos o modelo 2.5 que suporta a ferramenta de Maps para busca real
+    // Construção de uma rota detalhada para a IA
+    let routeDescription = `Origem: ${origin}\n`;
+    if (stops && stops.length > 0) {
+      routeDescription += `Paradas intermediárias obrigatórias:\n${stops.map((s, i) => `${i + 1}. ${s.city}, ${s.state}, Brasil`).join('\n')}\n`;
+    }
+    routeDescription += `Destino Final: ${destination}`;
+
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
-      contents: `Qual a distância rodoviária real total em KM para uma viagem saindo de ${origin} com destino final em ${destination}${stopsText}? Considere o trajeto principal por rodovias brasileiras. Responda apenas o número puro do KM.`,
+      contents: `Calcule a distância total de condução rodoviária (em quilômetros) para a seguinte rota completa no Brasil:\n\n${routeDescription}\n\nRetorne APENAS o número total de quilômetros, sem texto adicional.`,
       config: {
         tools: [{ googleMaps: {} }],
-        // Não usamos schema aqui pois as regras de Maps Grounding proíbem responseMimeType/responseSchema
       },
     });
 
-    // Extrai apenas os números da resposta (ex: "450 km" -> 450)
     const text = response.text || "";
-    const km = parseInt(text.replace(/\D/g, ''));
+    // Remove caracteres não numéricos mas mantém o número (ex: "1.250 km" -> 1250)
+    const kmStr = text.replace(/[^\d]/g, '');
+    const km = parseInt(kmStr);
     
     return isNaN(km) ? 0 : km;
   } catch (error) {
