@@ -149,7 +149,7 @@ export const StationLocator: React.FC = () => {
               className="w-full md:w-auto bg-primary-600 text-white px-8 py-4 rounded-2xl font-black text-lg flex items-center justify-center gap-3 shadow-xl active:scale-95 transition-all disabled:opacity-50"
             >
               {loading ? <Loader2 className="animate-spin" /> : <MapIcon />}
-              {loading ? (statusMessage || 'Obtendo GPS...') : 'Localizar via GPS'}
+              {loading ? (statusMessage || 'Obtendo GPS...') : 'Localizar via Maps'}
             </button>
           ) : (
             <div className="w-full space-y-4 animate-fade-in bg-slate-800 p-5 rounded-[2rem] border border-slate-700">

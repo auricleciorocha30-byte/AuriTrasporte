@@ -1,8 +1,7 @@
-
 import React, { useState } from 'react';
 import { Trip, TripStatus, Vehicle, TripStop } from '../types';
-import { Plus, MapPin, Calendar, Truck, UserCheck, Navigation, RefreshCcw, X, Trash2, Loader2, Map as MapIcon, ChevronRight, Percent } from 'lucide-react';
-import { getDistanceEstimation } from '../services/geminiService';
+// Added Loader2 to the imports from lucide-react
+import { Plus, MapPin, Calendar, Truck, UserCheck, Navigation, X, Trash2, Map as MapIcon, ChevronRight, Percent, Loader2 } from 'lucide-react';
 
 interface TripManagerProps {
   trips: Trip[];
@@ -17,7 +16,6 @@ const BRAZILIAN_STATES = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 
 
 export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAddTrip, onUpdateStatus, onDeleteTrip, isSaving }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [loadingDist, setLoadingDist] = useState(false);
   
   const [origin, setOrigin] = useState({ city: '', state: 'SP' });
   const [destination, setDestination] = useState({ city: '', state: 'SP' });
@@ -54,28 +52,6 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
     if (newStop.city.trim()) {
       setStops([...stops, { ...newStop }]);
       setNewStop({ city: '', state: 'SP' });
-    }
-  };
-
-  const estimateDistance = async () => {
-    if (!origin.city || !destination.city) return alert("Preencha origem e destino para calcular.");
-    setLoadingDist(true);
-    try {
-      const originFull = `${origin.city}, ${origin.state}, Brasil`;
-      const destFull = `${destination.city}, ${destination.state}, Brasil`;
-      
-      const km = await getDistanceEstimation(originFull, destFull, stops);
-      
-      if (km > 0) {
-        setFormData({ ...formData, distance_km: km });
-      } else {
-        alert("Não foi possível calcular a distância automática. Por favor, insira manualmente.");
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Erro ao conectar com o serviço de mapas.");
-    } finally {
-      setLoadingDist(false);
     }
   };
 
@@ -208,16 +184,8 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                   <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-200 font-black text-xl outline-none focus:bg-white" value={formData.distance_km || ''} onChange={e => setFormData({...formData, distance_km: Number(e.target.value)})} />
                 </div>
                 <div className="flex flex-col gap-2 justify-end">
-                   <button 
-                     onClick={estimateDistance} 
-                     disabled={loadingDist}
-                     className={`p-3 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all ${loadingDist ? 'bg-slate-200 text-slate-500' : 'bg-slate-900 text-white hover:bg-slate-800'}`}
-                   >
-                      {loadingDist ? <Loader2 className="animate-spin" size={18}/> : <RefreshCcw size={18}/>} 
-                      {loadingDist ? 'Consultando Maps...' : 'Calcular via Maps'}
-                   </button>
-                   <button onClick={openGoogleMapsRoute} className="p-3 border-2 border-primary-600 text-primary-600 rounded-2xl font-black text-sm flex items-center justify-center gap-2 hover:bg-primary-50 transition-all">
-                      <MapIcon size={18}/> Abrir Rota GPS
+                   <button onClick={openGoogleMapsRoute} className="p-4 bg-slate-900 text-white rounded-2xl font-black text-sm flex items-center justify-center gap-2 hover:bg-slate-800 transition-all shadow-md">
+                      <MapIcon size={18}/> Abrir Rota no Maps
                    </button>
                 </div>
               </div>
