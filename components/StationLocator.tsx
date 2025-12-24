@@ -18,9 +18,19 @@ export const StationLocator: React.FC = () => {
         return;
       }
 
-      navigator.geolocation.getCurrentPosition(resolve, reject, {
+      // Primeira tentativa: Alta Precisão (Satélites)
+      navigator.geolocation.getCurrentPosition(resolve, (err) => {
+        console.warn("Falha na alta precisão, tentando fallback...", err);
+        
+        // Segunda tentativa (Fallback): Precisão baseada em rede (mais rápida e estável)
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: false,
+          timeout: 15000,
+          maximumAge: 30000 // Aceita cache de até 30 segundos
+        });
+      }, {
         enableHighAccuracy: true,
-        timeout: 10000,
+        timeout: 10000, // 10s para satélite, se não der, pula pro fallback
         maximumAge: 0
       });
     });
@@ -69,13 +79,13 @@ export const StationLocator: React.FC = () => {
       console.error("Erro na busca:", err);
       
       if (err.code === 1) { // PERMISSION_DENIED
-        setErrorMessage("Acesso ao GPS negado. Por favor, autorize a localização no seu navegador.");
+        setErrorMessage("Acesso ao GPS negado. Verifique as configurações do seu celular e autorize o navegador.");
       } else if (err.code === 3) { // TIMEOUT
-        setErrorMessage("Tempo de busca do GPS expirado. Verifique se o sinal está bom.");
-      } else if (window.location.protocol !== 'https:') {
+        setErrorMessage("O celular demorou muito para responder a localização. Tente em um local aberto.");
+      } else if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
         setErrorMessage("O GPS exige uma conexão segura (HTTPS).");
       } else {
-        setErrorMessage("Erro ao buscar serviços. Verifique se o GPS está ativado.");
+        setErrorMessage("Não foi possível obter sua localização. Verifique se o GPS está ativado.");
       }
     } finally {
       setLoading(false);
@@ -100,7 +110,7 @@ export const StationLocator: React.FC = () => {
           className="w-full md:w-auto bg-primary-600 text-white px-10 py-5 rounded-2xl font-black text-lg flex items-center justify-center gap-3 shadow-xl active:scale-95 transition-all disabled:opacity-50"
         >
           {loading ? <Loader2 className="animate-spin" /> : <Search />}
-          {loading ? 'Buscando Localização...' : 'Buscar agora'}
+          {loading ? 'Obtendo GPS...' : 'Buscar agora'}
         </button>
 
         {errorMessage && (
@@ -111,7 +121,7 @@ export const StationLocator: React.FC = () => {
         )}
       </div>
 
-      <div className="grid gap-4">
+      <div className="grid gap-4 px-2">
         {stations.map((s, i) => (
           <div key={i} className="bg-white p-6 rounded-[2rem] border shadow-sm flex justify-between items-center hover:border-primary-300 transition-all animate-fade-in">
             <div className="flex gap-4 items-center">
@@ -135,7 +145,7 @@ export const StationLocator: React.FC = () => {
         {!loading && stations.length === 0 && !errorMessage && (
           <div className="text-center py-20 bg-slate-100 rounded-[3rem] border-2 border-dashed border-slate-200">
             <MapPin size={48} className="mx-auto text-slate-300 mb-4 opacity-50" />
-            <p className="text-slate-500 font-black">Clique em buscar para localizar serviços próximos a você.</p>
+            <p className="text-slate-500 font-black">Clique em buscar para localizar serviços próximos.</p>
           </div>
         )}
       </div>
