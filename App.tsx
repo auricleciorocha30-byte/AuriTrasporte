@@ -73,20 +73,6 @@ const App: React.FC = () => {
     if (session?.user) fetchData();
   }, [session]);
 
-  useEffect(() => {
-    localStorage.setItem('aurilog_jornada_mode', jornadaMode);
-    localStorage.setItem('aurilog_jornada_logs', JSON.stringify(jornadaLogs));
-    if (jornadaStartTime) {
-      localStorage.setItem('aurilog_jornada_start', jornadaStartTime.toString());
-    } else {
-      localStorage.removeItem('aurilog_jornada_start');
-    }
-  }, [jornadaMode, jornadaStartTime, jornadaLogs]);
-
-  useEffect(() => {
-    localStorage.setItem('aurilog_dismissed_notifications', JSON.stringify(dismissedIds));
-  }, [dismissedIds]);
-
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut();
@@ -169,27 +155,24 @@ const App: React.FC = () => {
     finally { setAuthLoading(false); }
   };
 
-  const handleViewChange = (view: AppView) => {
-    setCurrentView(view);
-    setIsMobileMenuOpen(false);
-  };
-
-  const handleAddTrip = async (tripData: any) => {
+  const handleAddVehicle = async (vehData: any) => {
     setIsSaving(true);
     try {
-      const cleanTrip: any = {
-        ...tripData,
-        user_id: session.user.id,
-        vehicle_id: tripData.vehicle_id === "" ? null : tripData.vehicle_id
-      };
-      const { error } = await supabase.from('trips').insert([cleanTrip]);
+      const { error } = await supabase.from('vehicles').insert([{...vehData, user_id: session.user.id}]);
       if (error) throw error;
-      await fetchData();
-    } catch (err: any) {
-      alert("Erro ao salvar: " + err.message);
-    } finally {
-      setIsSaving(false);
-    }
+      fetchData();
+    } catch (err: any) { alert(err.message); }
+    finally { setIsSaving(false); }
+  };
+
+  const handleUpdateVehicle = async (id: string, vehData: any) => {
+    setIsSaving(true);
+    try {
+      const { error } = await supabase.from('vehicles').update(vehData).eq('id', id);
+      if (error) throw error;
+      fetchData();
+    } catch (err: any) { alert(err.message); }
+    finally { setIsSaving(false); }
   };
 
   const handleUpdateTrip = async (id: string, tripData: any) => {
@@ -205,51 +188,81 @@ const App: React.FC = () => {
     }
   };
 
-  const handleUpdateTripStatus = async (id: string, status: TripStatus) => {
-    setIsSaving(true);
-    try {
-      const { error } = await supabase.from('trips').update({ status }).eq('id', id);
-      if (error) throw error;
-      await fetchData();
-    } catch (err: any) {
-      alert("Erro: " + err.message);
-    } finally {
-      setIsSaving(false);
-    }
-  };
+  // TELA DE LOGIN (RESTAURADA)
+  if (!session) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6 animate-fade-in">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-10">
+            <div className="inline-flex p-5 bg-primary-600 rounded-[2rem] shadow-2xl mb-6">
+              <Truck size={56} className="text-white" />
+            </div>
+            <h1 className="text-4xl font-black text-white tracking-tighter uppercase italic">AuriLog</h1>
+            <p className="text-slate-400 font-bold mt-2 uppercase tracking-widest text-[10px]">Gestão Inteligente de Fretes</p>
+          </div>
+          
+          <div className="bg-white p-8 md:p-10 rounded-[2.5rem] shadow-2xl border border-white/10">
+            <h2 className="text-2xl font-black text-slate-800 mb-8">
+              {isSignUp ? 'Criar nova conta' : 'Entrar na plataforma'}
+            </h2>
+            
+            <form onSubmit={handleAuth} className="space-y-5">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Seu E-mail</label>
+                <input 
+                  type="email" 
+                  placeholder="exemplo@email.com" 
+                  className="w-full p-4 rounded-2xl border border-slate-200 font-bold outline-none focus:ring-2 focus:ring-primary-500 transition-all bg-slate-50 focus:bg-white" 
+                  value={email} 
+                  onChange={e => setEmail(e.target.value)} 
+                  required 
+                />
+              </div>
+              
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Sua Senha</label>
+                <input 
+                  type="password" 
+                  placeholder="••••••••" 
+                  className="w-full p-4 rounded-2xl border border-slate-200 font-bold outline-none focus:ring-2 focus:ring-primary-500 transition-all bg-slate-50 focus:bg-white" 
+                  value={password} 
+                  onChange={e => setPassword(e.target.value)} 
+                  required 
+                />
+              </div>
 
-  const handleDeleteTrip = async (id: string) => {
-    if (!window.confirm("Deseja excluir esta viagem?")) return;
-    setIsSaving(true);
-    try {
-      const { error } = await supabase.from('trips').delete().eq('id', id);
-      if (error) throw error;
-      await fetchData();
-    } catch (err: any) {
-      alert("Erro: " + err.message);
-    } finally {
-      setIsSaving(false);
-    }
-  };
+              {error && (
+                <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl flex items-center gap-3 text-rose-600">
+                  <AlertCircle size={18} />
+                  <p className="text-xs font-bold">{error}</p>
+                </div>
+              )}
 
-  const handleAddExpense = async (expenseData: any) => {
-    setIsSaving(true);
-    try {
-      const cleanExpense = {
-        ...expenseData,
-        user_id: session.user.id,
-        trip_id: expenseData.trip_id === "" ? null : expenseData.trip_id
-      };
-      const { error } = await supabase.from('expenses').insert([cleanExpense]);
-      if (error) throw error;
-      await fetchData();
-    } catch (err: any) {
-      alert("Erro ao salvar: " + err.message);
-    } finally {
-      setIsSaving(false);
-    }
-  };
+              <button 
+                disabled={authLoading} 
+                className="w-full py-5 bg-primary-600 text-white rounded-2xl font-black text-lg shadow-xl hover:bg-primary-700 active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+              >
+                {authLoading ? <Loader2 className="animate-spin" /> : (isSignUp ? 'Criar Conta' : 'Acessar Painel')}
+              </button>
+            </form>
 
+            <button 
+              onClick={() => { setIsSignUp(!isSignUp); setError(''); }} 
+              className="mt-8 w-full text-slate-400 font-bold text-sm hover:text-primary-600 transition-colors"
+            >
+              {isSignUp ? 'Já tem uma conta? Entre agora' : 'Não tem conta? Cadastre-se gratuitamente'}
+            </button>
+          </div>
+
+          <p className="text-center mt-10 text-slate-500 text-[10px] font-bold uppercase tracking-widest opacity-50">
+            AuriLog &copy; 2024 - Sistema Profissional
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // TELA PRINCIPAL (APP)
   return (
     <div className="flex h-screen bg-slate-50 font-sans overflow-hidden">
       <aside className={`fixed md:relative z-40 w-64 h-full bg-slate-900 text-slate-300 p-4 transition-transform duration-300 ease-in-out ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
@@ -261,17 +274,15 @@ const App: React.FC = () => {
           <button onClick={() => setIsMobileMenuOpen(false)} className="md:hidden p-1 text-slate-500"><X size={20} /></button>
         </div>
         <nav className="space-y-1 overflow-y-auto max-h-[calc(100vh-180px)]">
-          <MenuBtn icon={LayoutDashboard} label="Dashboard" active={currentView === AppView.DASHBOARD} onClick={() => handleViewChange(AppView.DASHBOARD)} />
-          <MenuBtn icon={Truck} label="Viagens" active={currentView === AppView.TRIPS} onClick={() => handleViewChange(AppView.TRIPS)} />
-          <MenuBtn icon={Settings} label="Veículos" active={currentView === AppView.VEHICLES} onClick={() => handleViewChange(AppView.VEHICLES)} />
-          <MenuBtn icon={CheckSquare} label="Manutenções" active={currentView === AppView.MAINTENANCE} onClick={() => handleViewChange(AppView.MAINTENANCE)} />
-          <MenuBtn icon={Wallet} label="Despesas" active={currentView === AppView.EXPENSES} onClick={() => handleViewChange(AppView.EXPENSES)} />
+          <MenuBtn icon={LayoutDashboard} label="Dashboard" active={currentView === AppView.DASHBOARD} onClick={() => setCurrentView(AppView.DASHBOARD)} />
+          <MenuBtn icon={Truck} label="Viagens" active={currentView === AppView.TRIPS} onClick={() => setCurrentView(AppView.TRIPS)} />
+          <MenuBtn icon={Settings} label="Veículos" active={currentView === AppView.VEHICLES} onClick={() => setCurrentView(AppView.VEHICLES)} />
+          <MenuBtn icon={CheckSquare} label="Manutenções" active={currentView === AppView.MAINTENANCE} onClick={() => setCurrentView(AppView.MAINTENANCE)} />
+          <MenuBtn icon={Wallet} label="Despesas" active={currentView === AppView.EXPENSES} onClick={() => setCurrentView(AppView.EXPENSES)} />
           <div className="h-px bg-slate-800 my-4"></div>
-          <MenuBtn icon={Calculator} label="Frete ANTT" active={currentView === AppView.CALCULATOR} onClick={() => handleViewChange(AppView.CALCULATOR)} />
-          <MenuBtn icon={Timer} label="Jornada" active={currentView === AppView.JORNADA} onClick={() => handleViewChange(AppView.JORNADA)} />
-          <MenuBtn icon={Fuel} label="Postos Próximos" active={currentView === AppView.STATIONS} onClick={() => handleViewChange(AppView.STATIONS)} />
-          <div className="h-px bg-slate-800 my-4"></div>
-          <MenuBtn icon={Database} label="Backup & Restaurar" active={currentView === AppView.BACKUP} onClick={() => handleViewChange(AppView.BACKUP)} />
+          <MenuBtn icon={Calculator} label="Frete ANTT" active={currentView === AppView.CALCULATOR} onClick={() => setCurrentView(AppView.CALCULATOR)} />
+          <MenuBtn icon={Timer} label="Jornada" active={currentView === AppView.JORNADA} onClick={() => setCurrentView(AppView.JORNADA)} />
+          <MenuBtn icon={Fuel} label="Postos Próximos" active={currentView === AppView.STATIONS} onClick={() => setCurrentView(AppView.STATIONS)} />
         </nav>
         <div className="absolute bottom-6 left-4 right-4">
           <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-rose-400 hover:bg-rose-500/10 transition-all font-bold">
@@ -288,87 +299,49 @@ const App: React.FC = () => {
             <input type="text" placeholder="Pesquisar..." className="w-full pl-10 pr-4 py-2 bg-slate-100 rounded-full focus:ring-2 focus:ring-primary-500 text-sm" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
           </div>
           <div className="flex items-center gap-4">
-            <div className="relative">
-              <button onClick={() => setShowNotifications(!showNotifications)} className="p-2 text-slate-500 hover:bg-slate-100 rounded-full relative transition-colors">
-                <Bell size={22} />
-                {notifications.length > 0 && <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white"></span>}
-              </button>
-              {showNotifications && (
-                <div className="absolute right-0 mt-2 w-80 bg-white shadow-2xl rounded-2xl border border-slate-100 p-4 z-50 animate-fade-in">
-                  <div className="flex justify-between items-center mb-4">
-                    <h4 className="font-bold text-slate-900 text-lg">Notificações</h4>
-                    <button onClick={() => setShowNotifications(false)} className="text-slate-400"><X size={18}/></button>
-                  </div>
-                  <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
-                    {notifications.length === 0 ? (
-                      <p className="text-center py-8 text-sm text-slate-400">Sem notificações.</p>
-                    ) : notifications.map((n) => (
-                      <div key={n.id} className={`p-4 rounded-2xl border ${n.type === 'warning' ? 'bg-amber-50 border-amber-100' : 'bg-blue-50 border-blue-100'}`}>
-                        <div className="flex justify-between items-start mb-1">
-                          <p className="text-xs font-black uppercase text-slate-400">{n.title}</p>
-                          <button onClick={() => {
-                            setDismissedIds(prev => [...prev, n.id]);
-                            setNotifications(prev => prev.filter(x => x.id !== n.id));
-                          }} className="text-slate-400 hover:text-slate-600 transition-colors">
-                            <X size={14}/>
-                          </button>
-                        </div>
-                        <p className="text-sm font-bold text-slate-800 leading-tight">{n.msg}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
+            <button onClick={() => setShowNotifications(!showNotifications)} className="p-2 text-slate-500 hover:bg-slate-100 rounded-full relative">
+              <Bell size={22} />
+              {notifications.length > 0 && <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white"></span>}
+            </button>
           </div>
         </header>
 
         <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50">
-          {!session ? (
-            <div className="flex flex-col items-center justify-center min-h-[70vh] p-4">
-               <div className="bg-white p-8 rounded-[3rem] shadow-xl w-full max-w-md border border-slate-100">
-                  <div className="flex justify-center mb-6">
-                    <Truck className="text-primary-600" size={48} />
-                  </div>
-                  <h1 className="text-2xl font-black mb-2 text-center">AuriLog</h1>
-                  <p className="text-slate-500 text-center mb-8 font-medium">Faça login para gerenciar sua frota.</p>
-                  
-                  <form onSubmit={handleAuth} className="space-y-4">
-                      <input type="email" placeholder="E-mail" className="w-full p-4 rounded-2xl border border-slate-200 font-bold focus:ring-2 focus:ring-primary-500 outline-none" value={email} onChange={e => setEmail(e.target.value)} required />
-                      <input type="password" placeholder="Senha" className="w-full p-4 rounded-2xl border border-slate-200 font-bold focus:ring-2 focus:ring-primary-500 outline-none" value={password} onChange={e => setPassword(e.target.value)} required />
-                      {error && <p className="text-rose-500 text-sm font-bold text-center px-2">{error}</p>}
-                      <button disabled={authLoading} className="w-full p-4 bg-primary-600 text-white rounded-2xl font-black text-lg shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2">
-                        {authLoading ? <Loader2 className="animate-spin" /> : (isSignUp ? 'Criar Conta' : 'Entrar')}
-                      </button>
-                  </form>
-                  <button onClick={() => setIsSignUp(!isSignUp)} className="mt-6 w-full text-primary-600 font-bold text-sm">
-                    {isSignUp ? 'Já tem conta? Entre agora' : 'Não tem conta? Cadastre-se grátis'}
-                  </button>
-               </div>
+          {loading ? (
+            <div className="flex flex-col items-center justify-center h-full gap-4">
+              <Loader2 className="animate-spin text-primary-600" size={48} />
+              <p className="font-bold text-slate-400 uppercase tracking-widest text-xs">Carregando seus dados...</p>
             </div>
           ) : (
             <>
               {currentView === AppView.DASHBOARD && <Dashboard trips={trips} expenses={expenses} />}
               {currentView === AppView.TRIPS && (
                 <TripManager 
-                  trips={trips.filter(t => t.origin.toLowerCase().includes(searchTerm.toLowerCase()) || t.destination.toLowerCase().includes(searchTerm.toLowerCase()))} 
+                  trips={trips} 
                   vehicles={vehicles} 
-                  onAddTrip={handleAddTrip} 
+                  onAddTrip={async (t) => { await supabase.from('trips').insert([{...t, user_id: session.user.id}]); fetchData(); }} 
                   onUpdateTrip={handleUpdateTrip}
-                  onUpdateStatus={handleUpdateTripStatus} 
-                  onDeleteTrip={handleDeleteTrip} 
+                  onUpdateStatus={async (id, s) => { await supabase.from('trips').update({status: s}).eq('id', id); fetchData(); }} 
+                  onDeleteTrip={async (id) => { if(confirm("Excluir?")) {await supabase.from('trips').delete().eq('id', id); fetchData();} }} 
                   isSaving={isSaving}
                 />
               )}
-              {currentView === AppView.VEHICLES && <VehicleManager vehicles={vehicles} onAddVehicle={async (v) => {await supabase.from('vehicles').insert([{...v, user_id: session.user.id}]); fetchData();}} onDeleteVehicle={async (id) => {await supabase.from('vehicles').delete().eq('id', id); fetchData();}} />}
+              {currentView === AppView.VEHICLES && (
+                <VehicleManager 
+                  vehicles={vehicles} 
+                  onAddVehicle={handleAddVehicle} 
+                  onUpdateVehicle={handleUpdateVehicle}
+                  onDeleteVehicle={async (id) => { if(confirm("Excluir?")) {await supabase.from('vehicles').delete().eq('id', id); fetchData();} }}
+                  isSaving={isSaving}
+                />
+              )}
               {currentView === AppView.MAINTENANCE && <MaintenanceManager maintenance={maintenance} vehicles={vehicles} onAddMaintenance={async (m) => {await supabase.from('maintenance').insert([{...m, user_id: session.user.id}]); fetchData();}} onDeleteMaintenance={async (id) => {await supabase.from('maintenance').delete().eq('id', id); fetchData();}} />}
               {currentView === AppView.EXPENSES && (
                 <ExpenseManager 
                   expenses={expenses} 
                   trips={trips} 
-                  onAddExpense={handleAddExpense} 
+                  onAddExpense={async (e) => { await supabase.from('expenses').insert([{...e, user_id: session.user.id}]); fetchData(); }} 
                   onDeleteExpense={async (id) => {await supabase.from('expenses').delete().eq('id', id); fetchData();}} 
-                  isSaving={isSaving}
                 />
               )}
               {currentView === AppView.CALCULATOR && <FreightCalculator />}
@@ -388,13 +361,13 @@ const App: React.FC = () => {
           )}
         </div>
       </main>
-      {isMobileMenuOpen && <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-30 md:hidden" onClick={() => setIsMobileMenuOpen(false)} />}
+      {isMobileMenuOpen && <div className="fixed inset-0 bg-slate-900/60 z-30 md:hidden" onClick={() => setIsMobileMenuOpen(false)} />}
     </div>
   );
 };
 
 const MenuBtn = ({ icon: Icon, label, active, onClick }: any) => (
-  <button onClick={onClick} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all duration-200 ${active ? 'bg-primary-600 text-white shadow-lg scale-105 z-10' : 'text-slate-400 hover:bg-slate-800'}`}>
+  <button onClick={onClick} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all ${active ? 'bg-primary-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800'}`}>
     <Icon size={20} /> <span className="font-bold text-sm">{label}</span>
   </button>
 );

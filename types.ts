@@ -24,6 +24,8 @@ export interface Vehicle {
   model: string;
   year: number;
   current_km: number;
+  axles: number;
+  cargo_type: string;
   user_id?: string;
 }
 
@@ -87,7 +89,6 @@ export interface ANTTParams {
   isComposition: boolean;
   isHighPerformance: boolean;
   returnEmpty: boolean;
-  // Fix: Added missing properties used in geminiService.ts
   tollCost?: number;
   otherCosts?: number;
 }
