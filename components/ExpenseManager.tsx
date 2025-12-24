@@ -53,7 +53,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center px-2">
-        <h2 className="text-2xl font-black text-slate-900">Controle de Despesas</h2>
+        <h2 className="text-2xl font-black text-slate-900">Despesas</h2>
         <button 
           onClick={() => setIsModalOpen(true)}
           className="bg-rose-600 text-white px-6 py-3 rounded-2xl flex items-center gap-2 font-bold shadow-lg active:scale-95 transition-all"
@@ -79,9 +79,6 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
                 <tr key={expense.id} className="hover:bg-slate-50 transition-colors">
                   <td className="px-6 py-4">
                     <div className="text-sm font-bold text-slate-900">{expense.description}</div>
-                    {expense.trip_id && (
-                      <div className="text-[10px] text-primary-500 font-black uppercase">Vinculado à viagem</div>
-                    )}
                   </td>
                   <td className="px-6 py-4">
                     <span className="px-3 py-1 text-[10px] font-black uppercase rounded-full bg-slate-100 text-slate-600">
@@ -104,14 +101,6 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
                   </td>
                 </tr>
               ))}
-              {expenses.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-slate-400">
-                    <Receipt className="mx-auto text-slate-200 mb-2" size={32} />
-                    Nenhuma despesa registrada.
-                  </td>
-                </tr>
-              )}
             </tbody>
           </table>
         </div>
@@ -124,19 +113,19 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-1">
                 <label className="text-xs font-black uppercase text-slate-400 ml-1">Descrição</label>
-                <input required type="text" placeholder="Ex: Abastecimento Posto X" className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-200 font-bold focus:ring-2 focus:ring-rose-500 outline-none" 
+                <input required type="text" placeholder="Ex: Abastecimento" className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-200 font-bold focus:ring-2 focus:ring-rose-500 outline-none" 
                   value={newExpense.description || ''} onChange={e => setNewExpense({...newExpense, description: e.target.value})} />
               </div>
               
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-xs font-black uppercase text-slate-400 ml-1">Valor (R$)</label>
-                  <input required type="number" step="0.01" className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-200 font-black text-xl outline-none focus:ring-2 focus:ring-rose-500" 
+                  <input required type="number" step="0.01" className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-200 font-black text-xl outline-none" 
                     value={newExpense.amount || ''} onChange={e => setNewExpense({...newExpense, amount: Number(e.target.value)})} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-black uppercase text-slate-400 ml-1">Categoria</label>
-                  <select className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-200 font-bold outline-none focus:ring-2 focus:ring-rose-500"
+                  <select className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-200 font-bold"
                     value={newExpense.category}
                     onChange={e => setNewExpense({...newExpense, category: e.target.value as ExpenseCategory})}
                   >
@@ -145,30 +134,16 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-xs font-black uppercase text-slate-400 ml-1">Data</label>
-                  <input required type="date" value={newExpense.date} className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-200 font-bold outline-none" 
-                    onChange={e => setNewExpense({...newExpense, date: e.target.value})} />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-black uppercase text-slate-400 ml-1">Vincular Viagem</label>
-                  <select className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-200 font-bold outline-none"
-                    value={newExpense.trip_id || ''}
-                    onChange={e => setNewExpense({...newExpense, trip_id: e.target.value || null})}
-                  >
-                    <option value="">Sem vínculo</option>
-                    {trips.map(t => (
-                      <option key={t.id} value={t.id}>{t.origin} - {t.destination}</option>
-                    ))}
-                  </select>
-                </div>
+              <div className="space-y-1">
+                <label className="text-xs font-black uppercase text-slate-400 ml-1">Data</label>
+                <input required type="date" value={newExpense.date} className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-200 font-bold" 
+                  onChange={e => setNewExpense({...newExpense, date: e.target.value})} />
               </div>
 
               <div className="flex gap-3 mt-6">
-                <button disabled={isSaving} type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-4 font-bold border rounded-2xl hover:bg-slate-50 transition-all">Cancelar</button>
-                <button disabled={isSaving} type="submit" className="flex-1 py-4 bg-rose-600 text-white rounded-2xl font-black shadow-lg flex items-center justify-center gap-2 hover:bg-rose-700 transition-all">
-                  {isSaving ? <Loader2 className="animate-spin" size={20} /> : 'Salvar Despesa'}
+                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-4 font-bold border rounded-2xl">Cancelar</button>
+                <button disabled={isSaving} type="submit" className="flex-1 py-4 bg-rose-600 text-white rounded-2xl font-black shadow-lg flex items-center justify-center gap-2">
+                  {isSaving ? <Loader2 className="animate-spin" size={20} /> : 'Salvar'}
                 </button>
               </div>
             </form>

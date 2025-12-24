@@ -73,7 +73,6 @@ const App: React.FC = () => {
     if (session?.user) fetchData();
   }, [session]);
 
-  // Persistência da Jornada
   useEffect(() => {
     localStorage.setItem('aurilog_jornada_mode', jornadaMode);
     localStorage.setItem('aurilog_jornada_logs', JSON.stringify(jornadaLogs));
@@ -84,7 +83,6 @@ const App: React.FC = () => {
     }
   }, [jornadaMode, jornadaStartTime, jornadaLogs]);
 
-  // FIX: Persistência das notificações dispensadas
   useEffect(() => {
     localStorage.setItem('aurilog_dismissed_notifications', JSON.stringify(dismissedIds));
   }, [dismissedIds]);
@@ -130,7 +128,7 @@ const App: React.FC = () => {
     currentTrips.forEach(t => {
       const nid = `trip-${t.id}-${t.date}`;
       if (t.status === TripStatus.SCHEDULED && t.date === tomorrowStr && !dismissedIds.includes(nid)) {
-        alerts.push({ id: nid, title: 'Próxima Viagem', msg: `Viagem marcada para amanhã para ${t.destination}!`, type: 'info' });
+        alerts.push({ id: nid, title: 'Próxima Viagem', msg: `Viagem para ${t.destination} marcada para amanhã!`, type: 'info' });
       }
     });
 
@@ -144,9 +142,9 @@ const App: React.FC = () => {
       const kmNid = `main-km-${m.id}`;
 
       if (expiryDate < new Date() && !dismissedIds.includes(timeNid)) {
-        alerts.push({ id: timeNid, title: 'Garantia Vencida (Tempo)', msg: `A garantia de "${m.part_name}" no ${vehicle?.plate} expirou!`, type: 'warning' });
+        alerts.push({ id: timeNid, title: 'Garantia', msg: `Garantia de "${m.part_name}" no ${vehicle?.plate} venceu por tempo!`, type: 'warning' });
       } else if (isKmExpired && !dismissedIds.includes(kmNid)) {
-        alerts.push({ id: kmNid, title: 'Garantia Vencida (KM)', msg: `Garantia de "${m.part_name}" no ${vehicle?.plate} excedeu KM!`, type: 'warning' });
+        alerts.push({ id: kmNid, title: 'Garantia', msg: `Garantia de "${m.part_name}" no ${vehicle?.plate} venceu por KM!`, type: 'warning' });
       }
     });
 
@@ -184,14 +182,11 @@ const App: React.FC = () => {
         user_id: session.user.id,
         vehicle_id: tripData.vehicle_id === "" ? null : tripData.vehicle_id
       };
-      if (!cleanTrip.stops || cleanTrip.stops.length === 0) {
-        delete cleanTrip.stops;
-      }
       const { error } = await supabase.from('trips').insert([cleanTrip]);
       if (error) throw error;
       await fetchData();
     } catch (err: any) {
-      alert("Erro ao salvar viagem: " + err.message);
+      alert("Erro ao salvar: " + err.message);
     } finally {
       setIsSaving(false);
     }
@@ -200,15 +195,11 @@ const App: React.FC = () => {
   const handleUpdateTrip = async (id: string, tripData: any) => {
     setIsSaving(true);
     try {
-      const cleanTrip: any = {
-        ...tripData,
-        vehicle_id: tripData.vehicle_id === "" ? null : tripData.vehicle_id
-      };
-      const { error } = await supabase.from('trips').update(cleanTrip).eq('id', id);
+      const { error } = await supabase.from('trips').update(tripData).eq('id', id);
       if (error) throw error;
       await fetchData();
     } catch (err: any) {
-      alert("Erro ao atualizar viagem: " + err.message);
+      alert("Erro ao atualizar: " + err.message);
     } finally {
       setIsSaving(false);
     }
@@ -221,21 +212,21 @@ const App: React.FC = () => {
       if (error) throw error;
       await fetchData();
     } catch (err: any) {
-      alert("Erro ao atualizar status: " + err.message);
+      alert("Erro: " + err.message);
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleDeleteTrip = async (id: string) => {
-    if (!window.confirm("Deseja realmente excluir esta viagem?")) return;
+    if (!window.confirm("Deseja excluir esta viagem?")) return;
     setIsSaving(true);
     try {
       const { error } = await supabase.from('trips').delete().eq('id', id);
       if (error) throw error;
       await fetchData();
     } catch (err: any) {
-      alert("Erro ao excluir: " + err.message);
+      alert("Erro: " + err.message);
     } finally {
       setIsSaving(false);
     }
@@ -253,7 +244,7 @@ const App: React.FC = () => {
       if (error) throw error;
       await fetchData();
     } catch (err: any) {
-      alert("Erro ao salvar despesa: " + err.message);
+      alert("Erro ao salvar: " + err.message);
     } finally {
       setIsSaving(false);
     }
@@ -313,8 +304,16 @@ const App: React.FC = () => {
                       <p className="text-center py-8 text-sm text-slate-400">Sem notificações.</p>
                     ) : notifications.map((n) => (
                       <div key={n.id} className={`p-4 rounded-2xl border ${n.type === 'warning' ? 'bg-amber-50 border-amber-100' : 'bg-blue-50 border-blue-100'}`}>
-                        <p className="text-lg font-black leading-tight">{n.msg}</p>
-                        <button onClick={() => {setDismissedIds(p => [...p, n.id]); setNotifications(p => p.filter(x => x.id !== n.id))}} className="mt-2 text-xs font-bold text-slate-500 underline">Apagar</button>
+                        <div className="flex justify-between items-start mb-1">
+                          <p className="text-xs font-black uppercase text-slate-400">{n.title}</p>
+                          <button onClick={() => {
+                            setDismissedIds(prev => [...prev, n.id]);
+                            setNotifications(prev => prev.filter(x => x.id !== n.id));
+                          }} className="text-slate-400 hover:text-slate-600 transition-colors">
+                            <X size={14}/>
+                          </button>
+                        </div>
+                        <p className="text-sm font-bold text-slate-800 leading-tight">{n.msg}</p>
                       </div>
                     ))}
                   </div>
@@ -331,23 +330,19 @@ const App: React.FC = () => {
                   <div className="flex justify-center mb-6">
                     <Truck className="text-primary-600" size={48} />
                   </div>
-                  <h1 className="text-2xl font-black mb-2 text-center">Bem-vindo ao AuriLog</h1>
+                  <h1 className="text-2xl font-black mb-2 text-center">AuriLog</h1>
                   <p className="text-slate-500 text-center mb-8 font-medium">Faça login para gerenciar sua frota.</p>
                   
                   <form onSubmit={handleAuth} className="space-y-4">
-                      {/* Fixed: Use e.target.value instead of undefined target.value */}
                       <input type="email" placeholder="E-mail" className="w-full p-4 rounded-2xl border border-slate-200 font-bold focus:ring-2 focus:ring-primary-500 outline-none" value={email} onChange={e => setEmail(e.target.value)} required />
-                      {/* Fixed: Use e.target.value instead of undefined target.value */}
                       <input type="password" placeholder="Senha" className="w-full p-4 rounded-2xl border border-slate-200 font-bold focus:ring-2 focus:ring-primary-500 outline-none" value={password} onChange={e => setPassword(e.target.value)} required />
-                      
                       {error && <p className="text-rose-500 text-sm font-bold text-center px-2">{error}</p>}
-                      
                       <button disabled={authLoading} className="w-full p-4 bg-primary-600 text-white rounded-2xl font-black text-lg shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2">
-                        {authLoading ? <Loader2 className="animate-spin" /> : (isSignUp ? 'Criar Conta' : 'Entrar na Conta')}
+                        {authLoading ? <Loader2 className="animate-spin" /> : (isSignUp ? 'Criar Conta' : 'Entrar')}
                       </button>
                   </form>
                   <button onClick={() => setIsSignUp(!isSignUp)} className="mt-6 w-full text-primary-600 font-bold text-sm">
-                    {isSignUp ? 'Já tem uma conta? Entre agora' : 'Não tem conta? Cadastre-se grátis'}
+                    {isSignUp ? 'Já tem conta? Entre agora' : 'Não tem conta? Cadastre-se grátis'}
                   </button>
                </div>
             </div>
