@@ -62,10 +62,16 @@ const App: React.FC = () => {
   }, [session]);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setSession(null);
-    setCurrentView(AppView.DASHBOARD);
-    window.location.reload(); // Garante limpeza total do estado
+    try {
+      await supabase.auth.signOut();
+      localStorage.clear();
+      setSession(null);
+      // Redireciona para o topo para garantir reset
+      window.location.href = window.location.origin;
+    } catch (err) {
+      console.error(err);
+      window.location.reload();
+    }
   };
 
   const fetchData = async () => {

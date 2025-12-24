@@ -2,7 +2,25 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Trip, Expense, ANTTParams } from '../types';
 
-// Fix: Removed separate modelName variable to use model string directly in calls as per guidelines
+export const getDistanceEstimation = async (origin: string, destination: string, stops: any[]): Promise<number> => {
+  try {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const stopsText = stops.length > 0 ? ` passando por ${stops.map(s => `${s.city}-${s.state}`).join(', ')}` : '';
+    const prompt = `Estime a distância rodoviária em KM entre ${origin} e ${destination}${stopsText}. Retorne apenas o número puro, sem texto.`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: prompt,
+    });
+
+    const km = parseInt(response.text.replace(/\D/g, ''));
+    return isNaN(km) ? 0 : km;
+  } catch (error) {
+    console.error("Erro ao estimar distância:", error);
+    return 0;
+  }
+};
+
 export const getFinancialInsights = async (trips: Trip[], expenses: Expense[]): Promise<string> => {
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -32,7 +50,6 @@ export const getFinancialInsights = async (trips: Trip[], expenses: Expense[]): 
       }
     });
 
-    // Fix: Using response.text property directly as per GenerateContentResponse definition
     return response.text || "Não foi possível gerar insights no momento.";
   } catch (error) {
     console.error("Error fetching insights:", error);
@@ -44,23 +61,16 @@ export const getSmartFreightEstimation = async (params: ANTTParams): Promise<{ m
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const prompt = `
-      Você é uma calculadora inteligente de fretes baseada na tabela da ANTT (Agência Nacional de Transportes Terrestres) do Brasil.
+      Você é uma calculadora inteligente de fretes baseada na tabela da ANTT do Brasil.
       
       Parâmetros da viagem:
       - Distância: ${params.distance} km
       - Eixos: ${params.axles}
       - Tipo de Carga: ${params.cargoType}
       - Retorno Vazio: ${params.returnEmpty ? 'Sim' : 'Não'}
-      - Custos de Pedágio informados: R$ ${params.tollCost}
-      - Outros custos: R$ ${params.otherCosts}
-      - Margem de lucro desejada: ${params.profitMargin}%
+      - Custos de Pedágio: R$ ${params.tollCost}
 
-      Com base nos custos médios atuais de diesel e manutenção no Brasil, e considerando as resoluções da ANTT para Pisos Mínimos de Frete:
-      
-      Retorne APENAS um objeto JSON (sem markdown code blocks) com os seguintes campos:
-      - minPrice: Estimativa do valor MÍNIMO regulamentar (number).
-      - marketPrice: Estimativa de valor de MERCADO (geralmente acima do mínimo) (number).
-      - reasoning: Uma breve explicação de 2 frases sobre como chegou nesse valor (string).
+      Retorne APENAS um objeto JSON com: minPrice, marketPrice e reasoning.
     `;
 
     const response = await ai.models.generateContent({
@@ -79,20 +89,16 @@ export const getSmartFreightEstimation = async (params: ANTTParams): Promise<{ m
       }
     });
 
-    // Fix: Extracting string from .text property
     const text = response.text;
     if (!text) throw new Error("Sem resposta da IA");
-    
     return JSON.parse(text);
-
   } catch (error) {
-    console.error("AI Estimation Error", error);
     const baseRate = 1.2 * params.axles;
     const cost = (params.distance * baseRate) + params.tollCost + params.otherCosts;
     return {
       minPrice: cost,
       marketPrice: cost * 1.3,
-      reasoning: "Cálculo offline estimado (IA indisponível)."
+      reasoning: "Cálculo offline estimado."
     };
   }
 };

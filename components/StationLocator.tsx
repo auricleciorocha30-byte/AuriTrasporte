@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import { Fuel, MapPin, Loader2, Navigation, Search, Wrench, Hammer, AlertTriangle, Info, Map as MapIcon } from 'lucide-react';
 
@@ -23,23 +23,25 @@ export const StationLocator: React.FC = () => {
 
       setStatusMessage("Conectando satélites...");
       
+      // Tentativa ultra-rápida de 5s para GPS preciso
       navigator.geolocation.getCurrentPosition(resolve, (err1) => {
         setStatusMessage("Usando sinal de rede...");
+        // Tentativa de 5s para Rede
         navigator.geolocation.getCurrentPosition(resolve, (err2) => {
-          setStatusMessage("Verificando cache...");
+          setStatusMessage("Verificando última posição...");
           navigator.geolocation.getCurrentPosition(resolve, reject, {
             enableHighAccuracy: false,
-            timeout: 8000,
+            timeout: 5000,
             maximumAge: Infinity 
           });
         }, {
           enableHighAccuracy: false,
-          timeout: 10000,
+          timeout: 5000,
           maximumAge: 60000
         });
       }, {
         enableHighAccuracy: true,
-        timeout: 5000,
+        timeout: 5000, // Se não pegar em 5s, pula pra rede
         maximumAge: 0
       });
     });
@@ -59,12 +61,20 @@ export const StationLocator: React.FC = () => {
       let longitude: number | null = null;
 
       if (!isManual) {
-        const pos = await getGeolocation();
-        latitude = pos.coords.latitude;
-        longitude = pos.coords.longitude;
-        locationContext = `perto das coordenadas lat:${latitude}, lng:${longitude}`;
+        try {
+          const pos = await getGeolocation();
+          latitude = pos.coords.latitude;
+          longitude = pos.coords.longitude;
+          locationContext = `perto das coordenadas lat:${latitude}, lng:${longitude}`;
+        } catch (geoErr) {
+          // Se o GPS falhar totalmente, ativa o modo manual AUTOMATICAMENTE
+          setErrorType('manual');
+          setLoading(false);
+          setStatusMessage("");
+          return;
+        }
       } else {
-        locationContext = `na cidade de ${manualCity}`;
+        locationContext = `na cidade ou região de ${manualCity}, Brasil`;
       }
 
       setStatusMessage("Buscando serviços...");
@@ -77,16 +87,9 @@ export const StationLocator: React.FC = () => {
         case 'mechanic': query = "Oficinas mecânicas diesel para caminhões e suspensão pesada"; break;
       }
 
-      const config: any = {
-        tools: [{googleMaps: {}}],
-      };
-
+      const config: any = { tools: [{googleMaps: {}}] };
       if (latitude && longitude) {
-        config.toolConfig = {
-          retrievalConfig: {
-            latLng: { latitude, longitude }
-          }
-        };
+        config.toolConfig = { retrievalConfig: { latLng: { latitude, longitude } } };
       }
 
       const response = await ai.models.generateContent({
@@ -100,18 +103,13 @@ export const StationLocator: React.FC = () => {
       
       if (mapsData.length > 0) {
         setStations(mapsData);
-        if (isManual) setErrorType(null);
       } else {
-        setErrorMessage(`Nenhum serviço encontrado ${locationContext}.`);
+        setErrorMessage(`Nenhum serviço encontrado para ${isManual ? manualCity : 'sua localização'}.`);
       }
     } catch (err: any) {
       console.error("Erro na busca:", err);
-      if (!isManual) {
-        setErrorType('manual');
-        setErrorMessage("Não conseguimos obter seu GPS automaticamente.");
-      } else {
-        setErrorMessage("Erro ao buscar serviços para esta cidade.");
-      }
+      setErrorMessage("Erro ao conectar com o serviço de busca. Tente digitar o local.");
+      setErrorType('manual');
     } finally {
       setLoading(false);
       setStatusMessage("");
@@ -122,7 +120,7 @@ export const StationLocator: React.FC = () => {
     <div className="max-w-4xl mx-auto space-y-8 pb-12">
       <div className="bg-slate-900 p-8 md:p-10 rounded-[3rem] text-white shadow-xl relative overflow-hidden">
         <h2 className="text-3xl font-black mb-4">Serviços na Estrada</h2>
-        <p className="text-slate-400 mb-10 max-w-md font-medium">Localize suporte especializado dependendo do ocorrido.</p>
+        <p className="text-slate-400 mb-10 max-w-md font-medium">Localize suporte especializado rapidamente.</p>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-8">
           <ServiceTab active={selectedType === 'stations'} icon={Fuel} label="Postos" onClick={() => setSelectedType('stations')} />
@@ -130,37 +128,39 @@ export const StationLocator: React.FC = () => {
           <ServiceTab active={selectedType === 'mechanic'} icon={Wrench} label="Oficina" onClick={() => setSelectedType('mechanic')} />
         </div>
 
-        {!errorType || errorType !== 'manual' ? (
+        {errorType !== 'manual' ? (
           <button 
             onClick={() => findServices(false)} 
             disabled={loading} 
             className="w-full md:w-auto bg-primary-600 text-white px-10 py-5 rounded-2xl font-black text-lg flex items-center justify-center gap-3 shadow-xl active:scale-95 transition-all disabled:opacity-50"
           >
             {loading ? <Loader2 className="animate-spin" /> : <MapIcon />}
-            {loading ? (statusMessage || 'Obtendo GPS...') : 'Localizar pelo GPS'}
+            {loading ? (statusMessage || 'Obtendo GPS...') : 'Localizar via GPS'}
           </button>
         ) : (
-          <div className="space-y-4 animate-fade-in">
+          <div className="space-y-4 animate-fade-in bg-slate-800 p-6 rounded-[2rem] border border-slate-700">
             <p className="text-amber-400 font-bold flex items-center gap-2">
-              <AlertTriangle size={18}/> Digite sua cidade ou região:
+              <AlertTriangle size={18}/> GPS não disponível. Digite onde você está:
             </p>
             <div className="flex gap-2">
               <input 
+                autoFocus
                 type="text" 
-                placeholder="Ex: Curitiba, PR ou Rodovia Régis Bittencourt" 
-                className="flex-1 p-5 bg-slate-800 border border-slate-700 rounded-2xl font-bold text-white outline-none focus:ring-2 focus:ring-primary-500"
+                placeholder="Ex: Registro, SP ou Rodovia BR-116" 
+                className="flex-1 p-5 bg-slate-900 border border-slate-700 rounded-2xl font-bold text-white outline-none focus:ring-2 focus:ring-primary-500"
                 value={manualCity}
                 onChange={e => setManualCity(e.target.value)}
+                onKeyPress={e => e.key === 'Enter' && findServices(true)}
               />
               <button 
                 onClick={() => findServices(true)}
                 disabled={loading || !manualCity}
-                className="bg-primary-600 p-5 rounded-2xl text-white disabled:opacity-50"
+                className="bg-primary-600 p-5 rounded-2xl text-white disabled:opacity-50 active:scale-95 transition-all"
               >
                 {loading ? <Loader2 className="animate-spin" /> : <Search />}
               </button>
             </div>
-            <button onClick={() => setErrorType(null)} className="text-xs text-slate-500 underline">Tentar GPS novamente</button>
+            <button onClick={() => setErrorType(null)} className="text-xs text-slate-500 underline block text-center w-full">Tentar GPS novamente</button>
           </div>
         )}
 
@@ -181,7 +181,7 @@ export const StationLocator: React.FC = () => {
               </div>
               <div className="flex-1">
                 <h3 className="text-xl font-black text-slate-800 line-clamp-1">{s.title || 'Serviço Próximo'}</h3>
-                <p className="text-sm text-slate-500 font-bold flex items-center gap-1"><MapPin size={14}/> Abrir no Maps</p>
+                <p className="text-sm text-slate-500 font-bold flex items-center gap-1"><MapPin size={14}/> Abrir Navegação</p>
               </div>
             </div>
             <button 
@@ -196,7 +196,7 @@ export const StationLocator: React.FC = () => {
         {!loading && stations.length === 0 && !errorType && (
           <div className="text-center py-20 bg-slate-100 rounded-[3rem] border-2 border-dashed border-slate-200 mx-2">
             <MapPin size={48} className="mx-auto text-slate-300 mb-4 opacity-50" />
-            <p className="text-slate-500 font-black px-6">Escolha o serviço e clique em buscar.</p>
+            <p className="text-slate-500 font-black px-6">Escolha o serviço acima e clique em localizar.</p>
           </div>
         )}
       </div>
