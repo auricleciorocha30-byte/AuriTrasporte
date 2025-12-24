@@ -15,6 +15,22 @@ interface TripManagerProps {
 
 const BRAZILIAN_STATES = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'];
 
+// Função auxiliar para formatar data sem erro de fuso horário
+const formatDateDisplay = (dateStr: string) => {
+  if (!dateStr) return '';
+  const [year, month, day] = dateStr.split('-');
+  return `${day}/${month}/${year}`;
+};
+
+// Função para pegar a data de hoje no formato YYYY-MM-DD local
+const getTodayLocal = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAddTrip, onUpdateTrip, onUpdateStatus, onDeleteTrip, isSaving }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTripId, setEditingTripId] = useState<string | null>(null);
@@ -29,7 +45,7 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
     agreed_price: 0,
     driver_commission_percentage: 10,
     cargo_type: 'Geral',
-    date: new Date().toISOString().split('T')[0],
+    date: getTodayLocal(),
     vehicle_id: '',
     status: TripStatus.SCHEDULED,
     notes: ''
@@ -45,7 +61,7 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
       agreed_price: 0,
       driver_commission_percentage: 10,
       cargo_type: 'Geral',
-      date: new Date().toISOString().split('T')[0],
+      date: getTodayLocal(),
       vehicle_id: '',
       status: TripStatus.SCHEDULED,
       notes: ''
@@ -143,7 +159,7 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                     >
                       {Object.values(TripStatus).map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
-                    <span className="text-sm font-bold text-slate-400">{new Date(trip.date).toLocaleDateString()}</span>
+                    <span className="text-sm font-bold text-slate-400">{formatDateDisplay(trip.date)}</span>
                   </div>
                   <h3 className="text-xl font-black text-slate-800 flex items-center gap-2 flex-wrap">
                     <MapPin className="text-primary-500" size={20}/> {trip.origin} 
