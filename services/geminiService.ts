@@ -5,18 +5,27 @@ import { Trip, Expense, ANTTParams } from '../types';
 export const getDistanceEstimation = async (origin: string, destination: string, stops: any[]): Promise<number> => {
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const stopsText = stops.length > 0 ? ` passando por ${stops.map(s => `${s.city}-${s.state}`).join(', ')}` : '';
-    const prompt = `Estime a distância rodoviária em KM entre ${origin} e ${destination}${stopsText}. Retorne apenas o número puro, sem texto.`;
-
+    const stopsText = stops.length > 0 
+      ? ` passando por estas cidades intermediárias: ${stops.map(s => `${s.city}-${s.state}`).join(', ')}` 
+      : '';
+    
+    // Usamos o modelo 2.5 que suporta a ferramenta de Maps para busca real
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: prompt,
+      model: 'gemini-2.5-flash',
+      contents: `Qual a distância rodoviária real total em KM para uma viagem saindo de ${origin} com destino final em ${destination}${stopsText}? Considere o trajeto principal por rodovias brasileiras. Responda apenas o número puro do KM.`,
+      config: {
+        tools: [{ googleMaps: {} }],
+        // Não usamos schema aqui pois as regras de Maps Grounding proíbem responseMimeType/responseSchema
+      },
     });
 
-    const km = parseInt(response.text.replace(/\D/g, ''));
+    // Extrai apenas os números da resposta (ex: "450 km" -> 450)
+    const text = response.text || "";
+    const km = parseInt(text.replace(/\D/g, ''));
+    
     return isNaN(km) ? 0 : km;
   } catch (error) {
-    console.error("Erro ao estimar distância:", error);
+    console.error("Erro ao estimar distância via Maps:", error);
     return 0;
   }
 };

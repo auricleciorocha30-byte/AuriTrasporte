@@ -36,7 +36,6 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
 
   const openGoogleMapsRoute = () => {
     if (!origin.city || !destination.city) return alert("Preencha origem e destino!");
-    // Formatação robusta para o Google Maps reconhecer Cidade + UF
     const originStr = `${origin.city}, ${origin.state}, Brasil`;
     const destStr = `${destination.city}, ${destination.state}, Brasil`;
     const waypoints = stops.map(s => `${s.city}, ${s.state}, Brasil`).join('|');
@@ -55,16 +54,20 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
     if (!origin.city || !destination.city) return alert("Preencha origem e destino para calcular.");
     setLoadingDist(true);
     try {
-      const originFull = `${origin.city}-${origin.state}`;
-      const destFull = `${destination.city}-${destination.state}`;
+      // Enviamos strings completas com Cidade, UF e País para o Maps
+      const originFull = `${origin.city}, ${origin.state}, Brasil`;
+      const destFull = `${destination.city}, ${destination.state}, Brasil`;
+      
       const km = await getDistanceEstimation(originFull, destFull, stops);
+      
       if (km > 0) {
         setFormData({ ...formData, distance_km: km });
       } else {
-        alert("Não foi possível calcular a distância exata. Por favor, insira manualmente.");
+        alert("Não foi possível calcular a distância automática. O Maps pode não ter encontrado uma rota terrestre. Por favor, insira manualmente.");
       }
     } catch (err) {
       console.error(err);
+      alert("Erro ao conectar com o serviço de mapas.");
     } finally {
       setLoadingDist(false);
     }
@@ -146,7 +149,6 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-start justify-center p-4 z-50 overflow-y-auto">
-          {/* Aumentado o padding superior do container para evitar campos ocultos em mobile */}
           <div className="bg-white w-full max-w-xl rounded-[2.5rem] shadow-2xl animate-fade-in relative mt-16 mb-10 overflow-hidden">
             <div className="flex justify-between items-center p-8 pb-4 border-b border-slate-50">
               <h3 className="text-2xl font-black">Nova Viagem</h3>
@@ -154,7 +156,6 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
             </div>
             
             <div className="p-8 space-y-6 max-h-[75vh] overflow-y-auto">
-              {/* Origem */}
               <div className="space-y-1">
                 <label className="text-xs font-black uppercase text-slate-400 ml-1">Origem</label>
                 <div className="flex gap-2">
@@ -165,7 +166,6 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                 </div>
               </div>
 
-              {/* Destino Final */}
               <div className="space-y-1">
                 <label className="text-xs font-black uppercase text-slate-400 ml-1">Destino Final</label>
                 <div className="flex gap-2">
@@ -176,7 +176,6 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                 </div>
               </div>
 
-              {/* Paradas */}
               <div className="space-y-2">
                 <label className="text-xs font-black uppercase text-slate-400 ml-1">Paradas Intermediárias</label>
                 <div className="flex gap-2">
@@ -197,15 +196,19 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                 )}
               </div>
 
-              {/* Distância */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
                 <div className="space-y-1">
-                  <label className="text-xs font-black uppercase text-slate-400 ml-1">Distância Estimada (KM)</label>
+                  <label className="text-xs font-black uppercase text-slate-400 ml-1">Distância (KM)</label>
                   <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-200 font-black text-xl outline-none focus:bg-white" value={formData.distance_km || ''} onChange={e => setFormData({...formData, distance_km: Number(e.target.value)})} />
                 </div>
                 <div className="flex flex-col gap-2 justify-end">
-                   <button onClick={estimateDistance} className="p-3 bg-slate-900 text-white rounded-2xl font-black text-sm flex items-center justify-center gap-2 hover:bg-slate-800 transition-all">
-                      {loadingDist ? <Loader2 className="animate-spin" size={18}/> : <RefreshCcw size={18}/>} Calcular KM via IA
+                   <button 
+                     onClick={estimateDistance} 
+                     disabled={loadingDist}
+                     className={`p-3 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all ${loadingDist ? 'bg-slate-200 text-slate-500' : 'bg-slate-900 text-white hover:bg-slate-800'}`}
+                   >
+                      {loadingDist ? <Loader2 className="animate-spin" size={18}/> : <RefreshCcw size={18}/>} 
+                      {loadingDist ? 'Consultando Maps...' : 'Calcular via Maps'}
                    </button>
                    <button onClick={openGoogleMapsRoute} className="p-3 border-2 border-primary-600 text-primary-600 rounded-2xl font-black text-sm flex items-center justify-center gap-2 hover:bg-primary-50 transition-all">
                       <MapIcon size={18}/> Abrir Rota GPS
@@ -213,7 +216,6 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                 </div>
               </div>
 
-              {/* Financeiro */}
               <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-200 space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
