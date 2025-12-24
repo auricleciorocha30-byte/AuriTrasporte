@@ -83,11 +83,13 @@ export interface Expense {
 export interface ANTTParams {
   distance: number;
   axles: number;
-  cargoType: 'general' | 'bulk' | 'refrigerated' | 'dangerous' | 'neogranel';
+  cargoType: string;
+  isComposition: boolean;
+  isHighPerformance: boolean;
   returnEmpty: boolean;
-  tollCost: number;
-  otherCosts: number;
-  profitMargin: number;
+  // Fix: Added missing properties used in geminiService.ts
+  tollCost?: number;
+  otherCosts?: number;
 }
 
 export interface FinancialSummary {

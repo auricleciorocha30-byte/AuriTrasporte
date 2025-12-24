@@ -21,6 +21,7 @@ export const getDistanceEstimation = async (origin: string, destination: string,
       },
     });
 
+    // Fix: access .text property directly
     const text = response.text || "";
     // Remove caracteres não numéricos mas mantém o número (ex: "1.250 km" -> 1250)
     const kmStr = text.replace(/[^\d]/g, '');
@@ -62,6 +63,7 @@ export const getFinancialInsights = async (trips: Trip[], expenses: Expense[]): 
       }
     });
 
+    // Fix: access .text property directly
     return response.text || "Não foi possível gerar insights no momento.";
   } catch (error) {
     console.error("Error fetching insights:", error);
@@ -72,6 +74,7 @@ export const getFinancialInsights = async (trips: Trip[], expenses: Expense[]): 
 export const getSmartFreightEstimation = async (params: ANTTParams): Promise<{ minPrice: number, marketPrice: number, reasoning: string }> => {
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    // Fix: Handle optional tollCost property with default value
     const prompt = `
       Você é uma calculadora inteligente de fretes baseada na tabela da ANTT do Brasil.
       
@@ -80,7 +83,7 @@ export const getSmartFreightEstimation = async (params: ANTTParams): Promise<{ m
       - Eixos: ${params.axles}
       - Tipo de Carga: ${params.cargoType}
       - Retorno Vazio: ${params.returnEmpty ? 'Sim' : 'Não'}
-      - Custos de Pedágio: R$ ${params.tollCost}
+      - Custos de Pedágio: R$ ${params.tollCost || 0}
 
       Retorne APENAS um objeto JSON com: minPrice, marketPrice e reasoning.
     `;
@@ -101,12 +104,14 @@ export const getSmartFreightEstimation = async (params: ANTTParams): Promise<{ m
       }
     });
 
+    // Fix: access .text property directly
     const text = response.text;
     if (!text) throw new Error("Sem resposta da IA");
     return JSON.parse(text);
   } catch (error) {
+    // Fix: Handle optional tollCost and otherCosts properties in fallback calculation
     const baseRate = 1.2 * params.axles;
-    const cost = (params.distance * baseRate) + params.tollCost + params.otherCosts;
+    const cost = (params.distance * baseRate) + (params.tollCost || 0) + (params.otherCosts || 0);
     return {
       minPrice: cost,
       marketPrice: cost * 1.3,
