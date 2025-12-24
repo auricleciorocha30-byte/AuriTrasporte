@@ -41,6 +41,19 @@ const App: React.FC = () => {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
   
+  // Estado Global da Jornada para continuidade entre telas
+  const [jornadaMode, setJornadaMode] = useState<'IDLE' | 'DRIVING' | 'RESTING'>(() => {
+    return (localStorage.getItem('aurilog_jornada_mode') as any) || 'IDLE';
+  });
+  const [jornadaStartTime, setJornadaStartTime] = useState<number | null>(() => {
+    const saved = localStorage.getItem('aurilog_jornada_start');
+    return saved ? Number(saved) : null;
+  });
+  const [jornadaLogs, setJornadaLogs] = useState<any[]>(() => {
+    const saved = localStorage.getItem('aurilog_jornada_logs');
+    return saved ? JSON.parse(saved) : [];
+  });
+
   const [dismissedIds, setDismissedIds] = useState<string[]>(() => {
     const saved = localStorage.getItem('aurilog_dismissed_notifications');
     return saved ? JSON.parse(saved) : [];
@@ -61,12 +74,22 @@ const App: React.FC = () => {
     if (session?.user) fetchData();
   }, [session]);
 
+  // Persistência da Jornada
+  useEffect(() => {
+    localStorage.setItem('aurilog_jornada_mode', jornadaMode);
+    localStorage.setItem('aurilog_jornada_logs', JSON.stringify(jornadaLogs));
+    if (jornadaStartTime) {
+      localStorage.setItem('aurilog_jornada_start', jornadaStartTime.toString());
+    } else {
+      localStorage.removeItem('aurilog_jornada_start');
+    }
+  }, [jornadaMode, jornadaStartTime, jornadaLogs]);
+
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut();
       localStorage.clear();
       setSession(null);
-      // Redireciona para o topo para garantir reset
       window.location.href = window.location.origin;
     } catch (err) {
       console.error(err);
@@ -247,7 +270,16 @@ const App: React.FC = () => {
               {currentView === AppView.MAINTENANCE && <MaintenanceManager maintenance={maintenance} vehicles={vehicles} onAddMaintenance={async (m) => {await supabase.from('maintenance').insert([{...m, user_id: session.user.id}]); fetchData();}} onDeleteMaintenance={async (id) => {await supabase.from('maintenance').delete().eq('id', id); fetchData();}} />}
               {currentView === AppView.EXPENSES && <ExpenseManager expenses={expenses} trips={trips} onAddExpense={async (e) => {await supabase.from('expenses').insert([{...e, user_id: session.user.id}]); fetchData();}} onDeleteExpense={async (id) => {await supabase.from('expenses').delete().eq('id', id); fetchData();}} />}
               {currentView === AppView.CALCULATOR && <FreightCalculator />}
-              {currentView === AppView.JORNADA && <JornadaManager />}
+              {currentView === AppView.JORNADA && (
+                <JornadaManager 
+                  mode={jornadaMode} 
+                  startTime={jornadaStartTime} 
+                  logs={jornadaLogs}
+                  setMode={setJornadaMode}
+                  setStartTime={setJornadaStartTime}
+                  setLogs={setJornadaLogs}
+                />
+              )}
               {currentView === AppView.STATIONS && <StationLocator />}
               {currentView === AppView.BACKUP && <BackupManager data={{ trips, expenses, vehicles, maintenance }} onRestored={fetchData} />}
             </>
