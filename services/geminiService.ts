@@ -1,76 +1,8 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { Trip, Expense, ANTTParams } from '../types';
+import { ANTTParams, Trip, Expense } from '../types';
 
-export const getDistanceEstimation = async (origin: string, destination: string, stops: any[]): Promise<number> => {
-  try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    
-    // Construção de uma rota detalhada para a IA
-    let routeDescription = `Origem: ${origin}\n`;
-    if (stops && stops.length > 0) {
-      routeDescription += `Paradas intermediárias obrigatórias:\n${stops.map((s, i) => `${i + 1}. ${s.city}, ${s.state}, Brasil`).join('\n')}\n`;
-    }
-    routeDescription += `Destino Final: ${destination}`;
-
-    const response = await ai.models.generateContent({
-      // Use the latest model and the correct generateContent pattern
-      model: 'gemini-2.5-flash-lite-latest',
-      contents: `Calcule a distância total de condução rodoviária (em quilômetros) para a seguinte rota completa no Brasil:\n\n${routeDescription}\n\nRetorne APENAS o número total de quilômetros, sem texto adicional.`,
-      config: {
-        tools: [{ googleMaps: {} }],
-      },
-    });
-
-    const text = response.text || "";
-    // Remove caracteres não numéricos mas mantém o número (ex: "1.250 km" -> 1250)
-    const kmStr = text.replace(/[^\d]/g, '');
-    const km = parseInt(kmStr);
-    
-    return isNaN(km) ? 0 : km;
-  } catch (error) {
-    console.error("Erro ao estimar distância via Maps:", error);
-    return 0;
-  }
-};
-
-export const getFinancialInsights = async (trips: Trip[], expenses: Expense[]): Promise<string> => {
-  try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const dataContext = JSON.stringify({
-      trips: trips.slice(-10),
-      expenses: expenses.slice(-20),
-      summary: "User is a truck driver/fleet owner."
-    });
-
-    const response = await ai.models.generateContent({
-      // Use the specified model for text tasks
-      model: 'gemini-3-flash-preview',
-      contents: `
-        Atue como um consultor financeiro especialista em logística e transporte rodoviário de cargas no Brasil.
-        Analise os seguintes dados (JSON) das minhas viagens e despesas recentes.
-
-        Dados: ${dataContext}
-
-        Forneça um relatório curto e direto (formato Markdown) com:
-        1. Análise de Lucratividade: Estou cobrando bem? Onde estou gastando muito?
-        2. Dicas de Otimização: Como posso melhorar minha margem?
-        3. Alertas: Algum padrão preocupante?
-
-        Seja encorajador mas realista. Use emojis para facilitar a leitura.
-      `,
-      config: {
-        temperature: 0.7,
-      }
-    });
-
-    return response.text || "Não foi possível gerar insights no momento.";
-  } catch (error) {
-    console.error("Error fetching insights:", error);
-    return "Erro ao conectar com a IA. Verifique sua conexão ou chave de API.";
-  }
-};
-
+// Using gemini-3-pro-preview for estimation as it involves logical calculation and reasoning.
 export const getSmartFreightEstimation = async (params: ANTTParams): Promise<{ minPrice: number, marketPrice: number, reasoning: string }> => {
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -88,7 +20,6 @@ export const getSmartFreightEstimation = async (params: ANTTParams): Promise<{ m
     `;
 
     const response = await ai.models.generateContent({
-      // Use specified model for coding/reasoning tasks
       model: 'gemini-3-pro-preview',
       contents: prompt,
       config: {
@@ -100,6 +31,7 @@ export const getSmartFreightEstimation = async (params: ANTTParams): Promise<{ m
             marketPrice: { type: Type.NUMBER },
             reasoning: { type: Type.STRING },
           },
+          propertyOrdering: ["minPrice", "marketPrice", "reasoning"],
         }
       }
     });
@@ -115,5 +47,40 @@ export const getSmartFreightEstimation = async (params: ANTTParams): Promise<{ m
       marketPrice: cost * 1.3,
       reasoning: "Cálculo offline estimado."
     };
+  }
+};
+
+/**
+ * Generates financial insights using Gemini AI.
+ * Fixed missing export error. Uses gemini-3-pro-preview for complex text analysis.
+ */
+export const getFinancialInsights = async (trips: Trip[], expenses: Expense[]): Promise<string> => {
+  try {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const prompt = `Analise os seguintes dados financeiros de transporte de carga e forneça insights estratégicos detalhados em Markdown.
+    
+Viagens: ${JSON.stringify(trips)}
+Despesas: ${JSON.stringify(expenses)}
+
+Por favor, forneça uma análise detalhada contendo:
+1. Lucratividade Geral: Cálculo do lucro líquido total e margem média.
+2. Análise de Rotas: Quais destinos ou tipos de carga estão sendo mais lucrativos.
+3. Alertas de Custos: Identificação de categorias de despesas que podem estar acima do esperado (ex: combustível, manutenção).
+4. Recomendações: 3 a 5 passos práticos para melhorar a operação e aumentar a margem de lucro.
+
+Responda em Português do Brasil.`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-pro-preview',
+      contents: prompt,
+      config: {
+        systemInstruction: "Você é o 'Auri', um consultor financeiro especialista em logística rodoviária e transporte de cargas no Brasil. Sua análise deve ser baseada em dados, profissional, direta e útil para um transportador.",
+      }
+    });
+
+    return response.text || "Não foi possível gerar insights financeiros no momento.";
+  } catch (error) {
+    console.error("Erro ao gerar insights com Gemini:", error);
+    return "Ocorreu um erro ao processar seus dados financeiros. Por favor, verifique sua conexão e tente novamente.";
   }
 };

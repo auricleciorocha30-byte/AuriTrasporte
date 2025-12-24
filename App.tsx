@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, Truck, Wallet, Calculator, Menu, X, LogOut, Bell, Search, Database, CheckSquare, Settings, Lock, User as UserIcon, Loader2, AlertCircle, Timer, Fuel, Sparkles, Bot } from 'lucide-react';
+import { LayoutDashboard, Truck, Wallet, Calculator, Menu, X, LogOut, Bell, Search, Database, CheckSquare, Settings, Lock, User as UserIcon, Loader2, AlertCircle, Timer, Fuel, Sparkles } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { TripManager } from './components/TripManager';
 import { ExpenseManager } from './components/ExpenseManager';
@@ -10,7 +10,6 @@ import { MaintenanceManager } from './components/MaintenanceManager';
 import { BackupManager } from './components/BackupManager';
 import { JornadaManager } from './components/JornadaManager';
 import { StationLocator } from './components/StationLocator';
-import { AiAssistant } from './components/AiAssistant';
 import { AppView, Trip, Expense, Vehicle, MaintenanceItem, TripStatus } from './types';
 import { supabase } from './lib/supabase';
 
@@ -279,7 +278,6 @@ const App: React.FC = () => {
           <MenuBtn icon={CheckSquare} label="Manutenções" active={currentView === AppView.MAINTENANCE} onClick={() => setCurrentView(AppView.MAINTENANCE)} />
           <MenuBtn icon={Wallet} label="Despesas" active={currentView === AppView.EXPENSES} onClick={() => setCurrentView(AppView.EXPENSES)} />
           <div className="h-px bg-slate-800 my-4"></div>
-          <MenuBtn icon={Sparkles} label="Assistente IA" active={currentView === AppView.AI_ASSISTANT} onClick={() => setCurrentView(AppView.AI_ASSISTANT)} />
           <MenuBtn icon={Calculator} label="Frete ANTT" active={currentView === AppView.CALCULATOR} onClick={() => setCurrentView(AppView.CALCULATOR)} />
           <MenuBtn icon={Timer} label="Jornada" active={currentView === AppView.JORNADA} onClick={() => setCurrentView(AppView.JORNADA)} />
           <MenuBtn icon={Fuel} label="Postos Próximos" active={currentView === AppView.STATIONS} onClick={() => setCurrentView(AppView.STATIONS)} />
@@ -315,7 +313,6 @@ const App: React.FC = () => {
           ) : (
             <>
               {currentView === AppView.DASHBOARD && <Dashboard trips={trips} expenses={expenses} />}
-              {currentView === AppView.AI_ASSISTANT && <AiAssistant trips={trips} expenses={expenses} />}
               {currentView === AppView.TRIPS && (
                 <TripManager 
                   trips={trips} 

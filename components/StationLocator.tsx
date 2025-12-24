@@ -23,20 +23,8 @@ export const StationLocator: React.FC = () => {
         return;
       }
       setStatusMessage("Conectando satélites...");
-      navigator.geolocation.getCurrentPosition(resolve, (err1) => {
-        setStatusMessage("Usando sinal de rede...");
-        navigator.geolocation.getCurrentPosition(resolve, (err2) => {
-          setStatusMessage("Verificando última posição...");
-          navigator.geolocation.getCurrentPosition(resolve, reject, {
-            enableHighAccuracy: false,
-            timeout: 5000,
-            maximumAge: Infinity 
-          });
-        }, {
-          enableHighAccuracy: false,
-          timeout: 5000,
-          maximumAge: 60000
-        });
+      navigator.geolocation.getCurrentPosition(resolve, (err) => {
+        reject(err);
       }, {
         enableHighAccuracy: true,
         timeout: 5000,
@@ -88,7 +76,6 @@ export const StationLocator: React.FC = () => {
       const queryText = `${queryLabel} ${locationContext}`;
       setLastQuery(queryText);
 
-      // Ensure config follows maps grounding rules
       const config: any = { 
         tools: [{googleMaps: {}}],
       };
@@ -100,9 +87,9 @@ export const StationLocator: React.FC = () => {
         };
       }
 
+      // Maps grounding is only supported in Gemini 2.5 series models.
       const response = await ai.models.generateContent({
-        // Use correct Gemini 2.5 model for maps grounding
-        model: "gemini-2.5-flash-lite-latest",
+        model: "gemini-2.5-flash",
         contents: `Encontre ${queryText}`,
         config: config,
       });
@@ -112,14 +99,13 @@ export const StationLocator: React.FC = () => {
       
       if (mapsData.length > 0) {
         setStations(mapsData);
-        // Seleciona o primeiro automaticamente
         setActiveStation(mapsData[0]);
       } else {
-        setErrorMessage(`Nenhum serviço encontrado para ${isManual ? manualCity : 'sua localização'}.`);
+        setErrorMessage(`Nenhum serviço encontrado.`);
       }
     } catch (err: any) {
       console.error("Erro na busca:", err);
-      setErrorMessage("Erro ao conectar com o serviço de busca.");
+      setErrorMessage("Erro ao buscar serviços.");
       setErrorType('manual');
     } finally {
       setLoading(false);
@@ -133,10 +119,17 @@ export const StationLocator: React.FC = () => {
     window.open(url, '_blank');
   };
 
+  // Helper para tentar embutir o mapa (alguns links permitem via busca)
+  const getEmbedUrl = (uri: string) => {
+     // Tentativa de conversão para formato embed de busca
+     const searchParam = uri.split('q=')[1] || encodeURIComponent(activeStation?.title || "");
+     return `https://www.google.com/maps/embed/v1/place?key=YOUR_API_KEY&q=${searchParam}`;
+     // Como não temos a chave de Mapas JS aqui, usamos a visualização nativa do Google Maps que é melhor.
+  };
+
   return (
     <div className="max-w-[1400px] mx-auto space-y-6 pb-12">
-      {/* Cabeçalho de Busca */}
-      <div className="bg-slate-900 p-6 md:p-8 rounded-[2.5rem] text-white shadow-xl relative overflow-hidden mx-2 border border-slate-800">
+      <div className="bg-slate-900 p-6 md:p-8 rounded-[2.5rem] text-white shadow-xl mx-2 border border-slate-800">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div>
             <h2 className="text-3xl font-black mb-1">Serviços na Estrada</h2>
@@ -188,9 +181,7 @@ export const StationLocator: React.FC = () => {
         </div>
       </div>
 
-      {/* Painel de Resultados - Layout Webview */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 px-2">
-        {/* Lista de Postos/Serviços */}
         <div className={`lg:col-span-4 space-y-3 h-[600px] overflow-y-auto pr-2 custom-scrollbar ${activeStation ? 'hidden lg:block' : 'block'}`}>
           {stations.map((s, i) => (
             <div 
@@ -213,77 +204,56 @@ export const StationLocator: React.FC = () => {
             </div>
           ))}
 
-          {stations.length > 0 && (
-            <button onClick={openFullMaps} className="w-full p-4 border-2 border-dashed border-slate-300 rounded-2xl text-slate-500 font-bold text-sm flex items-center justify-center gap-2 hover:bg-slate-50 transition-colors">
-               <ExternalLink size={16}/> Abrir todos no Maps
-            </button>
-          )}
-
           {!loading && stations.length === 0 && (
             <div className="text-center py-20 bg-white rounded-[2.5rem] border-2 border-dashed border-slate-200">
               <MapPinHouse size={48} className="mx-auto text-slate-200 mb-4" />
-              <p className="text-slate-400 font-bold text-sm px-6">Busque serviços próximos usando o botão acima.</p>
+              <p className="text-slate-400 font-bold text-sm px-6">Busque serviços próximos para ver resultados.</p>
             </div>
           )}
         </div>
 
-        {/* Visualização da Webview (Mapa/Detalhes) */}
         <div className={`lg:col-span-8 h-[600px] bg-white rounded-[2.5rem] border border-slate-200 overflow-hidden relative flex flex-col ${activeStation ? 'block' : 'hidden lg:flex items-center justify-center'}`}>
           {activeStation ? (
             <>
-              {/* Toolbar Superior da Webview */}
               <div className="bg-slate-50 border-b p-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                    <button onClick={() => setActiveStation(null)} className="lg:hidden p-2 text-slate-500 hover:bg-slate-200 rounded-full transition-colors"><X size={20}/></button>
-                   <h3 className="font-black text-slate-800 text-lg truncate max-w-[200px] md:max-w-md">{activeStation.title}</h3>
+                   <h3 className="font-black text-slate-800 text-lg truncate">{activeStation.title}</h3>
                 </div>
-                <div className="flex gap-2">
-                  <button onClick={() => window.open(activeStation.uri, '_blank')} className="bg-primary-600 text-white px-4 py-2 rounded-xl text-xs font-black flex items-center gap-2 hover:bg-primary-700 transition-colors">
-                    <ExternalLink size={14}/> ABRIR NO MAPS
-                  </button>
-                </div>
+                <button onClick={() => window.open(activeStation.uri, '_blank')} className="bg-primary-600 text-white px-4 py-2 rounded-xl text-xs font-black flex items-center gap-2 hover:bg-primary-700 transition-colors">
+                  <ExternalLink size={14}/> ABRIR NO MAPS
+                </button>
               </div>
 
-              {/* Corpo da Webview - Simulação de Mapa/Detalhes */}
-              <div className="flex-1 bg-slate-100 flex flex-col">
-                {/* Aqui poderíamos usar um iframe se os links do Google Maps não tivessem restrições de X-Frame-Options */}
-                {/* Como os links diretos de busca do Maps geralmente bloqueiam iframes, mostramos um preview interativo e um botão gigante de rota */}
-                <div className="flex-1 relative flex flex-col items-center justify-center p-8 text-center space-y-6">
-                  <div className="bg-white p-10 rounded-full shadow-inner text-primary-500">
-                    <MapIcon size={80} />
-                  </div>
-                  <div className="max-w-md">
-                    <h4 className="text-2xl font-black text-slate-800 mb-2">{activeStation.title}</h4>
-                    <p className="text-slate-500 font-medium">Informações de localização e rota disponíveis no Google Maps.</p>
-                  </div>
-                  
-                  <div className="flex flex-col gap-3 w-full max-w-sm">
-                    <button 
-                      onClick={() => {
-                        const navUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(activeStation.title)}&travelmode=driving`;
-                        window.open(navUrl, '_blank');
-                      }}
-                      className="w-full py-5 bg-slate-900 text-white rounded-[1.5rem] font-black text-xl flex items-center justify-center gap-3 shadow-xl hover:bg-slate-800 active:scale-95 transition-all"
-                    >
-                      <Navigation size={24}/> INICIAR ROTA GPS
-                    </button>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Toque para abrir no seu navegador de GPS</p>
-                  </div>
-                </div>
-                
-                {/* Rodapé informativo */}
-                <div className="bg-white p-6 border-t flex items-center gap-4">
-                  <div className="p-3 bg-blue-50 text-blue-600 rounded-xl"><Info size={24}/></div>
-                  <p className="text-xs text-slate-500 font-bold leading-relaxed">
-                    Utilizamos a inteligência artificial do Google Gemini para encontrar os melhores pontos de suporte rodoviário em tempo real.
-                  </p>
+              <div className="flex-1 relative flex flex-col items-center justify-center p-8 bg-slate-100">
+                <div className="w-full h-full rounded-[1.5rem] overflow-hidden shadow-inner bg-white relative">
+                   {/* Iframe para exibir o mapa visualmente se permitido, ou um card interativo de alta fidelidade */}
+                   <iframe 
+                      title="Google Maps"
+                      className="w-full h-full border-0"
+                      src={`https://www.google.com/maps?q=${encodeURIComponent(activeStation.title)}&output=embed`}
+                      allowFullScreen
+                    ></iframe>
+                    
+                    {/* Botão de Rota Flutuante */}
+                    <div className="absolute bottom-6 left-6 right-6">
+                       <button 
+                        onClick={() => {
+                          const navUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(activeStation.title)}&travelmode=driving`;
+                          window.open(navUrl, '_blank');
+                        }}
+                        className="w-full py-5 bg-slate-900 text-white rounded-[1.5rem] font-black text-xl flex items-center justify-center gap-3 shadow-2xl hover:bg-slate-800 transition-all"
+                      >
+                        <Navigation size={24}/> INICIAR ROTA NO GPS
+                      </button>
+                    </div>
                 </div>
               </div>
             </>
           ) : (
             <div className="text-center p-10">
               <MapIcon size={48} className="mx-auto text-slate-200 mb-4" />
-              <h3 className="text-slate-400 font-black">Selecione um local para ver os detalhes</h3>
+              <h3 className="text-slate-400 font-black">Selecione um local para ver no mapa</h3>
             </div>
           )}
         </div>

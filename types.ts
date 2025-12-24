@@ -8,8 +8,7 @@ export enum AppView {
   MAINTENANCE = 'MAINTENANCE',
   BACKUP = 'BACKUP',
   JORNADA = 'JORNADA',
-  STATIONS = 'STATIONS',
-  AI_ASSISTANT = 'AI_ASSISTANT'
+  STATIONS = 'STATIONS'
 }
 
 export enum TripStatus {

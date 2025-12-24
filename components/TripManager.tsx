@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { Trip, TripStatus, Vehicle, TripStop } from '../types';
 import { Plus, MapPin, Calendar, Truck, UserCheck, Navigation, X, Trash2, Map as MapIcon, ChevronRight, Percent, Loader2, Edit2, DollarSign, MessageSquare, Sparkles, Wand2, PlusCircle, ExternalLink, CheckSquare } from 'lucide-react';
 import { calculateANTT } from '../services/anttService';
-import { getDistanceEstimation } from '../services/geminiService';
 
 interface TripManagerProps {
   trips: Trip[];
@@ -34,7 +33,6 @@ const getTodayLocal = () => {
 export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAddTrip, onUpdateTrip, onUpdateStatus, onDeleteTrip, isSaving }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTripId, setEditingTripId] = useState<string | null>(null);
-  const [loadingDistance, setLoadingDistance] = useState(false);
   
   const [origin, setOrigin] = useState({ city: '', state: 'SP' });
   const [destination, setDestination] = useState({ city: '', state: 'SP' });
@@ -53,28 +51,6 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
   });
 
   const calculatedCommission = (formData.agreed_price || 0) * ((formData.driver_commission_percentage || 0) / 100);
-
-  const handleAutoDistance = async () => {
-    if (!origin.city || !destination.city) {
-      alert("Preencha origem e destino primeiro.");
-      return;
-    }
-    setLoadingDistance(true);
-    try {
-      const origStr = `${origin.city}, ${origin.state}`;
-      const destStr = `${destination.city}, ${destination.state}`;
-      const km = await getDistanceEstimation(origStr, destStr, stops);
-      if (km > 0) {
-        setFormData({ ...formData, distance_km: km });
-      } else {
-        alert("Não foi possível estimar a distância automaticamente.");
-      }
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoadingDistance(false);
-    }
-  };
 
   const addStop = () => {
     if (!newStop.city) return;
@@ -330,17 +306,7 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <div className="flex justify-between items-center mb-1">
-                    <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Distância (KM)</label>
-                    <button 
-                      onClick={handleAutoDistance} 
-                      disabled={loadingDistance}
-                      className="text-[10px] font-black text-primary-600 hover:text-primary-700 flex items-center gap-1 bg-primary-50 px-2 py-1 rounded-lg transition-all"
-                    >
-                      {loadingDistance ? <Loader2 size={12} className="animate-spin"/> : <Wand2 size={12}/>}
-                      {loadingDistance ? 'Calculando...' : 'IA Auto-KM'}
-                    </button>
-                  </div>
+                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Distância (KM)</label>
                   <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-200 font-black text-xl" value={formData.distance_km || ''} onChange={e => setFormData({...formData, distance_km: Number(e.target.value)})} />
                 </div>
               </div>
