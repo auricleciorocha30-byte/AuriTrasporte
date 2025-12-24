@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Trip, TripStatus, Vehicle, TripStop } from '../types';
-import { Plus, MapPin, Calendar, Truck, UserCheck, Navigation, X, Trash2, Map as MapIcon, ChevronRight, Percent, Loader2, Edit2, DollarSign, MessageSquare } from 'lucide-react';
+import { Plus, MapPin, Calendar, Truck, UserCheck, Navigation, X, Trash2, Map as MapIcon, ChevronRight, Percent, Loader2, Edit2, DollarSign, MessageSquare, ExternalLink } from 'lucide-react';
 
 interface TripManagerProps {
   trips: Trip[];
@@ -51,6 +51,17 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
 
   const calculatedCommission = (formData.agreed_price || 0) * ((formData.driver_commission_percentage || 0) / 100);
 
+  const getMapsUrl = (originText: string, destText: string, tripStops: TripStop[] = []) => {
+    const originStr = `${originText}, Brasil`.replace(' - ', ', ');
+    const destStr = `${destText}, Brasil`.replace(' - ', ', ');
+    let url = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(originStr)}&destination=${encodeURIComponent(destStr)}&travelmode=driving`;
+    if (tripStops.length > 0) {
+      const waypointsStr = tripStops.map(s => `${s.city}, ${s.state}, Brasil`).join('|');
+      url += `&waypoints=${encodeURIComponent(waypointsStr)}`;
+    }
+    return url;
+  };
+
   const resetForm = () => {
     setEditingTripId(null);
     setStops([]);
@@ -91,13 +102,7 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
 
   const openGoogleMapsRoute = () => {
     if (!origin.city || !destination.city) return alert("Preencha origem e destino!");
-    const originStr = `${origin.city}, ${origin.state}, Brasil`;
-    const destStr = `${destination.city}, ${destination.state}, Brasil`;
-    let url = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(originStr)}&destination=${encodeURIComponent(destStr)}&travelmode=driving`;
-    if (stops.length > 0) {
-      const waypointsStr = stops.map(s => `${s.city}, ${s.state}, Brasil`).join('|');
-      url += `&waypoints=${encodeURIComponent(waypointsStr)}`;
-    }
+    const url = getMapsUrl(`${origin.city} - ${origin.state}`, `${destination.city} - ${destination.state}`, stops);
     window.open(url, '_blank');
   };
 
@@ -178,6 +183,13 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                     <div className="bg-amber-50 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 text-amber-700">
                       <Percent size={14}/> {trip.driver_commission_percentage}% (R$ {trip.driver_commission?.toLocaleString()})
                     </div>
+                    {/* Botão de Ver Rota no Card (Restaurado/Adicionado) */}
+                    <button 
+                      onClick={() => window.open(getMapsUrl(trip.origin, trip.destination, trip.stops), '_blank')}
+                      className="bg-primary-50 px-3 py-2 rounded-xl text-xs font-black flex items-center gap-2 text-primary-600 hover:bg-primary-100 transition-colors"
+                    >
+                      <MapIcon size={14}/> Ver Rota
+                    </button>
                   </div>
                </div>
                <div className="md:text-right border-t md:border-t-0 md:border-l border-slate-100 pt-4 md:pt-0 md:pl-8 flex flex-col justify-center min-w-[150px]">
@@ -229,7 +241,7 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                 </div>
               </div>
 
-              {/* Paradas Intermediárias (Restaurado) */}
+              {/* Paradas Intermediárias */}
               <div className="space-y-2">
                 <label className="text-xs font-black uppercase text-slate-400 ml-1">Paradas Intermediárias</label>
                 <div className="flex gap-2">
@@ -250,7 +262,7 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                 )}
               </div>
 
-              {/* Distância e Botão de Mapa (Restaurado) */}
+              {/* Distância e Botão de Mapa */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-xs font-black uppercase text-slate-400 ml-1">Distância (KM)</label>
@@ -301,7 +313,7 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                 </div>
               </div>
 
-              {/* Observações (Restaurado) */}
+              {/* Observações */}
               <div className="space-y-1">
                 <label className="text-xs font-black uppercase text-slate-400 ml-1 flex items-center gap-1"><MessageSquare size={14}/> Observações</label>
                 <textarea className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-200 font-bold outline-none focus:bg-white transition-all" rows={2} value={formData.notes} onChange={e => setFormData({...formData, notes: e.target.value})} placeholder="Informações adicionais da carga, prazos..." />
