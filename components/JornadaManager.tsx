@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Timer, Coffee, Play, Square, History, AlertCircle, BellRing, Trash2, Clock } from 'lucide-react';
 import { JornadaLog } from '../types';
 
@@ -14,11 +14,16 @@ interface JornadaManagerProps {
   setStartTime: (time: number | null) => void;
   onSaveLog: (log: Omit<JornadaLog, 'id' | 'user_id'>) => Promise<void>;
   onDeleteLog: (id: string) => Promise<void>;
+  addGlobalNotification: (title: string, msg: string, type?: 'warning' | 'info') => void;
 }
 
-export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime, logs, setMode, setStartTime, onSaveLog, onDeleteLog }) => {
+export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime, logs, setMode, setStartTime, onSaveLog, onDeleteLog, addGlobalNotification }) => {
   const [currentTime, setCurrentTime] = useState(0);
   const [alert, setAlert] = useState<string | null>(null);
+  
+  // Refs para evitar disparos duplicados de notificação
+  const drivingAlertFired = useRef(false);
+  const restAlertFired = useRef(false);
 
   useEffect(() => {
     let interval: any;
@@ -32,6 +37,8 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
       interval = setInterval(updateTime, 1000);
     } else {
       setCurrentTime(0);
+      drivingAlertFired.current = false;
+      restAlertFired.current = false;
     }
     return () => clearInterval(interval);
   }, [mode, startTime]);
@@ -40,16 +47,26 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
     if (mode === 'DRIVING' && currentTime >= LIMIT_DRIVING) {
       const msg = "⚠️ LIMITE DE 5h30 ATINGIDO! Pare imediatamente.";
       setAlert(msg);
-      triggerPushNotification("Alerta de Jornada", msg);
+      
+      if (!drivingAlertFired.current) {
+        triggerPushNotification("Alerta de Jornada", msg);
+        addGlobalNotification("Alerta de Direção", msg, "warning");
+        drivingAlertFired.current = true;
+      }
     } 
     else if (mode === 'RESTING' && currentTime >= LIMIT_REST) {
       const msg = "✅ DESCANSO DE 30 MINUTOS CONCLUÍDO!";
       setAlert(msg);
-      triggerPushNotification("Jornada Atualizada", msg);
+
+      if (!restAlertFired.current) {
+        triggerPushNotification("Jornada Atualizada", msg);
+        addGlobalNotification("Descanso Concluído", msg, "info");
+        restAlertFired.current = true;
+      }
     } else {
       setAlert(null);
     }
-  }, [currentTime, mode]);
+  }, [currentTime, mode, addGlobalNotification]);
 
   const triggerPushNotification = (title: string, body: string) => {
     if ("Notification" in window && Notification.permission === "granted") {
@@ -87,31 +104,39 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
       const now = Date.now();
       setStartTime(now);
       localStorage.setItem('aurilog_jornada_mode', newMode);
+      drivingAlertFired.current = false;
+      restAlertFired.current = false;
     }
     setMode(newMode);
   };
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 pb-12 animate-fade-in">
-      <div className={`rounded-[3rem] p-10 text-center text-white shadow-2xl transition-all duration-500 relative overflow-hidden ${mode === 'DRIVING' ? 'bg-primary-900' : mode === 'RESTING' ? 'bg-emerald-900' : 'bg-slate-900'}`}>
+      <div className={`rounded-[3rem] p-8 md:p-12 text-center text-white shadow-2xl transition-all duration-500 relative overflow-hidden flex flex-col items-center justify-center min-h-[450px] ${mode === 'DRIVING' ? 'bg-primary-900' : mode === 'RESTING' ? 'bg-emerald-900' : 'bg-slate-900'}`}>
         
+        {/* Banner de Alerta Corrigido */}
         {alert && (
-          <div className="absolute top-6 left-1/2 -translate-x-1/2 w-[90%] bg-white p-4 rounded-2xl flex items-center gap-3 text-slate-900 animate-bounce shadow-2xl z-20">
-            <BellRing className={mode === 'DRIVING' ? 'text-rose-500' : 'text-emerald-500'} />
-            <p className="font-black text-sm">{alert}</p>
+          <div className="w-full max-w-[320px] mb-8 bg-white p-4 rounded-2xl flex items-center gap-3 text-slate-900 animate-bounce shadow-2xl z-20 mx-auto border-2 border-primary-500/20">
+            <div className={`p-2 rounded-full ${mode === 'DRIVING' ? 'bg-rose-100 text-rose-500' : 'bg-emerald-100 text-emerald-500'}`}>
+               <BellRing size={20} />
+            </div>
+            <p className="font-black text-[12px] leading-tight flex-1 text-left">{alert}</p>
           </div>
         )}
 
-        <Timer size={48} className="text-primary-400 mx-auto mb-6" />
-        <h2 className="text-3xl font-black mb-2 uppercase tracking-tighter">
-          {mode === 'DRIVING' ? 'Ao Volante' : mode === 'RESTING' ? 'Em Descanso' : 'Jornada Profissional'}
+        <div className="relative mb-6">
+           <Timer size={48} className={`${mode === 'IDLE' ? 'text-slate-500' : 'text-primary-400'} animate-pulse`} />
+        </div>
+        
+        <h2 className="text-2xl font-black mb-2 uppercase tracking-tighter opacity-80">
+          {mode === 'DRIVING' ? 'Ao Volante' : mode === 'RESTING' ? 'Em Descanso' : 'Controle de Jornada'}
         </h2>
         
-        <div className="text-7xl md:text-9xl font-black font-mono my-12 tracking-tighter">
+        <div className="text-6xl md:text-9xl font-black font-mono my-8 tracking-tighter select-none tabular-nums">
           {formatTime(currentTime)}
         </div>
 
-        <div className="flex flex-col md:flex-row items-center justify-center gap-4">
+        <div className="flex flex-col md:flex-row items-center justify-center gap-4 w-full px-4">
           {mode !== 'DRIVING' ? (
             <button onClick={() => handleAction('DRIVING')} className="w-full md:w-64 py-5 bg-primary-600 hover:bg-primary-700 rounded-[2rem] font-black text-xl flex items-center justify-center gap-3 shadow-lg transition-all active:scale-95">
               <Play size={24}/> Iniciar Direção

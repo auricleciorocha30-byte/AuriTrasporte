@@ -201,7 +201,17 @@ const App: React.FC = () => {
       }
     });
 
-    setNotifications(alerts);
+    setNotifications(prev => {
+        // Preserva as notificações manuais (ex: jornada)
+        const manualAlerts = prev.filter(n => n.id.startsWith('manual-'));
+        return [...alerts, ...manualAlerts];
+    });
+  };
+
+  const addGlobalNotification = (title: string, msg: string, type: 'warning' | 'info' = 'info') => {
+    const id = `manual-${Date.now()}`;
+    setNotifications(prev => [{ id, title, msg, type }, ...prev]);
+    setShowNotifications(true);
   };
 
   const handleAddTrip = async (tripData: any) => {
@@ -474,6 +484,7 @@ const App: React.FC = () => {
               setStartTime={setStartTimeWithStorage} 
               onSaveLog={handleAddJornadaLog}
               onDeleteLog={async (id) => { if(confirm("Excluir log?")) {await supabase.from('jornada_logs').delete().eq('id', id); fetchData();} }}
+              addGlobalNotification={addGlobalNotification}
             />
           )}
           {currentView === AppView.STATIONS && <StationLocator />}
