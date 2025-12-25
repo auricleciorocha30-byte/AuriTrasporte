@@ -1,5 +1,4 @@
 
-// @google/genai guidelines followed: exclusively using process.env.API_KEY, correct model names, and response.text usage.
 import React, { useState, useEffect } from 'react';
 import { LayoutDashboard, Truck, Wallet, Calculator, Menu, X, LogOut, Bell, Search, Database, CheckSquare, Settings, Lock, User as UserIcon, Loader2, AlertCircle, Timer, Fuel, Sparkles, Printer, Share2 } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
@@ -259,7 +258,6 @@ const App: React.FC = () => {
                   placeholder="exemplo@email.com" 
                   className="w-full p-4 rounded-2xl border border-slate-200 font-bold outline-none focus:ring-2 focus:ring-primary-500 transition-all bg-slate-50 focus:bg-white" 
                   value={email} 
-                  /* Fixed onChange handler to correctly update state */
                   onChange={(e) => setEmail(e.target.value)} 
                   required 
                 />
@@ -272,7 +270,6 @@ const App: React.FC = () => {
                   placeholder="••••••••" 
                   className="w-full p-4 rounded-2xl border border-slate-200 font-bold outline-none focus:ring-2 focus:ring-primary-500 transition-all bg-slate-50 focus:bg-white" 
                   value={password} 
-                  /* Fixed onChange handler to correctly update state */
                   onChange={(e) => setPassword(e.target.value)} 
                   required 
                 />
@@ -408,7 +405,6 @@ const App: React.FC = () => {
                   logs={jornadaLogs}
                   setMode={setJornadaMode}
                   setStartTime={setJornadaStartTime}
-                  /* Fixed line 408: setLogs should use setJornadaLogs */
                   setLogs={setJornadaLogs}
                 />
               )}
