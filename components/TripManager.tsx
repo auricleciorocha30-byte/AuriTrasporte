@@ -42,7 +42,6 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
   const [stops, setStops] = useState<TripStop[]>([]);
   const [newStop, setNewStop] = useState({ city: '', state: 'SP' });
 
-  // Campos de cálculo mantidos localmente para não quebrar o banco
   const [calcParams, setCalcParams] = useState({
     planned_toll_cost: 0,
     planned_daily_cost: 0,
@@ -114,6 +113,17 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
     setFormData({ ...formData, agreed_price: Math.ceil(result.total) });
   };
 
+  const getMapsUrl = (originText: string, destText: string, tripStops: TripStop[] = []) => {
+    const originStr = `${originText}, Brasil`.replace(' - ', ', ');
+    const destStr = `${destText}, Brasil`.replace(' - ', ', ');
+    let url = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(originStr)}&destination=${encodeURIComponent(destStr)}&travelmode=driving`;
+    if (tripStops.length > 0) {
+      const waypointsStr = tripStops.map(s => `${s.city}, ${s.state}, Brasil`).join('|');
+      url += `&waypoints=${encodeURIComponent(waypointsStr)}`;
+    }
+    return url;
+  };
+
   const resetForm = () => {
     setEditingTripId(null);
     setStops([]);
@@ -139,21 +149,13 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
 
   const handleEdit = (trip: Trip) => {
     setEditingTripId(trip.id);
-    const [origCity, origState] = trip.origin.split(' - ');
-    const [destCity, destState] = trip.destination.split(' - ');
+    const originParts = trip.origin.split(' - ');
+    const destParts = trip.destination.split(' - ');
     
-    setOrigin({ city: origCity, state: origState || 'SP' });
-    setDestination({ city: destCity, state: destState || 'SP' });
+    setOrigin({ city: originParts[0], state: originParts[1] || 'SP' });
+    setDestination({ city: destParts[0], state: destParts[1] || 'SP' });
     setStops(trip.stops || []);
     
-    // Tenta extrair dados de cálculo das notas se existirem
-    setCalcParams({
-      planned_toll_cost: trip.planned_toll_cost || 0,
-      planned_daily_cost: trip.planned_daily_cost || 0,
-      planned_extra_costs: trip.planned_extra_costs || 0,
-      return_empty: trip.return_empty || false
-    });
-
     setFormData({
       distance_km: trip.distance_km,
       agreed_price: trip.agreed_price,
@@ -173,13 +175,11 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
       return;
     }
 
-    // Geramos um log de cálculo para as observações para não perder a informação
-    const calcLog = `[Calculado: Pedágio R$${calcParams.planned_toll_cost}, Diária R$${calcParams.planned_daily_cost}${calcParams.return_empty ? ', Retorno Vazio' : ''}]`;
-    const finalNotes = formData.notes.includes('[Calculado:') 
-      ? formData.notes.replace(/\[Calculado:.*?\]/, calcLog) 
+    const calcLog = `[Custo Est.: Pedágio R$${calcParams.planned_toll_cost}, Diária R$${calcParams.planned_daily_cost}${calcParams.return_empty ? ', Retorno Vazio' : ''}]`;
+    const finalNotes = formData.notes.includes('[Custo Est.:') 
+      ? formData.notes.replace(/\[Custo Est.:.*?\]/, calcLog) 
       : `${formData.notes} ${calcLog}`.trim();
 
-    // Payload limpo apenas com o que o banco aceita
     const payload = {
       origin: `${origin.city} - ${origin.state}`,
       destination: `${destination.city} - ${destination.state}`,
@@ -240,11 +240,27 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                     <ChevronRight size={16} className="text-slate-300"/> 
                     {trip.destination}
                   </h3>
+                  {trip.stops && trip.stops.length > 0 && (
+                    <div className="mt-2 flex items-center gap-2 overflow-x-auto pb-1">
+                      <span className="text-[10px] font-black uppercase text-slate-400 shrink-0">Paradas:</span>
+                      {trip.stops.map((s, idx) => (
+                        <div key={idx} className="bg-slate-100 px-2 py-1 rounded-lg text-[10px] font-bold text-slate-600 whitespace-nowrap">
+                          {s.city}/{s.state}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   <div className="mt-4 flex flex-wrap gap-2 items-center">
                     <div className="bg-slate-50 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 text-slate-600"><Navigation size={14}/> {trip.distance_km} KM</div>
                     <div className="bg-amber-50 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 text-amber-700">
                       <Percent size={14}/> {trip.driver_commission_percentage}% (R$ {trip.driver_commission?.toLocaleString()})
                     </div>
+                    <button 
+                      onClick={() => window.open(getMapsUrl(trip.origin, trip.destination, trip.stops), '_blank')}
+                      className="bg-primary-50 px-3 py-2 rounded-xl text-xs font-black flex items-center gap-2 text-primary-600 hover:bg-primary-100 transition-colors"
+                    >
+                      <MapIcon size={14}/> Ver Rota
+                    </button>
                   </div>
                </div>
                <div className="md:text-right border-t md:border-t-0 md:border-l border-slate-100 pt-4 md:pt-0 md:pl-8 flex flex-col justify-center min-w-[150px]">
@@ -291,23 +307,59 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
           <div className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl animate-fade-in relative mt-16 mb-10 overflow-hidden">
             <div className="flex justify-between items-center p-8 pb-4 border-b">
               <h3 className="text-2xl font-black">{editingTripId ? 'Editar Viagem' : 'Nova Viagem'}</h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-slate-400"><X size={28} /></button>
+              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 p-2"><X size={28} /></button>
             </div>
             
             <div className="p-8 space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <input placeholder="Origem" className="p-4 bg-slate-50 rounded-2xl border font-bold" value={origin.city} onChange={e => setOrigin({...origin, city: e.target.value})} />
-                <input placeholder="Destino" className="p-4 bg-slate-50 rounded-2xl border font-bold" value={destination.city} onChange={e => setDestination({...destination, city: e.target.value})} />
+              {/* Rota Detalhada com UF */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-6 rounded-[2rem] border">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-slate-400">Origem</label>
+                  <div className="flex gap-2">
+                    <input placeholder="Cidade" className="flex-1 p-4 bg-white rounded-2xl border font-bold" value={origin.city} onChange={e => setOrigin({...origin, city: e.target.value})} />
+                    <select className="w-20 p-4 bg-white rounded-2xl border font-bold" value={origin.state} onChange={e => setOrigin({...origin, state: e.target.value})}>
+                      {BRAZILIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-slate-400">Destino</label>
+                  <div className="flex gap-2">
+                    <input placeholder="Cidade" className="flex-1 p-4 bg-white rounded-2xl border font-bold" value={destination.city} onChange={e => setDestination({...destination, city: e.target.value})} />
+                    <select className="w-20 p-4 bg-white rounded-2xl border font-bold" value={destination.state} onChange={e => setDestination({...destination, state: e.target.value})}>
+                      {BRAZILIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Paradas */}
+              <div className="space-y-3 bg-slate-50 p-6 rounded-[2rem] border">
+                <label className="text-[10px] font-black uppercase text-slate-400">Paradas Intermediárias</label>
+                <div className="flex flex-wrap gap-2">
+                  {stops.map((s, i) => (
+                    <div key={i} className="bg-primary-100 text-primary-700 px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-2">
+                      {s.city}/{s.state} <button onClick={() => removeStop(i)}><X size={14}/></button>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <input placeholder="Nova Parada" className="flex-1 p-3 bg-white border rounded-xl font-bold" value={newStop.city} onChange={e => setNewStop({...newStop, city: e.target.value})} />
+                  <select className="w-20 p-3 bg-white border rounded-xl font-bold" value={newStop.state} onChange={e => setNewStop({...newStop, state: e.target.value})}>
+                    {BRAZILIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                  <button onClick={addStop} className="p-3 bg-slate-900 text-white rounded-xl"><PlusCircle size={20}/></button>
+                </div>
               </div>
 
               {/* Custos Operacionais locais para Cálculo */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-6 rounded-[2rem] border">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-slate-400">Pedágio Estimado</label>
+                  <label className="text-[10px] font-black uppercase text-slate-400">Pedágio Previsto</label>
                   <input type="number" className="w-full p-4 bg-white border rounded-2xl font-bold" value={calcParams.planned_toll_cost || ''} onChange={e => setCalcParams({...calcParams, planned_toll_cost: Number(e.target.value)})} />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-slate-400">Diárias Estimadas</label>
+                  <label className="text-[10px] font-black uppercase text-slate-400">Diárias Previstas</label>
                   <input type="number" className="w-full p-4 bg-white border rounded-2xl font-bold" value={calcParams.planned_daily_cost || ''} onChange={e => setCalcParams({...calcParams, planned_daily_cost: Number(e.target.value)})} />
                 </div>
                 <div className="space-y-1 pt-4">
@@ -316,7 +368,7 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                       onClick={() => setCalcParams({...calcParams, return_empty: !calcParams.return_empty})}
                       className={`w-full py-3 rounded-2xl font-black text-xs ${calcParams.return_empty ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-500'}`}
                     >
-                      {calcParams.return_empty ? 'COM RETORNO VAZIO' : 'SEM RETORNO VAZIO'}
+                      {calcParams.return_empty ? 'RETORNO VAZIO' : 'SOMENTE IDA'}
                    </button>
                 </div>
               </div>

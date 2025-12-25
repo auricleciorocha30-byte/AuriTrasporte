@@ -87,7 +87,6 @@ export const StationLocator: React.FC = () => {
         };
       }
 
-      // Maps grounding is only supported in Gemini 2.5 series models.
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
         contents: `Encontre ${queryText}`,
@@ -102,6 +101,7 @@ export const StationLocator: React.FC = () => {
         setActiveStation(mapsData[0]);
       } else {
         setErrorMessage(`Nenhum serviço encontrado.`);
+        setErrorType('manual');
       }
     } catch (err: any) {
       console.error("Erro na busca:", err);
@@ -111,20 +111,6 @@ export const StationLocator: React.FC = () => {
       setLoading(false);
       setStatusMessage("");
     }
-  };
-
-  const openFullMaps = () => {
-    if (!lastQuery) return;
-    const url = `https://www.google.com/maps/search/${encodeURIComponent(lastQuery)}`;
-    window.open(url, '_blank');
-  };
-
-  // Helper para tentar embutir o mapa (alguns links permitem via busca)
-  const getEmbedUrl = (uri: string) => {
-     // Tentativa de conversão para formato embed de busca
-     const searchParam = uri.split('q=')[1] || encodeURIComponent(activeStation?.title || "");
-     return `https://www.google.com/maps/embed/v1/place?key=YOUR_API_KEY&q=${searchParam}`;
-     // Como não temos a chave de Mapas JS aqui, usamos a visualização nativa do Google Maps que é melhor.
   };
 
   return (
@@ -156,7 +142,7 @@ export const StationLocator: React.FC = () => {
           ) : (
             <div className="w-full space-y-4 animate-fade-in bg-slate-800 p-5 rounded-[2rem] border border-slate-700">
               <p className="text-amber-400 font-bold flex items-center gap-2 text-sm">
-                <AlertTriangle size={16}/> GPS não disponível. Digite sua localização atual:
+                <AlertTriangle size={16}/> {errorMessage || 'GPS não disponível. Digite sua localização:'}
               </p>
               <div className="flex gap-2">
                 <input 
@@ -182,6 +168,7 @@ export const StationLocator: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 px-2">
+        {/* Lista Lateral */}
         <div className={`lg:col-span-4 space-y-3 h-[600px] overflow-y-auto pr-2 custom-scrollbar ${activeStation ? 'hidden lg:block' : 'block'}`}>
           {stations.map((s, i) => (
             <div 
@@ -193,10 +180,10 @@ export const StationLocator: React.FC = () => {
                 <div className={`p-3 rounded-xl ${activeStation?.uri === s.uri ? 'bg-white/20' : 'bg-slate-100 text-slate-500'}`}>
                   {selectedType === 'stations' ? <Fuel size={20}/> : selectedType === 'tire_repair' ? <Hammer size={20}/> : <Wrench size={20}/>}
                 </div>
-                <div>
-                  <h3 className="font-black text-sm">{s.title || 'Serviço'}</h3>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-black text-sm truncate">{s.title || 'Serviço'}</h3>
                   <p className={`text-[10px] font-bold ${activeStation?.uri === s.uri ? 'text-white/70' : 'text-slate-400'}`}>
-                    VER NO MAPA
+                    VER DETALHES
                   </p>
                 </div>
               </div>
@@ -207,53 +194,55 @@ export const StationLocator: React.FC = () => {
           {!loading && stations.length === 0 && (
             <div className="text-center py-20 bg-white rounded-[2.5rem] border-2 border-dashed border-slate-200">
               <MapPinHouse size={48} className="mx-auto text-slate-200 mb-4" />
-              <p className="text-slate-400 font-bold text-sm px-6">Busque serviços próximos para ver resultados.</p>
+              <p className="text-slate-400 font-bold text-sm px-6">Busque serviços para ver os resultados aqui.</p>
             </div>
           )}
         </div>
 
+        {/* Visualização Principal do Mapa */}
         <div className={`lg:col-span-8 h-[600px] bg-white rounded-[2.5rem] border border-slate-200 overflow-hidden relative flex flex-col ${activeStation ? 'block' : 'hidden lg:flex items-center justify-center'}`}>
           {activeStation ? (
             <>
-              <div className="bg-slate-50 border-b p-4 flex items-center justify-between">
+              <div className="bg-slate-50 border-b p-4 flex items-center justify-between z-10">
                 <div className="flex items-center gap-3">
                    <button onClick={() => setActiveStation(null)} className="lg:hidden p-2 text-slate-500 hover:bg-slate-200 rounded-full transition-colors"><X size={20}/></button>
-                   <h3 className="font-black text-slate-800 text-lg truncate">{activeStation.title}</h3>
+                   <h3 className="font-black text-slate-800 text-lg truncate max-w-[200px] md:max-w-md">{activeStation.title}</h3>
                 </div>
                 <button onClick={() => window.open(activeStation.uri, '_blank')} className="bg-primary-600 text-white px-4 py-2 rounded-xl text-xs font-black flex items-center gap-2 hover:bg-primary-700 transition-colors">
                   <ExternalLink size={14}/> ABRIR NO MAPS
                 </button>
               </div>
 
-              <div className="flex-1 relative flex flex-col items-center justify-center p-8 bg-slate-100">
-                <div className="w-full h-full rounded-[1.5rem] overflow-hidden shadow-inner bg-white relative">
-                   {/* Iframe para exibir o mapa visualmente se permitido, ou um card interativo de alta fidelidade */}
-                   <iframe 
-                      title="Google Maps"
-                      className="w-full h-full border-0"
-                      src={`https://www.google.com/maps?q=${encodeURIComponent(activeStation.title)}&output=embed`}
-                      allowFullScreen
-                    ></iframe>
-                    
-                    {/* Botão de Rota Flutuante */}
-                    <div className="absolute bottom-6 left-6 right-6">
-                       <button 
-                        onClick={() => {
-                          const navUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(activeStation.title)}&travelmode=driving`;
-                          window.open(navUrl, '_blank');
-                        }}
-                        className="w-full py-5 bg-slate-900 text-white rounded-[1.5rem] font-black text-xl flex items-center justify-center gap-3 shadow-2xl hover:bg-slate-800 transition-all"
-                      >
-                        <Navigation size={24}/> INICIAR ROTA NO GPS
-                      </button>
-                    </div>
+              <div className="flex-1 relative bg-slate-100">
+                {/* Iframe do Google Maps */}
+                <iframe 
+                  title="Serviço no Mapa"
+                  className="w-full h-full border-0"
+                  src={`https://www.google.com/maps?q=${encodeURIComponent(activeStation.title)}&output=embed`}
+                  allowFullScreen
+                ></iframe>
+                
+                {/* Botão de Rota sobreposto ao mapa */}
+                <div className="absolute bottom-6 left-6 right-6 lg:left-1/2 lg:-translate-x-1/2 lg:w-96">
+                   <button 
+                    onClick={() => {
+                      const navUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(activeStation.title)}&travelmode=driving`;
+                      window.open(navUrl, '_blank');
+                    }}
+                    className="w-full py-5 bg-slate-900 text-white rounded-[1.5rem] font-black text-xl flex items-center justify-center gap-3 shadow-2xl hover:bg-slate-800 transition-all border border-white/10"
+                  >
+                    <Navigation size={24}/> INICIAR ROTA NO GPS
+                  </button>
                 </div>
               </div>
             </>
           ) : (
             <div className="text-center p-10">
-              <MapIcon size={48} className="mx-auto text-slate-200 mb-4" />
-              <h3 className="text-slate-400 font-black">Selecione um local para ver no mapa</h3>
+              <div className="bg-slate-50 p-8 rounded-full inline-block mb-4">
+                <MapIcon size={64} className="text-slate-200" />
+              </div>
+              <h3 className="text-slate-400 font-black text-xl">Selecione um local na lista</h3>
+              <p className="text-slate-300 font-bold max-w-xs mx-auto mt-2">Os detalhes e a rota aparecerão aqui visualmente.</p>
             </div>
           )}
         </div>
