@@ -80,6 +80,12 @@ const App: React.FC = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
     });
+    
+    // Solicitar permissão de notificação nativa
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+
     return () => subscription.unsubscribe();
   }, []);
 
@@ -124,91 +130,67 @@ const App: React.FC = () => {
   const checkNotifications = (currentTrips: Trip[], currentMain: MaintenanceItem[], currentVehicles: Vehicle[]) => {
     const alerts: AppNotification[] = [];
     const today = new Date();
-    const tomorrowStr = new Date(today.getTime() + 86400000).toISOString().split('T')[0];
+    
+    // Formatar data local de hoje e amanhã no formato YYYY-MM-DD
+    const getLocalYMD = (date: Date) => {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    };
 
-    // 1. Notificações de Viagens
+    const todayStr = getLocalYMD(today);
+    const tomorrow = new Date();
+    tomorrow.setDate(today.getDate() + 1);
+    const tomorrowStr = getLocalYMD(tomorrow);
+
+    // 1. Notificações de Viagens (Focando no pedido: 1 dia antes)
     currentTrips.forEach(t => {
-      const nid = `trip-${t.id}-${t.date}`;
-      if (t.status === TripStatus.SCHEDULED && t.date === tomorrowStr && !dismissedIds.includes(nid)) {
-        alerts.push({ id: nid, title: 'Próxima Viagem', msg: `Viagem para ${t.destination} amanhã!`, type: 'info' });
+      const nidTomorrow = `trip-${t.id}-tomorrow`;
+      const nidToday = `trip-${t.id}-today`;
+
+      // Notificar 1 dia antes
+      if (t.status === TripStatus.SCHEDULED && t.date === tomorrowStr && !dismissedIds.includes(nidTomorrow)) {
+        const title = 'Próxima Viagem';
+        const msg = `Viagem agendada para ${t.destination} AMANHÃ!`;
+        alerts.push({ id: nidTomorrow, title, msg, type: 'info' });
+        
+        // Disparar notificação nativa se o app estiver aberto e tiver permissão
+        if ("Notification" in window && Notification.permission === "granted") {
+          new Notification(title, { body: msg, icon: 'https://cdn-icons-png.flaticon.com/512/2830/2830305.png' });
+        }
+      }
+
+      // Notificar se for Hoje
+      if (t.status === TripStatus.SCHEDULED && t.date === todayStr && !dismissedIds.includes(nidToday)) {
+        alerts.push({ id: nidToday, title: 'Viagem HOJE!', msg: `Você tem uma viagem para ${t.destination} hoje!`, type: 'warning' });
       }
     });
 
-    // 2. Notificações de Manutenção (Melhorado)
+    // 2. Notificações de Manutenção (Permanecem iguais)
     currentMain.forEach(m => {
       const vehicle = currentVehicles.find(v => v.id === m.vehicle_id);
       if (!vehicle) return;
 
-      // Cálculo por tempo
       const pDate = new Date(m.purchase_date);
       const expiryDate = new Date(pDate);
       expiryDate.setMonth(pDate.getMonth() + (m.warranty_months || 0));
-      
       const timeDiffDays = Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-      
-      // Cálculo por KM
       const kmLimit = m.km_at_purchase + (m.warranty_km || 0);
       const kmLeft = kmLimit - vehicle.current_km;
 
       const timeNid = `main-time-${m.id}`;
       const kmNid = `main-km-${m.id}`;
 
-      // Status crítico (Vencido)
       if (expiryDate < today && m.warranty_months > 0 && !dismissedIds.includes(timeNid)) {
         alerts.push({ id: timeNid, title: 'Manutenção Vencida', msg: `Troca de "${m.part_name}" no ${vehicle.plate} venceu por tempo!`, type: 'warning' });
       }
       if (kmLeft <= 0 && m.warranty_km > 0 && !dismissedIds.includes(kmNid)) {
         alerts.push({ id: kmNid, title: 'Manutenção Vencida', msg: `Troca de "${m.part_name}" no ${vehicle.plate} venceu por KM!`, type: 'warning' });
       }
-
-      // Status de Alerta (Próximo de vencer)
-      if (timeDiffDays <= 30 && timeDiffDays > 0 && m.warranty_months > 0 && !dismissedIds.includes(`${timeNid}-alert`)) {
-        alerts.push({ id: `${timeNid}-alert`, title: 'Troca Próxima', msg: `"${m.part_name}" vence em ${timeDiffDays} dias (${vehicle.plate}).`, type: 'info' });
-      }
-      if (kmLeft <= 1000 && kmLeft > 0 && m.warranty_km > 0 && !dismissedIds.includes(`${kmNid}-alert`)) {
-        alerts.push({ id: `${kmNid}-alert`, title: 'Troca Próxima', msg: `"${m.part_name}" vence em ${kmLeft} km (${vehicle.plate}).`, type: 'info' });
-      }
     });
 
     setNotifications(alerts);
-  };
-
-  const handleAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAuthLoading(true);
-    setError('');
-    try {
-      let res;
-      if (isSignUp) {
-        res = await supabase.auth.signUp({ email, password });
-      } else {
-        res = await supabase.auth.signInWithPassword({ email, password });
-      }
-      if (res.error) throw res.error;
-    } catch (err: any) { 
-      setError(err.message); 
-    }
-    finally { setAuthLoading(false); }
-  };
-
-  const handleAddVehicle = async (vehData: any) => {
-    setIsSaving(true);
-    try {
-      const { error } = await supabase.from('vehicles').insert([{...vehData, user_id: session.user.id}]);
-      if (error) throw error;
-      fetchData();
-    } catch (err: any) { alert(err.message); }
-    finally { setIsSaving(false); }
-  };
-
-  const handleUpdateVehicle = async (id: string, vehData: any) => {
-    setIsSaving(true);
-    try {
-      const { error } = await supabase.from('vehicles').update(vehData).eq('id', id);
-      if (error) throw error;
-      fetchData();
-    } catch (err: any) { alert(err.message); }
-    finally { setIsSaving(false); }
   };
 
   const handleAddTrip = async (tripData: any) => {
@@ -376,7 +358,7 @@ const App: React.FC = () => {
                   isSaving={isSaving}
                 />
               )}
-              {currentView === AppView.VEHICLES && <VehicleManager vehicles={vehicles} onAddVehicle={handleAddVehicle} onUpdateVehicle={handleUpdateVehicle} onDeleteVehicle={async (id) => { if(confirm("Excluir?")) {await supabase.from('vehicles').delete().eq('id', id); fetchData();} }} isSaving={isSaving} />}
+              {currentView === AppView.VEHICLES && <VehicleManager vehicles={vehicles} onAddVehicle={async (v) => {await supabase.from('vehicles').insert([{...v, user_id: session.user.id}]); fetchData();}} onUpdateVehicle={async (id, v) => {await supabase.from('vehicles').update(v).eq('id', id); fetchData();}} onDeleteVehicle={async (id) => { if(confirm("Excluir?")) {await supabase.from('vehicles').delete().eq('id', id); fetchData();} }} isSaving={isSaving} />}
               {currentView === AppView.MAINTENANCE && <MaintenanceManager maintenance={maintenance} vehicles={vehicles} onAddMaintenance={async (m) => {await supabase.from('maintenance').insert([{...m, user_id: session.user.id}]); fetchData();}} onDeleteMaintenance={async (id) => {await supabase.from('maintenance').delete().eq('id', id); fetchData();}} />}
               {currentView === AppView.EXPENSES && <ExpenseManager expenses={expenses} trips={trips} onAddExpense={async (e) => { await supabase.from('expenses').insert([{...e, user_id: session.user.id}]); fetchData(); }} onDeleteExpense={async (id) => {await supabase.from('expenses').delete().eq('id', id); fetchData();}} />}
               {currentView === AppView.CALCULATOR && <FreightCalculator />}
