@@ -352,8 +352,32 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                 </div>
               </div>
 
-              {/* Custos Operacionais locais para Cálculo */}
+              {/* Data e Veículo */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Data da Viagem</label>
+                  <input 
+                    type="date" 
+                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold outline-none focus:bg-white" 
+                    value={formData.date} 
+                    onChange={e => setFormData({...formData, date: e.target.value})} 
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Veículo</label>
+                  <select className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-200 font-bold" value={formData.vehicle_id} onChange={e => setFormData({...formData, vehicle_id: e.target.value})}>
+                    <option value="">Selecione o veículo...</option>
+                    {vehicles.map(v => <option key={v.id} value={v.id}>{v.plate} ({v.axles} eixos)</option>)}
+                  </select>
+                </div>
+              </div>
+
+              {/* Distância e Cálculos */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-6 rounded-[2rem] border">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-slate-400">Distância KM</label>
+                  <input type="number" placeholder="KM Total" className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-black outline-none" value={formData.distance_km || ''} onChange={e => setFormData({...formData, distance_km: Number(e.target.value)})} />
+                </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-black uppercase text-slate-400">Pedágio Previsto</label>
                   <input type="number" className="w-full p-4 bg-white border rounded-2xl font-bold" value={calcParams.planned_toll_cost || ''} onChange={e => setCalcParams({...calcParams, planned_toll_cost: Number(e.target.value)})} />
@@ -362,23 +386,6 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                   <label className="text-[10px] font-black uppercase text-slate-400">Diárias Previstas</label>
                   <input type="number" className="w-full p-4 bg-white border rounded-2xl font-bold" value={calcParams.planned_daily_cost || ''} onChange={e => setCalcParams({...calcParams, planned_daily_cost: Number(e.target.value)})} />
                 </div>
-                <div className="space-y-1 pt-4">
-                   <button 
-                      type="button"
-                      onClick={() => setCalcParams({...calcParams, return_empty: !calcParams.return_empty})}
-                      className={`w-full py-3 rounded-2xl font-black text-xs ${calcParams.return_empty ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-500'}`}
-                    >
-                      {calcParams.return_empty ? 'RETORNO VAZIO' : 'SOMENTE IDA'}
-                   </button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <select className="p-4 bg-slate-50 rounded-2xl border font-bold" value={formData.vehicle_id} onChange={e => setFormData({...formData, vehicle_id: e.target.value})}>
-                  <option value="">Selecione o veículo...</option>
-                  {vehicles.map(v => <option key={v.id} value={v.id}>{v.plate} ({v.axles} eixos)</option>)}
-                </select>
-                <input type="number" placeholder="KM Total" className="p-4 bg-slate-50 rounded-2xl border font-black" value={formData.distance_km || ''} onChange={e => setFormData({...formData, distance_km: Number(e.target.value)})} />
               </div>
 
               <div className="bg-slate-900 p-6 rounded-[2rem] text-white">
