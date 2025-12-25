@@ -13,6 +13,22 @@ import { StationLocator } from './components/StationLocator';
 import { AppView, Trip, Expense, Vehicle, MaintenanceItem, TripStatus } from './types';
 import { supabase } from './lib/supabase';
 
+// Helper para remover campos que podem não existir na tabela do Supabase
+const sanitizeTripPayload = (payload: any) => {
+  const allowedKeys = [
+    'origin', 'destination', 'distance_km', 'agreed_price', 
+    'driver_commission_percentage', 'driver_commission', 
+    'cargo_type', 'date', 'status', 'notes', 'vehicle_id', 
+    'user_id', 'stops'
+  ];
+  return Object.keys(payload)
+    .filter(key => allowedKeys.includes(key))
+    .reduce((obj: any, key) => {
+      obj[key] = payload[key];
+      return obj;
+    }, {});
+};
+
 interface AppNotification {
   id: string;
   title: string;
@@ -175,10 +191,25 @@ const App: React.FC = () => {
     finally { setIsSaving(false); }
   };
 
+  const handleAddTrip = async (tripData: any) => {
+    setIsSaving(true);
+    try {
+      const cleanData = sanitizeTripPayload({...tripData, user_id: session.user.id});
+      const { error } = await supabase.from('trips').insert([cleanData]);
+      if (error) throw error;
+      await fetchData();
+    } catch (err: any) {
+      alert("Erro ao salvar: " + err.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleUpdateTrip = async (id: string, tripData: any) => {
     setIsSaving(true);
     try {
-      const { error } = await supabase.from('trips').update(tripData).eq('id', id);
+      const cleanData = sanitizeTripPayload(tripData);
+      const { error } = await supabase.from('trips').update(cleanData).eq('id', id);
       if (error) throw error;
       await fetchData();
     } catch (err: any) {
@@ -297,10 +328,6 @@ const App: React.FC = () => {
               {isSignUp ? 'Já tem uma conta? Entre agora' : 'Não tem conta? Cadastre-se gratuitamente'}
             </button>
           </div>
-
-          <p className="text-center mt-10 text-slate-500 text-[10px] font-bold uppercase tracking-widest opacity-50">
-            AuriLog &copy; 2024 - Sistema Profissional
-          </p>
         </div>
       </div>
     );
@@ -329,28 +356,14 @@ const App: React.FC = () => {
         </nav>
         
         <div className="absolute bottom-6 left-4 right-4 space-y-2">
-          <button 
-            onClick={handleShareOrPrint} 
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-primary-600/10 text-primary-400 hover:bg-primary-600/20 transition-all font-bold text-sm border border-primary-900/50"
-          >
-            <Share2 size={18} /> <span>Imprimir / Compartilhar</span>
-          </button>
-          <button 
-            onClick={handleLogout} 
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-rose-400 hover:bg-rose-500/10 transition-all font-bold text-sm"
-          >
-            <LogOut size={18} /> <span>Sair</span>
-          </button>
+          <button onClick={handleShareOrPrint} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-primary-600/10 text-primary-400 font-bold text-sm border border-primary-900/50"><Share2 size={18} /> <span>Imprimir / Compartilhar</span></button>
+          <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-rose-400 font-bold text-sm"><LogOut size={18} /> <span>Sair</span></button>
         </div>
       </aside>
 
       <main className="flex-1 flex flex-col overflow-hidden relative">
         <header className="h-16 bg-white border-b flex items-center justify-between px-6 shrink-0 z-10">
           <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden p-2 text-slate-600"><Menu size={24} /></button>
-          <div className="hidden md:block relative w-64 lg:w-96">
-            <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
-            <input type="text" placeholder="Pesquisar..." className="w-full pl-10 pr-4 py-2 bg-slate-100 rounded-full focus:ring-2 focus:ring-primary-500 text-sm" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
-          </div>
           <div className="flex items-center gap-4">
             <button onClick={() => setShowNotifications(!showNotifications)} className="p-2 text-slate-500 hover:bg-slate-100 rounded-full relative">
               <Bell size={22} />
@@ -363,7 +376,7 @@ const App: React.FC = () => {
           {loading ? (
             <div className="flex flex-col items-center justify-center h-full gap-4">
               <Loader2 className="animate-spin text-primary-600" size={48} />
-              <p className="font-bold text-slate-400 uppercase tracking-widest text-xs">Carregando seus dados...</p>
+              <p className="font-bold text-slate-400 uppercase tracking-widest text-xs">Sincronizando...</p>
             </div>
           ) : (
             <>
@@ -372,44 +385,19 @@ const App: React.FC = () => {
                 <TripManager 
                   trips={trips} 
                   vehicles={vehicles} 
-                  onAddTrip={async (t) => { await supabase.from('trips').insert([{...t, user_id: session.user.id}]); fetchData(); }} 
+                  onAddTrip={handleAddTrip} 
                   onUpdateTrip={handleUpdateTrip}
                   onUpdateStatus={handleUpdateStatus}
                   onDeleteTrip={async (id) => { if(confirm("Excluir?")) {await supabase.from('trips').delete().eq('id', id); fetchData();} }} 
                   isSaving={isSaving}
                 />
               )}
-              {currentView === AppView.VEHICLES && (
-                <VehicleManager 
-                  vehicles={vehicles} 
-                  onAddVehicle={handleAddVehicle} 
-                  onUpdateVehicle={handleUpdateVehicle}
-                  onDeleteVehicle={async (id) => { if(confirm("Excluir?")) {await supabase.from('vehicles').delete().eq('id', id); fetchData();} }}
-                  isSaving={isSaving}
-                />
-              )}
+              {currentView === AppView.VEHICLES && <VehicleManager vehicles={vehicles} onAddVehicle={handleAddVehicle} onUpdateVehicle={handleUpdateVehicle} onDeleteVehicle={async (id) => { if(confirm("Excluir?")) {await supabase.from('vehicles').delete().eq('id', id); fetchData();} }} isSaving={isSaving} />}
               {currentView === AppView.MAINTENANCE && <MaintenanceManager maintenance={maintenance} vehicles={vehicles} onAddMaintenance={async (m) => {await supabase.from('maintenance').insert([{...m, user_id: session.user.id}]); fetchData();}} onDeleteMaintenance={async (id) => {await supabase.from('maintenance').delete().eq('id', id); fetchData();}} />}
-              {currentView === AppView.EXPENSES && (
-                <ExpenseManager 
-                  expenses={expenses} 
-                  trips={trips} 
-                  onAddExpense={async (e) => { await supabase.from('expenses').insert([{...e, user_id: session.user.id}]); fetchData(); }} 
-                  onDeleteExpense={async (id) => {await supabase.from('expenses').delete().eq('id', id); fetchData();}} 
-                />
-              )}
+              {currentView === AppView.EXPENSES && <ExpenseManager expenses={expenses} trips={trips} onAddExpense={async (e) => { await supabase.from('expenses').insert([{...e, user_id: session.user.id}]); fetchData(); }} onDeleteExpense={async (id) => {await supabase.from('expenses').delete().eq('id', id); fetchData();}} />}
               {currentView === AppView.CALCULATOR && <FreightCalculator />}
-              {currentView === AppView.JORNADA && (
-                <JornadaManager 
-                  mode={jornadaMode} 
-                  startTime={jornadaStartTime} 
-                  logs={jornadaLogs}
-                  setMode={setJornadaMode}
-                  setStartTime={setJornadaStartTime}
-                  setLogs={setJornadaLogs}
-                />
-              )}
+              {currentView === AppView.JORNADA && <JornadaManager mode={jornadaMode} startTime={jornadaStartTime} logs={jornadaLogs} setMode={setJornadaMode} setStartTime={setJornadaStartTime} setLogs={setJornadaLogs} />}
               {currentView === AppView.STATIONS && <StationLocator />}
-              {currentView === AppView.BACKUP && <BackupManager data={{ trips, expenses, vehicles, maintenance }} onRestored={fetchData} />}
             </>
           )}
         </div>
