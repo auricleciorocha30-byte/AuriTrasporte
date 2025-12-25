@@ -175,11 +175,6 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
       return;
     }
 
-    const calcLog = `[Custo Est.: Pedágio R$${calcParams.planned_toll_cost}, Diária R$${calcParams.planned_daily_cost}${calcParams.return_empty ? ', Retorno Vazio' : ''}]`;
-    const finalNotes = formData.notes.includes('[Custo Est.:') 
-      ? formData.notes.replace(/\[Custo Est.:.*?\]/, calcLog) 
-      : `${formData.notes} ${calcLog}`.trim();
-
     const payload = {
       origin: `${origin.city} - ${origin.state}`,
       destination: `${destination.city} - ${destination.state}`,
@@ -191,8 +186,12 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
       date: formData.date,
       vehicle_id: formData.vehicle_id,
       status: formData.status,
-      notes: finalNotes,
-      stops: stops
+      notes: formData.notes.trim(), // Salva apenas o que o usuário escreveu
+      stops: stops,
+      planned_toll_cost: Number(calcParams.planned_toll_cost),
+      planned_daily_cost: Number(calcParams.planned_daily_cost),
+      planned_extra_costs: Number(calcParams.planned_extra_costs),
+      return_empty: calcParams.return_empty
     };
 
     if (editingTripId) {
@@ -283,7 +282,7 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                       </button>
                     </div>
 
-                    {/* Exibição das Observações (Notas) */}
+                    {/* Exibição das Observações (Notas) - Apenas o que o usuário escreveu */}
                     {trip.notes && (
                       <div className="mt-4 p-3 bg-slate-50/50 rounded-xl border border-slate-100/50">
                         <div className="flex items-start gap-2">
