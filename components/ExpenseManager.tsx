@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
-import { Expense, ExpenseCategory, Trip } from '../types';
-import { Plus, Tag, Calendar, DollarSign, Trash2, Receipt, Loader2 } from 'lucide-react';
+import { Expense, ExpenseCategory, Trip, TripStatus } from '../types';
+import { Plus, Tag, Calendar, DollarSign, Trash2, Receipt, Loader2, MapPin, ChevronDown, Info } from 'lucide-react';
 
 interface ExpenseManagerProps {
   expenses: Expense[];
@@ -11,7 +11,6 @@ interface ExpenseManagerProps {
   isSaving?: boolean;
 }
 
-// Função para pegar a data de hoje no formato YYYY-MM-DD local
 const getTodayLocal = () => {
   const now = new Date();
   const year = now.getFullYear();
@@ -20,7 +19,6 @@ const getTodayLocal = () => {
   return `${year}-${month}-${day}`;
 };
 
-// Função auxiliar para formatar data sem erro de fuso horário
 const formatDateDisplay = (dateStr: string) => {
   if (!dateStr) return '';
   const [year, month, day] = dateStr.split('-');
@@ -31,7 +29,8 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newExpense, setNewExpense] = useState<Partial<Expense>>({
     category: ExpenseCategory.FUEL,
-    date: getTodayLocal()
+    date: getTodayLocal(),
+    trip_id: ''
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -46,7 +45,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
       };
       await onAddExpense(expense);
       setIsModalOpen(false);
-      setNewExpense({ category: ExpenseCategory.FUEL, date: getTodayLocal() });
+      setNewExpense({ category: ExpenseCategory.FUEL, date: getTodayLocal(), trip_id: '' });
     }
   };
 
@@ -67,7 +66,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
           <table className="w-full text-left">
             <thead className="bg-slate-50 border-b">
               <tr>
-                <th className="px-6 py-4 text-xs font-black text-slate-500 uppercase">Descrição</th>
+                <th className="px-6 py-4 text-xs font-black text-slate-500 uppercase">Descrição / Viagem</th>
                 <th className="px-6 py-4 text-xs font-black text-slate-500 uppercase">Categoria</th>
                 <th className="px-6 py-4 text-xs font-black text-slate-500 uppercase">Data</th>
                 <th className="px-6 py-4 text-xs font-black text-slate-500 uppercase text-right">Valor</th>
@@ -75,45 +74,60 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {expenses.map((expense) => (
-                <tr key={expense.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="px-6 py-4">
-                    <div className="text-sm font-bold text-slate-900">{expense.description}</div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="px-3 py-1 text-[10px] font-black uppercase rounded-full bg-slate-100 text-slate-600">
-                      {expense.category}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm font-bold text-slate-500">
-                    {formatDateDisplay(expense.date)}
-                  </td>
-                  <td className="px-6 py-4 text-right text-sm font-black text-rose-600">
-                    - R$ {expense.amount.toLocaleString()}
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <button 
-                      onClick={() => onDeleteExpense(expense.id)}
-                      className="text-slate-300 hover:text-rose-500 transition-colors"
-                    >
-                      <Trash2 size={18} />
-                    </button>
+              {expenses.map((expense) => {
+                const associatedTrip = trips.find(t => t.id === expense.trip_id);
+                return (
+                  <tr key={expense.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="text-sm font-bold text-slate-900">{expense.description}</div>
+                      {associatedTrip && (
+                        <div className="flex items-center gap-1 mt-1 text-[10px] font-black text-primary-600 uppercase">
+                          <MapPin size={10} /> {associatedTrip.destination.split(' - ')[0]} ({formatDateDisplay(associatedTrip.date)})
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="px-3 py-1 text-[10px] font-black uppercase rounded-full bg-slate-100 text-slate-600">
+                        {expense.category}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-sm font-bold text-slate-500">
+                      {formatDateDisplay(expense.date)}
+                    </td>
+                    <td className="px-6 py-4 text-right text-sm font-black text-rose-600">
+                      - R$ {expense.amount.toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <button 
+                        onClick={() => onDeleteExpense(expense.id)}
+                        className="text-slate-300 hover:text-rose-500 transition-colors"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+              {expenses.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-6 py-12 text-center text-slate-400 font-bold text-sm">
+                    Nenhuma despesa registrada.
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>
       </div>
 
       {isModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-[2.5rem] w-full max-w-lg p-8 shadow-2xl animate-fade-in">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-lg p-8 shadow-2xl animate-fade-in my-8">
             <h3 className="text-2xl font-black mb-6">Lançar Despesa</h3>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-1">
                 <label className="text-xs font-black uppercase text-slate-400 ml-1">Descrição</label>
-                <input required type="text" placeholder="Ex: Abastecimento" className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-200 font-bold focus:ring-2 focus:ring-rose-500 outline-none" 
+                <input required type="text" placeholder="Ex: Abastecimento Posto Graal" className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-200 font-bold focus:ring-2 focus:ring-rose-500 outline-none" 
                   value={newExpense.description || ''} onChange={e => setNewExpense({...newExpense, description: e.target.value})} />
               </div>
               
@@ -125,13 +139,41 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-black uppercase text-slate-400 ml-1">Categoria</label>
-                  <select className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-200 font-bold"
-                    value={newExpense.category}
-                    onChange={e => setNewExpense({...newExpense, category: e.target.value as ExpenseCategory})}
-                  >
-                    {Object.values(ExpenseCategory).map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
+                  <div className="relative">
+                    <select className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-200 font-bold appearance-none outline-none"
+                      value={newExpense.category}
+                      onChange={e => setNewExpense({...newExpense, category: e.target.value as ExpenseCategory})}
+                    >
+                      {Object.values(ExpenseCategory).map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                    <ChevronDown className="absolute right-4 top-4 text-slate-400 pointer-events-none" size={20} />
+                  </div>
                 </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-black uppercase text-slate-400 ml-1">Associar à Viagem</label>
+                <div className="relative">
+                  <select 
+                    className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-200 font-bold appearance-none outline-none"
+                    value={newExpense.trip_id || ''}
+                    onChange={e => setNewExpense({...newExpense, trip_id: e.target.value})}
+                  >
+                    <option value="">Despesa Geral (Nenhuma viagem)</option>
+                    {trips
+                      .filter(t => t.status === TripStatus.SCHEDULED || t.status === TripStatus.IN_PROGRESS)
+                      .map(trip => (
+                        <option key={trip.id} value={trip.id}>
+                          [{trip.status.toUpperCase()}] {trip.destination.split(' - ')[0]} - {formatDateDisplay(trip.date)}
+                        </option>
+                      ))
+                    }
+                  </select>
+                  <ChevronDown className="absolute right-4 top-4 text-slate-400 pointer-events-none" size={20} />
+                </div>
+                <p className="text-[10px] text-slate-400 font-bold ml-1 flex items-center gap-1">
+                  <Info size={10} /> Viagens em andamento ou agendadas.
+                </p>
               </div>
 
               <div className="space-y-1">
@@ -141,8 +183,8 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
               </div>
 
               <div className="flex gap-3 mt-6">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-4 font-bold border rounded-2xl">Cancelar</button>
-                <button disabled={isSaving} type="submit" className="flex-1 py-4 bg-rose-600 text-white rounded-2xl font-black shadow-lg flex items-center justify-center gap-2">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-4 font-bold border rounded-2xl active:scale-95 transition-all">Cancelar</button>
+                <button disabled={isSaving} type="submit" className="flex-1 py-4 bg-rose-600 text-white rounded-2xl font-black shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all">
                   {isSaving ? <Loader2 className="animate-spin" size={20} /> : 'Salvar'}
                 </button>
               </div>
