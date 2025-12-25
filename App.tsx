@@ -269,6 +269,11 @@ const App: React.FC = () => {
     setNotifications(prev => prev.filter(n => n.id !== id));
   };
 
+  const navigateTo = (view: AppView) => {
+    setCurrentView(view);
+    setIsMobileMenuOpen(false);
+  };
+
   if (loading) {
     return (
       <div className="h-screen w-full flex flex-col items-center justify-center bg-slate-50 gap-4">
@@ -363,15 +368,15 @@ const App: React.FC = () => {
           <button onClick={() => setIsMobileMenuOpen(false)} className="md:hidden p-1 text-slate-500"><X size={20} /></button>
         </div>
         <nav className="space-y-1 overflow-y-auto max-h-[calc(100vh-240px)]">
-          <MenuBtn icon={LayoutDashboard} label="Dashboard" active={currentView === AppView.DASHBOARD} onClick={() => setCurrentView(AppView.DASHBOARD)} />
-          <MenuBtn icon={Truck} label="Viagens" active={currentView === AppView.TRIPS} onClick={() => setCurrentView(AppView.TRIPS)} />
-          <MenuBtn icon={Settings} label="Veículos" active={currentView === AppView.VEHICLES} onClick={() => setCurrentView(AppView.VEHICLES)} />
-          <MenuBtn icon={CheckSquare} label="Manutenções" active={currentView === AppView.MAINTENANCE} onClick={() => setCurrentView(AppView.MAINTENANCE)} />
-          <MenuBtn icon={Wallet} label="Despesas" active={currentView === AppView.EXPENSES} onClick={() => setCurrentView(AppView.EXPENSES)} />
+          <MenuBtn icon={LayoutDashboard} label="Dashboard" active={currentView === AppView.DASHBOARD} onClick={() => navigateTo(AppView.DASHBOARD)} />
+          <MenuBtn icon={Truck} label="Viagens" active={currentView === AppView.TRIPS} onClick={() => navigateTo(AppView.TRIPS)} />
+          <MenuBtn icon={Settings} label="Veículos" active={currentView === AppView.VEHICLES} onClick={() => navigateTo(AppView.VEHICLES)} />
+          <MenuBtn icon={CheckSquare} label="Manutenções" active={currentView === AppView.MAINTENANCE} onClick={() => navigateTo(AppView.MAINTENANCE)} />
+          <MenuBtn icon={Wallet} label="Despesas" active={currentView === AppView.EXPENSES} onClick={() => navigateTo(AppView.EXPENSES)} />
           <div className="h-px bg-slate-800 my-4"></div>
-          <MenuBtn icon={Calculator} label="Frete ANTT" active={currentView === AppView.CALCULATOR} onClick={() => setCurrentView(AppView.CALCULATOR)} />
-          <MenuBtn icon={Timer} label="Jornada" active={currentView === AppView.JORNADA} onClick={() => setCurrentView(AppView.JORNADA)} />
-          <MenuBtn icon={Fuel} label="Postos Próximos" active={currentView === AppView.STATIONS} onClick={() => setCurrentView(AppView.STATIONS)} />
+          <MenuBtn icon={Calculator} label="Frete ANTT" active={currentView === AppView.CALCULATOR} onClick={() => navigateTo(AppView.CALCULATOR)} />
+          <MenuBtn icon={Timer} label="Jornada" active={currentView === AppView.JORNADA} onClick={() => navigateTo(AppView.JORNADA)} />
+          <MenuBtn icon={Fuel} label="Postos Próximos" active={currentView === AppView.STATIONS} onClick={() => navigateTo(AppView.STATIONS)} />
         </nav>
         
         <div className="absolute bottom-6 left-4 right-4 space-y-2">
@@ -434,7 +439,7 @@ const App: React.FC = () => {
         <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50">
           <>{/* Views */}</>
           {currentView === AppView.DASHBOARD && (
-            <Dashboard trips={trips} expenses={expenses} maintenance={maintenance} vehicles={vehicles} onSetView={setCurrentView} />
+            <Dashboard trips={trips} expenses={expenses} maintenance={maintenance} vehicles={vehicles} onSetView={navigateTo} />
           )}
           {currentView === AppView.TRIPS && (
             <TripManager 
