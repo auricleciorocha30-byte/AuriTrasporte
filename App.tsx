@@ -10,7 +10,7 @@ import { MaintenanceManager } from './components/MaintenanceManager';
 import { BackupManager } from './components/BackupManager';
 import { JornadaManager } from './components/JornadaManager';
 import { StationLocator } from './components/StationLocator';
-import { AppView, Trip, Expense, Vehicle, MaintenanceItem, TripStatus } from './types';
+import { AppView, Trip, Expense, Vehicle, MaintenanceItem, TripStatus, JornadaLog } from './types';
 import { supabase } from './lib/supabase';
 
 const sanitizeTripPayload = (payload: any) => {
@@ -52,6 +52,7 @@ const App: React.FC = () => {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [maintenance, setMaintenance] = useState<MaintenanceItem[]>([]);
+  const [jornadaLogs, setJornadaLogs] = useState<JornadaLog[]>([]);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
   
@@ -61,10 +62,6 @@ const App: React.FC = () => {
   const [jornadaStartTime, setJornadaStartTime] = useState<number | null>(() => {
     const saved = localStorage.getItem('aurilog_jornada_start');
     return saved ? Number(saved) : null;
-  });
-  const [jornadaLogs, setJornadaLogs] = useState<any[]>(() => {
-    const saved = localStorage.getItem('aurilog_jornada_logs');
-    return saved ? JSON.parse(saved) : [];
   });
 
   const [dismissedIds, setDismissedIds] = useState<string[]>(() => {
@@ -128,17 +125,19 @@ const App: React.FC = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [tripsRes, expRes, vehRes, mainRes] = await Promise.all([
+      const [tripsRes, expRes, vehRes, mainRes, jornRes] = await Promise.all([
         supabase.from('trips').select('*').order('date', { ascending: false }),
         supabase.from('expenses').select('*').order('date', { ascending: false }),
         supabase.from('vehicles').select('*').order('plate', { ascending: true }),
-        supabase.from('maintenance').select('*').order('purchase_date', { ascending: false })
+        supabase.from('maintenance').select('*').order('purchase_date', { ascending: false }),
+        supabase.from('jornada_logs').select('*').order('created_at', { ascending: false })
       ]);
       
       setTrips(tripsRes.data || []);
       setExpenses(expRes.data || []);
       setVehicles(vehRes.data || []);
       setMaintenance(mainRes.data || []);
+      setJornadaLogs(jornRes.data || []);
       
       checkNotifications(tripsRes.data || [], mainRes.data || [], vehRes.data || []);
     } catch (err: any) { 
@@ -172,7 +171,7 @@ const App: React.FC = () => {
         const msg = `Viagem agendada para ${t.destination} AMANHÃ!`;
         alerts.push({ id: nidTomorrow, title, msg, type: 'info' });
         if ("Notification" in window && Notification.permission === "granted") {
-          new Notification(title, { body: msg, icon: 'https://cdn-icons-png.flaticon.com/512/2830/2830305.png' });
+          new Notification(title, { body: msg });
         }
       }
 
@@ -259,6 +258,16 @@ const App: React.FC = () => {
       alert("Erro ao atualizar status: " + err.message);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleAddJornadaLog = async (logData: Omit<JornadaLog, 'id' | 'user_id'>) => {
+    try {
+      const { error } = await supabase.from('jornada_logs').insert([{ ...logData, user_id: session.user.id }]);
+      if (error) throw error;
+      await fetchData();
+    } catch (err: any) {
+      console.error("Erro ao salvar log de jornada:", err.message);
     }
   };
 
@@ -456,13 +465,32 @@ const App: React.FC = () => {
           {currentView === AppView.MAINTENANCE && <MaintenanceManager maintenance={maintenance} vehicles={vehicles} onAddMaintenance={async (m) => {await supabase.from('maintenance').insert([{...m, user_id: session.user.id}]); fetchData();}} onDeleteMaintenance={async (id) => {await supabase.from('maintenance').delete().eq('id', id); fetchData();}} />}
           {currentView === AppView.EXPENSES && <ExpenseManager expenses={expenses} trips={trips} onAddExpense={async (e) => { await supabase.from('expenses').insert([{...e, user_id: session.user.id}]); fetchData(); }} onDeleteExpense={async (id) => {await supabase.from('expenses').delete().eq('id', id); fetchData();}} />}
           {currentView === AppView.CALCULATOR && <FreightCalculator />}
-          {currentView === AppView.JORNADA && <JornadaManager mode={jornadaMode} startTime={jornadaStartTime} logs={jornadaLogs} setMode={setJornadaMode} setStartTime={setJornadaStartTime} setLogs={setJornadaLogs} />}
+          {currentView === AppView.JORNADA && (
+            <JornadaManager 
+              mode={jornadaMode} 
+              startTime={jornadaStartTime} 
+              logs={jornadaLogs} 
+              setMode={setJornadaMode} 
+              setStartTime={setStartTimeWithStorage} 
+              onSaveLog={handleAddJornadaLog}
+              onDeleteLog={async (id) => { if(confirm("Excluir log?")) {await supabase.from('jornada_logs').delete().eq('id', id); fetchData();} }}
+            />
+          )}
           {currentView === AppView.STATIONS && <StationLocator />}
         </div>
       </main>
       {isMobileMenuOpen && <div className="fixed inset-0 bg-slate-900/60 z-30 md:hidden" onClick={() => setIsMobileMenuOpen(false)} />}
     </div>
   );
+
+  function setStartTimeWithStorage(time: number | null) {
+    setJornadaStartTime(time);
+    if (time) {
+      localStorage.setItem('aurilog_jornada_start', time.toString());
+    } else {
+      localStorage.removeItem('aurilog_jornada_start');
+    }
+  }
 };
 
 const MenuBtn = ({ icon: Icon, label, active, onClick }: any) => (

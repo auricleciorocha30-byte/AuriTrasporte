@@ -61,7 +61,6 @@ export interface Trip {
   notes?: string;
   vehicle_id?: string;
   user_id?: string;
-  // Novos campos para alinhar cálculos
   planned_toll_cost?: number;
   planned_daily_cost?: number;
   planned_extra_costs?: number;
@@ -85,6 +84,17 @@ export interface Expense {
   category: ExpenseCategory;
   date: string;
   user_id?: string;
+}
+
+export interface JornadaLog {
+  id: string;
+  user_id: string;
+  start_time: string;
+  end_time: string;
+  type: 'Direção' | 'Descanso';
+  duration_seconds: number;
+  date: string;
+  created_at?: string;
 }
 
 export interface ANTTParams {
