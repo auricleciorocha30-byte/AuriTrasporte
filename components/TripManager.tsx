@@ -215,70 +215,91 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
       </div>
 
       <div className="grid gap-4 px-2">
-        {trips.map(trip => (
-          <div key={trip.id} className="bg-white p-6 rounded-[2rem] border shadow-sm relative group animate-fade-in hover:border-primary-200 transition-colors">
-            <div className="flex flex-col md:flex-row justify-between gap-6">
-               <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-3">
-                    <select 
-                      value={trip.status} 
-                      onChange={(e) => handleStatusChange(trip, e.target.value as TripStatus)}
-                      className={`text-[10px] font-black uppercase px-3 py-1 rounded-full border-none cursor-pointer focus:ring-2 focus:ring-primary-500 ${
-                        trip.status === TripStatus.COMPLETED ? 'bg-emerald-100 text-emerald-700' : 
-                        trip.status === TripStatus.IN_PROGRESS ? 'bg-blue-100 text-blue-700' :
-                        trip.status === TripStatus.CANCELLED ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-700'
-                      }`}
-                    >
-                      {Object.values(TripStatus).map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                    <span className="text-sm font-bold text-slate-400 flex items-center gap-1">
-                      <Calendar size={14} /> {formatDateDisplay(trip.date)}
-                    </span>
-                  </div>
-                  <h3 className="text-xl font-black text-slate-800 flex items-center gap-2 flex-wrap">
-                    <MapPin className="text-primary-500" size={20}/> {trip.origin} 
-                    <ChevronRight size={16} className="text-slate-300"/> 
-                    {trip.destination}
-                  </h3>
-                  {trip.stops && trip.stops.length > 0 && (
-                    <div className="mt-2 flex items-center gap-2 overflow-x-auto pb-1">
-                      <span className="text-[10px] font-black uppercase text-slate-400 shrink-0">Paradas:</span>
-                      {trip.stops.map((s, idx) => (
-                        <div key={idx} className="bg-slate-100 px-2 py-1 rounded-lg text-[10px] font-bold text-slate-600 whitespace-nowrap">
-                          {s.city}/{s.state}
-                        </div>
-                      ))}
+        {trips.map(trip => {
+          const vehicle = vehicles.find(v => v.id === trip.vehicle_id);
+          
+          return (
+            <div key={trip.id} className="bg-white p-6 rounded-[2rem] border shadow-sm relative group animate-fade-in hover:border-primary-200 transition-colors">
+              <div className="flex flex-col md:flex-row justify-between gap-6">
+                 <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-3">
+                      <select 
+                        value={trip.status} 
+                        onChange={(e) => handleStatusChange(trip, e.target.value as TripStatus)}
+                        className={`text-[10px] font-black uppercase px-3 py-1 rounded-full border-none cursor-pointer focus:ring-2 focus:ring-primary-500 ${
+                          trip.status === TripStatus.COMPLETED ? 'bg-emerald-100 text-emerald-700' : 
+                          trip.status === TripStatus.IN_PROGRESS ? 'bg-blue-100 text-blue-700' :
+                          trip.status === TripStatus.CANCELLED ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-700'
+                        }`}
+                      >
+                        {Object.values(TripStatus).map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                      <span className="text-sm font-bold text-slate-400 flex items-center gap-1">
+                        <Calendar size={14} /> {formatDateDisplay(trip.date)}
+                      </span>
                     </div>
-                  )}
-                  <div className="mt-4 flex flex-wrap gap-2 items-center">
-                    <div className="bg-slate-50 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 text-slate-600"><Navigation size={14}/> {trip.distance_km} KM</div>
-                    <div className="bg-amber-50 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 text-amber-700">
-                      <Percent size={14}/> {trip.driver_commission_percentage}% (R$ {trip.driver_commission?.toLocaleString()})
+                    <h3 className="text-xl font-black text-slate-800 flex items-center gap-2 flex-wrap mb-1">
+                      <MapPin className="text-primary-500" size={20}/> {trip.origin} 
+                      <ChevronRight size={16} className="text-slate-300"/> 
+                      {trip.destination}
+                    </h3>
+                    
+                    {/* Exibição do Veículo da Viagem */}
+                    <div className="flex items-center gap-2 mb-3">
+                      <Truck size={14} className="text-slate-400" />
+                      <span className="text-[10px] font-black uppercase bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md flex items-center gap-1.5">
+                        {vehicle ? (
+                          <>
+                            <span className="text-primary-600">{vehicle.plate}</span>
+                            <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
+                            <span>{vehicle.model}</span>
+                          </>
+                        ) : (
+                          <span className="text-slate-400">Sem veículo vinculado</span>
+                        )}
+                      </span>
                     </div>
-                    <button 
-                      onClick={() => window.open(getMapsUrl(trip.origin, trip.destination, trip.stops), '_blank')}
-                      className="bg-primary-50 px-3 py-2 rounded-xl text-xs font-black flex items-center gap-2 text-primary-600 hover:bg-primary-100 transition-colors"
-                    >
-                      <MapIcon size={14}/> Ver Rota
-                    </button>
-                  </div>
-               </div>
-               <div className="md:text-right border-t md:border-t-0 md:border-l border-slate-100 pt-4 md:pt-0 md:pl-8 flex flex-col justify-center min-w-[150px]">
-                  <p className="text-xs font-black text-slate-400 uppercase mb-1">Valor Frete</p>
-                  <p className="text-2xl font-black text-primary-600">R$ {trip.agreed_price.toLocaleString()}</p>
-               </div>
+
+                    {trip.stops && trip.stops.length > 0 && (
+                      <div className="mt-2 flex items-center gap-2 overflow-x-auto pb-1">
+                        <span className="text-[10px] font-black uppercase text-slate-400 shrink-0">Paradas:</span>
+                        {trip.stops.map((s, idx) => (
+                          <div key={idx} className="bg-slate-100 px-2 py-1 rounded-lg text-[10px] font-bold text-slate-600 whitespace-nowrap">
+                            {s.city}/{s.state}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div className="mt-4 flex flex-wrap gap-2 items-center">
+                      <div className="bg-slate-50 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 text-slate-600"><Navigation size={14}/> {trip.distance_km} KM</div>
+                      <div className="bg-amber-50 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 text-amber-700">
+                        <Percent size={14}/> {trip.driver_commission_percentage}% (R$ {trip.driver_commission?.toLocaleString()})
+                      </div>
+                      <button 
+                        onClick={() => window.open(getMapsUrl(trip.origin, trip.destination, trip.stops), '_blank')}
+                        className="bg-primary-50 px-3 py-2 rounded-xl text-xs font-black flex items-center gap-2 text-primary-600 hover:bg-primary-100 transition-colors"
+                      >
+                        <MapIcon size={14}/> Ver Rota
+                      </button>
+                    </div>
+                 </div>
+                 <div className="md:text-right border-t md:border-t-0 md:border-l border-slate-100 pt-4 md:pt-0 md:pl-8 flex flex-col justify-center min-w-[150px]">
+                    <p className="text-xs font-black text-slate-400 uppercase mb-1">Valor Frete</p>
+                    <p className="text-2xl font-black text-primary-600">R$ {trip.agreed_price.toLocaleString()}</p>
+                 </div>
+              </div>
+              
+              <div className="absolute top-4 right-4 flex items-center gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                <button onClick={() => handleEdit(trip)} className="p-2 text-slate-400 hover:text-primary-600 transition-colors">
+                  <Edit2 size={18}/>
+                </button>
+                <button onClick={() => onDeleteTrip(trip.id)} className="p-2 text-slate-400 hover:text-rose-500 transition-colors">
+                  <Trash2 size={18}/>
+                </button>
+              </div>
             </div>
-            
-            <div className="absolute top-4 right-4 flex items-center gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-              <button onClick={() => handleEdit(trip)} className="p-2 text-slate-400 hover:text-primary-600 transition-colors">
-                <Edit2 size={18}/>
-              </button>
-              <button onClick={() => onDeleteTrip(trip.id)} className="p-2 text-slate-400 hover:text-rose-500 transition-colors">
-                <Trash2 size={18}/>
-              </button>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {isKmModalOpen && (
