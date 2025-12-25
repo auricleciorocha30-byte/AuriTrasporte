@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, Truck, Wallet, Calculator, Menu, X, LogOut, Bell, Search, Database, CheckSquare, Settings, Lock, User as UserIcon, Loader2, AlertCircle, Timer, Fuel, Sparkles, Printer, Share2 } from 'lucide-react';
+import { LayoutDashboard, Truck, Wallet, Calculator, Menu, X, LogOut, Bell, Search, Database, CheckSquare, Settings, Lock, User as UserIcon, Loader2, AlertCircle, Timer, Fuel, Sparkles, Printer, Share2, Mail, Key, UserPlus, LogIn } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { TripManager } from './components/TripManager';
 import { ExpenseManager } from './components/ExpenseManager';
@@ -81,7 +81,6 @@ const App: React.FC = () => {
       setSession(session);
     });
     
-    // Solicitar permissão de notificação nativa
     if ("Notification" in window && Notification.permission === "default") {
       Notification.requestPermission();
     }
@@ -92,6 +91,27 @@ const App: React.FC = () => {
   useEffect(() => {
     if (session?.user) fetchData();
   }, [session]);
+
+  const handleAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setAuthLoading(true);
+
+    try {
+      if (isSignUp) {
+        const { error } = await supabase.auth.signUp({ email, password });
+        if (error) throw error;
+        alert("Verifique seu e-mail para confirmar o cadastro!");
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+      }
+    } catch (err: any) {
+      setError(err.message || 'Erro na autenticação');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -131,7 +151,6 @@ const App: React.FC = () => {
     const alerts: AppNotification[] = [];
     const today = new Date();
     
-    // Formatar data local de hoje e amanhã no formato YYYY-MM-DD
     const getLocalYMD = (date: Date) => {
       const y = date.getFullYear();
       const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -144,30 +163,24 @@ const App: React.FC = () => {
     tomorrow.setDate(today.getDate() + 1);
     const tomorrowStr = getLocalYMD(tomorrow);
 
-    // 1. Notificações de Viagens (Focando no pedido: 1 dia antes)
     currentTrips.forEach(t => {
       const nidTomorrow = `trip-${t.id}-tomorrow`;
       const nidToday = `trip-${t.id}-today`;
 
-      // Notificar 1 dia antes
       if (t.status === TripStatus.SCHEDULED && t.date === tomorrowStr && !dismissedIds.includes(nidTomorrow)) {
         const title = 'Próxima Viagem';
         const msg = `Viagem agendada para ${t.destination} AMANHÃ!`;
         alerts.push({ id: nidTomorrow, title, msg, type: 'info' });
-        
-        // Disparar notificação nativa se o app estiver aberto e tiver permissão
         if ("Notification" in window && Notification.permission === "granted") {
           new Notification(title, { body: msg, icon: 'https://cdn-icons-png.flaticon.com/512/2830/2830305.png' });
         }
       }
 
-      // Notificar se for Hoje
       if (t.status === TripStatus.SCHEDULED && t.date === todayStr && !dismissedIds.includes(nidToday)) {
         alerts.push({ id: nidToday, title: 'Viagem HOJE!', msg: `Você tem uma viagem para ${t.destination} hoje!`, type: 'warning' });
       }
     });
 
-    // 2. Notificações de Manutenção (Permanecem iguais)
     currentMain.forEach(m => {
       const vehicle = currentVehicles.find(v => v.id === m.vehicle_id);
       if (!vehicle) return;
@@ -175,7 +188,6 @@ const App: React.FC = () => {
       const pDate = new Date(m.purchase_date);
       const expiryDate = new Date(pDate);
       expiryDate.setMonth(pDate.getMonth() + (m.warranty_months || 0));
-      const timeDiffDays = Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
       const kmLimit = m.km_at_purchase + (m.warranty_km || 0);
       const kmLeft = kmLimit - vehicle.current_km;
 
@@ -257,6 +269,89 @@ const App: React.FC = () => {
     setNotifications(prev => prev.filter(n => n.id !== id));
   };
 
+  if (loading) {
+    return (
+      <div className="h-screen w-full flex flex-col items-center justify-center bg-slate-50 gap-4">
+        <Loader2 className="animate-spin text-primary-600" size={48} />
+        <p className="font-bold text-slate-400 uppercase tracking-widest text-xs">AuriLog está carregando...</p>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center bg-slate-900 p-4">
+        <div className="w-full max-w-md bg-white rounded-[2.5rem] shadow-2xl p-10 animate-fade-in">
+          <div className="flex flex-col items-center mb-8">
+            <div className="bg-primary-600 p-4 rounded-3xl shadow-lg mb-4">
+              <Truck size={40} className="text-white" />
+            </div>
+            <h1 className="text-3xl font-black text-slate-900 tracking-tighter uppercase">AuriLog</h1>
+            <p className="text-slate-400 font-bold text-sm mt-1 uppercase tracking-widest">
+              {isSignUp ? 'Crie sua conta gratuita' : 'Gestão profissional de fretes'}
+            </p>
+          </div>
+
+          <form onSubmit={handleAuth} className="space-y-4">
+            <div className="space-y-1">
+              <label className="text-[10px] font-black uppercase text-slate-400 ml-1">E-mail</label>
+              <div className="relative">
+                <Mail className="absolute left-4 top-4 text-slate-400" size={20} />
+                <input 
+                  required 
+                  type="email" 
+                  placeholder="seu@email.com" 
+                  className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold outline-none focus:ring-2 focus:ring-primary-500 transition-all"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Senha</label>
+              <div className="relative">
+                <Key className="absolute left-4 top-4 text-slate-400" size={20} />
+                <input 
+                  required 
+                  type="password" 
+                  placeholder="••••••••" 
+                  className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold outline-none focus:ring-2 focus:ring-primary-500 transition-all"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {error && (
+              <div className="bg-rose-50 border border-rose-100 p-4 rounded-2xl flex items-center gap-3 text-rose-600 text-xs font-bold animate-fade-in">
+                <AlertCircle size={16} /> {error}
+              </div>
+            )}
+
+            <button 
+              disabled={authLoading}
+              type="submit" 
+              className="w-full py-5 bg-primary-600 text-white rounded-2xl font-black text-lg shadow-xl hover:bg-primary-700 active:scale-95 transition-all flex items-center justify-center gap-2"
+            >
+              {authLoading ? <Loader2 className="animate-spin" /> : isSignUp ? <UserPlus size={20} /> : <LogIn size={20} />}
+              {isSignUp ? 'Cadastrar Agora' : 'Entrar no Sistema'}
+            </button>
+          </form>
+
+          <div className="mt-8 pt-6 border-t border-slate-100 text-center">
+            <button 
+              onClick={() => {setIsSignUp(!isSignUp); setError('');}}
+              className="text-primary-600 font-black text-sm uppercase tracking-wider hover:underline"
+            >
+              {isSignUp ? 'Já tem uma conta? Entre aqui' : 'Não tem conta? Cadastre-se grátis'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen bg-slate-50 font-sans overflow-hidden">
       <aside className={`fixed md:relative z-40 w-64 h-full bg-slate-900 text-slate-300 p-4 transition-transform duration-300 ease-in-out ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
@@ -337,35 +432,27 @@ const App: React.FC = () => {
         </header>
 
         <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50">
-          {loading ? (
-            <div className="flex flex-col items-center justify-center h-full gap-4">
-              <Loader2 className="animate-spin text-primary-600" size={48} />
-              <p className="font-bold text-slate-400 uppercase tracking-widest text-xs">Sincronizando...</p>
-            </div>
-          ) : (
-            <>
-              {currentView === AppView.DASHBOARD && (
-                <Dashboard trips={trips} expenses={expenses} maintenance={maintenance} vehicles={vehicles} onSetView={setCurrentView} />
-              )}
-              {currentView === AppView.TRIPS && (
-                <TripManager 
-                  trips={trips} 
-                  vehicles={vehicles} 
-                  onAddTrip={handleAddTrip} 
-                  onUpdateTrip={handleUpdateTrip}
-                  onUpdateStatus={handleUpdateStatus}
-                  onDeleteTrip={async (id) => { if(confirm("Excluir?")) {await supabase.from('trips').delete().eq('id', id); fetchData();} }} 
-                  isSaving={isSaving}
-                />
-              )}
-              {currentView === AppView.VEHICLES && <VehicleManager vehicles={vehicles} onAddVehicle={async (v) => {await supabase.from('vehicles').insert([{...v, user_id: session.user.id}]); fetchData();}} onUpdateVehicle={async (id, v) => {await supabase.from('vehicles').update(v).eq('id', id); fetchData();}} onDeleteVehicle={async (id) => { if(confirm("Excluir?")) {await supabase.from('vehicles').delete().eq('id', id); fetchData();} }} isSaving={isSaving} />}
-              {currentView === AppView.MAINTENANCE && <MaintenanceManager maintenance={maintenance} vehicles={vehicles} onAddMaintenance={async (m) => {await supabase.from('maintenance').insert([{...m, user_id: session.user.id}]); fetchData();}} onDeleteMaintenance={async (id) => {await supabase.from('maintenance').delete().eq('id', id); fetchData();}} />}
-              {currentView === AppView.EXPENSES && <ExpenseManager expenses={expenses} trips={trips} onAddExpense={async (e) => { await supabase.from('expenses').insert([{...e, user_id: session.user.id}]); fetchData(); }} onDeleteExpense={async (id) => {await supabase.from('expenses').delete().eq('id', id); fetchData();}} />}
-              {currentView === AppView.CALCULATOR && <FreightCalculator />}
-              {currentView === AppView.JORNADA && <JornadaManager mode={jornadaMode} startTime={jornadaStartTime} logs={jornadaLogs} setMode={setJornadaMode} setStartTime={setJornadaStartTime} setLogs={setJornadaLogs} />}
-              {currentView === AppView.STATIONS && <StationLocator />}
-            </>
+          <>{/* Views */}</>
+          {currentView === AppView.DASHBOARD && (
+            <Dashboard trips={trips} expenses={expenses} maintenance={maintenance} vehicles={vehicles} onSetView={setCurrentView} />
           )}
+          {currentView === AppView.TRIPS && (
+            <TripManager 
+              trips={trips} 
+              vehicles={vehicles} 
+              onAddTrip={handleAddTrip} 
+              onUpdateTrip={handleUpdateTrip}
+              onUpdateStatus={handleUpdateStatus}
+              onDeleteTrip={async (id) => { if(confirm("Excluir?")) {await supabase.from('trips').delete().eq('id', id); fetchData();} }} 
+              isSaving={isSaving}
+            />
+          )}
+          {currentView === AppView.VEHICLES && <VehicleManager vehicles={vehicles} onAddVehicle={async (v) => {await supabase.from('vehicles').insert([{...v, user_id: session.user.id}]); fetchData();}} onUpdateVehicle={async (id, v) => {await supabase.from('vehicles').update(v).eq('id', id); fetchData();}} onDeleteVehicle={async (id) => { if(confirm("Excluir?")) {await supabase.from('vehicles').delete().eq('id', id); fetchData();} }} isSaving={isSaving} />}
+          {currentView === AppView.MAINTENANCE && <MaintenanceManager maintenance={maintenance} vehicles={vehicles} onAddMaintenance={async (m) => {await supabase.from('maintenance').insert([{...m, user_id: session.user.id}]); fetchData();}} onDeleteMaintenance={async (id) => {await supabase.from('maintenance').delete().eq('id', id); fetchData();}} />}
+          {currentView === AppView.EXPENSES && <ExpenseManager expenses={expenses} trips={trips} onAddExpense={async (e) => { await supabase.from('expenses').insert([{...e, user_id: session.user.id}]); fetchData(); }} onDeleteExpense={async (id) => {await supabase.from('expenses').delete().eq('id', id); fetchData();}} />}
+          {currentView === AppView.CALCULATOR && <FreightCalculator />}
+          {currentView === AppView.JORNADA && <JornadaManager mode={jornadaMode} startTime={jornadaStartTime} logs={jornadaLogs} setMode={setJornadaMode} setStartTime={setJornadaStartTime} setLogs={setJornadaLogs} />}
+          {currentView === AppView.STATIONS && <StationLocator />}
         </div>
       </main>
       {isMobileMenuOpen && <div className="fixed inset-0 bg-slate-900/60 z-30 md:hidden" onClick={() => setIsMobileMenuOpen(false)} />}
