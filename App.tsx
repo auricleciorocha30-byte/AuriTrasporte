@@ -13,7 +13,6 @@ import { StationLocator } from './components/StationLocator';
 import { AppView, Trip, Expense, Vehicle, MaintenanceItem, TripStatus } from './types';
 import { supabase } from './lib/supabase';
 
-// Helper para remover campos que podem não existir na tabela do Supabase
 const sanitizeTripPayload = (payload: any) => {
   const allowedKeys = [
     'origin', 'destination', 'distance_km', 'agreed_price', 
@@ -43,7 +42,6 @@ const App: React.FC = () => {
   const [authLoading, setAuthLoading] = useState(false);
   const [currentView, setCurrentView] = useState<AppView>(AppView.DASHBOARD);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -125,28 +123,50 @@ const App: React.FC = () => {
 
   const checkNotifications = (currentTrips: Trip[], currentMain: MaintenanceItem[], currentVehicles: Vehicle[]) => {
     const alerts: AppNotification[] = [];
-    const tomorrowStr = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+    const today = new Date();
+    const tomorrowStr = new Date(today.getTime() + 86400000).toISOString().split('T')[0];
 
+    // 1. Notificações de Viagens
     currentTrips.forEach(t => {
       const nid = `trip-${t.id}-${t.date}`;
       if (t.status === TripStatus.SCHEDULED && t.date === tomorrowStr && !dismissedIds.includes(nid)) {
-        alerts.push({ id: nid, title: 'Próxima Viagem', msg: `Viagem para ${t.destination} marcada para amanhã!`, type: 'info' });
+        alerts.push({ id: nid, title: 'Próxima Viagem', msg: `Viagem para ${t.destination} amanhã!`, type: 'info' });
       }
     });
 
+    // 2. Notificações de Manutenção (Melhorado)
     currentMain.forEach(m => {
-      const pDate = new Date(m.purchase_date);
-      const expiryDate = new Date(pDate.setMonth(pDate.getMonth() + m.warranty_months));
       const vehicle = currentVehicles.find(v => v.id === m.vehicle_id);
-      const isKmExpired = vehicle && m.warranty_km > 0 && vehicle.current_km > (m.km_at_purchase + m.warranty_km);
+      if (!vehicle) return;
+
+      // Cálculo por tempo
+      const pDate = new Date(m.purchase_date);
+      const expiryDate = new Date(pDate);
+      expiryDate.setMonth(pDate.getMonth() + (m.warranty_months || 0));
+      
+      const timeDiffDays = Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      
+      // Cálculo por KM
+      const kmLimit = m.km_at_purchase + (m.warranty_km || 0);
+      const kmLeft = kmLimit - vehicle.current_km;
 
       const timeNid = `main-time-${m.id}`;
       const kmNid = `main-km-${m.id}`;
 
-      if (expiryDate < new Date() && !dismissedIds.includes(timeNid)) {
-        alerts.push({ id: timeNid, title: 'Garantia', msg: `Garantia de "${m.part_name}" no ${vehicle?.plate} venceu por tempo!`, type: 'warning' });
-      } else if (isKmExpired && !dismissedIds.includes(kmNid)) {
-        alerts.push({ id: kmNid, title: 'Garantia', msg: `Garantia de "${m.part_name}" no ${vehicle?.plate} venceu por KM!`, type: 'warning' });
+      // Status crítico (Vencido)
+      if (expiryDate < today && m.warranty_months > 0 && !dismissedIds.includes(timeNid)) {
+        alerts.push({ id: timeNid, title: 'Manutenção Vencida', msg: `Troca de "${m.part_name}" no ${vehicle.plate} venceu por tempo!`, type: 'warning' });
+      }
+      if (kmLeft <= 0 && m.warranty_km > 0 && !dismissedIds.includes(kmNid)) {
+        alerts.push({ id: kmNid, title: 'Manutenção Vencida', msg: `Troca de "${m.part_name}" no ${vehicle.plate} venceu por KM!`, type: 'warning' });
+      }
+
+      // Status de Alerta (Próximo de vencer)
+      if (timeDiffDays <= 30 && timeDiffDays > 0 && m.warranty_months > 0 && !dismissedIds.includes(`${timeNid}-alert`)) {
+        alerts.push({ id: `${timeNid}-alert`, title: 'Troca Próxima', msg: `"${m.part_name}" vence em ${timeDiffDays} dias (${vehicle.plate}).`, type: 'info' });
+      }
+      if (kmLeft <= 1000 && kmLeft > 0 && m.warranty_km > 0 && !dismissedIds.includes(`${kmNid}-alert`)) {
+        alerts.push({ id: `${kmNid}-alert`, title: 'Troca Próxima', msg: `"${m.part_name}" vence em ${kmLeft} km (${vehicle.plate}).`, type: 'info' });
       }
     });
 
@@ -248,90 +268,12 @@ const App: React.FC = () => {
     }
   };
 
-  const handleShareOrPrint = async () => {
-    if (navigator.share && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-      try {
-        await navigator.share({
-          title: 'AuriLog - Relatório de Gestão',
-          text: 'Confira os dados de fretes e despesas do AuriLog.',
-          url: window.location.href
-        });
-      } catch (err) {
-        window.print();
-      }
-    } else {
-      window.print();
-    }
+  const dismissNotification = (id: string) => {
+    const newList = [...dismissedIds, id];
+    setDismissedIds(newList);
+    localStorage.setItem('aurilog_dismissed_notifications', JSON.stringify(newList));
+    setNotifications(prev => prev.filter(n => n.id !== id));
   };
-
-  if (!session) {
-    return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6 animate-fade-in">
-        <div className="w-full max-w-md">
-          <div className="text-center mb-10">
-            <div className="inline-flex p-5 bg-primary-600 rounded-[2rem] shadow-2xl mb-6">
-              <Truck size={56} className="text-white" />
-            </div>
-            <h1 className="text-4xl font-black text-white tracking-tighter uppercase italic">AuriLog</h1>
-            <p className="text-slate-400 font-bold mt-2 uppercase tracking-widest text-[10px]">Gestão Inteligente de Fretes</p>
-          </div>
-          
-          <div className="bg-white p-8 md:p-10 rounded-[2.5rem] shadow-2xl border border-white/10">
-            <h2 className="text-2xl font-black text-slate-800 mb-8">
-              {isSignUp ? 'Criar nova conta' : 'Entrar na plataforma'}
-            </h2>
-            
-            <form onSubmit={handleAuth} className="space-y-5">
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Seu E-mail</label>
-                <input 
-                  type="email" 
-                  placeholder="exemplo@email.com" 
-                  className="w-full p-4 rounded-2xl border border-slate-200 font-bold outline-none focus:ring-2 focus:ring-primary-500 transition-all bg-slate-50 focus:bg-white" 
-                  value={email} 
-                  onChange={(e) => setEmail(e.target.value)} 
-                  required 
-                />
-              </div>
-              
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Sua Senha</label>
-                <input 
-                  type="password" 
-                  placeholder="••••••••" 
-                  className="w-full p-4 rounded-2xl border border-slate-200 font-bold outline-none focus:ring-2 focus:ring-primary-500 transition-all bg-slate-50 focus:bg-white" 
-                  value={password} 
-                  onChange={(e) => setPassword(e.target.value)} 
-                  required 
-                />
-              </div>
-
-              {error && (
-                <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl flex items-center gap-3 text-rose-600">
-                  <AlertCircle size={18} />
-                  <p className="text-xs font-bold">{error}</p>
-                </div>
-              )}
-
-              <button 
-                disabled={authLoading} 
-                className="w-full py-5 bg-primary-600 text-white rounded-2xl font-black text-lg shadow-xl hover:bg-primary-700 active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
-              >
-                {authLoading ? <Loader2 className="animate-spin" /> : (isSignUp ? 'Criar Conta' : 'Acessar Painel')}
-              </button>
-            </form>
-
-            <button 
-              onClick={() => { setIsSignUp(!isSignUp); setError(''); }} 
-              className="mt-8 w-full text-slate-400 font-bold text-sm hover:text-primary-600 transition-colors"
-            >
-              {isSignUp ? 'Já tem uma conta? Entre agora' : 'Não tem conta? Cadastre-se gratuitamente'}
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans overflow-hidden">
@@ -356,7 +298,7 @@ const App: React.FC = () => {
         </nav>
         
         <div className="absolute bottom-6 left-4 right-4 space-y-2">
-          <button onClick={handleShareOrPrint} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-primary-600/10 text-primary-400 font-bold text-sm border border-primary-900/50"><Share2 size={18} /> <span>Imprimir / Compartilhar</span></button>
+          <button onClick={() => window.print()} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-primary-600/10 text-primary-400 font-bold text-sm border border-primary-900/50"><Share2 size={18} /> <span>Imprimir / Compartilhar</span></button>
           <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-rose-400 font-bold text-sm"><LogOut size={18} /> <span>Sair</span></button>
         </div>
       </aside>
@@ -364,11 +306,51 @@ const App: React.FC = () => {
       <main className="flex-1 flex flex-col overflow-hidden relative">
         <header className="h-16 bg-white border-b flex items-center justify-between px-6 shrink-0 z-10">
           <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden p-2 text-slate-600"><Menu size={24} /></button>
+          
           <div className="flex items-center gap-4">
-            <button onClick={() => setShowNotifications(!showNotifications)} className="p-2 text-slate-500 hover:bg-slate-100 rounded-full relative">
-              <Bell size={22} />
-              {notifications.length > 0 && <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white"></span>}
-            </button>
+            <div className="relative">
+              <button 
+                onClick={() => setShowNotifications(!showNotifications)} 
+                className="p-2 text-slate-500 hover:bg-slate-100 rounded-full relative"
+              >
+                <Bell size={22} />
+                {notifications.length > 0 && (
+                  <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-rose-500 rounded-full border-2 border-white text-[10px] text-white flex items-center justify-center font-bold">
+                    {notifications.length}
+                  </span>
+                )}
+              </button>
+              
+              {showNotifications && (
+                <div className="absolute right-0 mt-3 w-80 bg-white border border-slate-200 rounded-2xl shadow-2xl z-50 overflow-hidden">
+                  <div className="p-4 border-b bg-slate-50 flex justify-between items-center">
+                    <span className="font-black text-xs uppercase text-slate-500">Notificações</span>
+                    <button onClick={() => setShowNotifications(false)} className="text-slate-400"><X size={16}/></button>
+                  </div>
+                  <div className="max-h-96 overflow-y-auto">
+                    {notifications.length === 0 ? (
+                      <div className="p-8 text-center text-slate-400 text-sm">Nenhum alerta no momento.</div>
+                    ) : (
+                      notifications.map(n => (
+                        <div key={n.id} className={`p-4 border-b flex gap-3 group hover:bg-slate-50 transition-colors`}>
+                          <div className={`shrink-0 w-2 h-2 rounded-full mt-1.5 ${n.type === 'warning' ? 'bg-rose-500' : 'bg-primary-500'}`}></div>
+                          <div className="flex-1">
+                            <h4 className="font-black text-xs text-slate-800 uppercase">{n.title}</h4>
+                            <p className="text-xs text-slate-500 mt-1">{n.msg}</p>
+                            <button 
+                              onClick={() => dismissNotification(n.id)}
+                              className="text-[10px] font-black text-primary-600 mt-2 uppercase tracking-wider"
+                            >
+                              Entendido
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </header>
 
@@ -380,7 +362,9 @@ const App: React.FC = () => {
             </div>
           ) : (
             <>
-              {currentView === AppView.DASHBOARD && <Dashboard trips={trips} expenses={expenses} />}
+              {currentView === AppView.DASHBOARD && (
+                <Dashboard trips={trips} expenses={expenses} maintenance={maintenance} vehicles={vehicles} onSetView={setCurrentView} />
+              )}
               {currentView === AppView.TRIPS && (
                 <TripManager 
                   trips={trips} 

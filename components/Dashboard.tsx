@@ -1,15 +1,19 @@
+
 import React, { useMemo } from 'react';
-import { Trip, Expense, FinancialSummary } from '../types';
+import { Trip, Expense, FinancialSummary, MaintenanceItem, Vehicle, AppView } from '../types';
 import { StatsCard } from './StatsCard';
-import { TrendingUp, TrendingDown, DollarSign, Truck, UserCheck } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, Truck, UserCheck, AlertCircle, ChevronRight } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 interface DashboardProps {
   trips: Trip[];
   expenses: Expense[];
+  maintenance?: MaintenanceItem[];
+  vehicles?: Vehicle[];
+  onSetView?: (view: AppView) => void;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ trips, expenses }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ trips, expenses, maintenance = [], vehicles = [], onSetView }) => {
   
   const summary: FinancialSummary = useMemo(() => {
     const totalRevenue = trips.reduce((acc, t) => acc + (t.agreed_price || 0), 0);
@@ -29,6 +33,25 @@ export const Dashboard: React.FC<DashboardProps> = ({ trips, expenses }) => {
     };
   }, [trips, expenses]);
 
+  const criticalMaintenance = useMemo(() => {
+    const today = new Date();
+    return maintenance.filter(m => {
+      const vehicle = vehicles.find(v => v.id === m.vehicle_id);
+      if (!vehicle) return false;
+
+      const pDate = new Date(m.purchase_date);
+      const expiryDate = new Date(pDate);
+      expiryDate.setMonth(pDate.getMonth() + (m.warranty_months || 0));
+
+      const kmLimit = m.km_at_purchase + (m.warranty_km || 0);
+      
+      const isTimeExpired = m.warranty_months > 0 && expiryDate < today;
+      const isKmExpired = m.warranty_km > 0 && vehicle.current_km >= kmLimit;
+
+      return isTimeExpired || isKmExpired;
+    });
+  }, [maintenance, vehicles]);
+
   const chartData = useMemo(() => {
     return trips.slice(0, 6).reverse().map(t => {
       const tripExpenses = expenses.filter(e => e.trip_id === t.id).reduce((acc, curr) => acc + curr.amount, 0);
@@ -47,6 +70,27 @@ export const Dashboard: React.FC<DashboardProps> = ({ trips, expenses }) => {
 
   return (
     <div className="space-y-6 animate-fade-in pb-10">
+      {/* Alertas Críticos de Manutenção */}
+      {criticalMaintenance.length > 0 && (
+        <div className="bg-rose-50 border-2 border-rose-200 p-6 rounded-[2rem] flex flex-col md:flex-row items-center justify-between gap-4 mx-2">
+          <div className="flex items-center gap-4">
+            <div className="bg-rose-500 text-white p-3 rounded-2xl shadow-lg">
+              <AlertCircle size={28} />
+            </div>
+            <div>
+              <h3 className="text-lg font-black text-rose-900 uppercase tracking-tighter">Manutenções Críticas!</h3>
+              <p className="text-sm font-bold text-rose-700">Existem {criticalMaintenance.length} itens com garantia ou prazo vencidos.</p>
+            </div>
+          </div>
+          <button 
+            onClick={() => onSetView && onSetView(AppView.MAINTENANCE)}
+            className="bg-white text-rose-600 px-6 py-3 rounded-xl font-black text-xs uppercase shadow-sm flex items-center gap-2 hover:bg-rose-100 transition-all"
+          >
+            Ver Detalhes <ChevronRight size={16}/>
+          </button>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 md:gap-4">
         <StatsCard title="Faturamento" value={formatCurrency(summary.totalRevenue)} icon={TrendingUp} color="green" />
         <StatsCard title="Despesas GERAIS" value={formatCurrency(summary.totalExpenses)} icon={TrendingDown} color="red" />
