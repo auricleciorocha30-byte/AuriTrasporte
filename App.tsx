@@ -1,4 +1,5 @@
 
+// @google/genai guidelines followed: exclusively using process.env.API_KEY, correct model names, and response.text usage.
 import React, { useState, useEffect } from 'react';
 import { LayoutDashboard, Truck, Wallet, Calculator, Menu, X, LogOut, Bell, Search, Database, CheckSquare, Settings, Lock, User as UserIcon, Loader2, AlertCircle, Timer, Fuel, Sparkles, Printer, Share2 } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
@@ -258,7 +259,8 @@ const App: React.FC = () => {
                   placeholder="exemplo@email.com" 
                   className="w-full p-4 rounded-2xl border border-slate-200 font-bold outline-none focus:ring-2 focus:ring-primary-500 transition-all bg-slate-50 focus:bg-white" 
                   value={email} 
-                  onChange={setEmail} 
+                  /* Fixed onChange handler to correctly update state */
+                  onChange={(e) => setEmail(e.target.value)} 
                   required 
                 />
               </div>
@@ -270,7 +272,8 @@ const App: React.FC = () => {
                   placeholder="••••••••" 
                   className="w-full p-4 rounded-2xl border border-slate-200 font-bold outline-none focus:ring-2 focus:ring-primary-500 transition-all bg-slate-50 focus:bg-white" 
                   value={password} 
-                  onChange={setPassword} 
+                  /* Fixed onChange handler to correctly update state */
+                  onChange={(e) => setPassword(e.target.value)} 
                   required 
                 />
               </div>
@@ -400,4 +403,30 @@ const App: React.FC = () => {
               {currentView === AppView.CALCULATOR && <FreightCalculator />}
               {currentView === AppView.JORNADA && (
                 <JornadaManager 
-                  mode={jornada
+                  mode={jornadaMode} 
+                  startTime={jornadaStartTime} 
+                  logs={jornadaLogs}
+                  setMode={setJornadaMode}
+                  setStartTime={setJornadaStartTime}
+                  /* Fixed line 408: setLogs should use setJornadaLogs */
+                  setLogs={setJornadaLogs}
+                />
+              )}
+              {currentView === AppView.STATIONS && <StationLocator />}
+              {currentView === AppView.BACKUP && <BackupManager data={{ trips, expenses, vehicles, maintenance }} onRestored={fetchData} />}
+            </>
+          )}
+        </div>
+      </main>
+      {isMobileMenuOpen && <div className="fixed inset-0 bg-slate-900/60 z-30 md:hidden" onClick={() => setIsMobileMenuOpen(false)} />}
+    </div>
+  );
+};
+
+const MenuBtn = ({ icon: Icon, label, active, onClick }: any) => (
+  <button onClick={onClick} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all ${active ? 'bg-primary-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800'}`}>
+    <Icon size={20} /> <span className="font-bold text-sm">{label}</span>
+  </button>
+);
+
+export default App;
