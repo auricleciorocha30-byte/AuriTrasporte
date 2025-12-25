@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Trip, TripStatus, Vehicle, TripStop } from '../types';
-import { Plus, MapPin, Calendar, Truck, UserCheck, Navigation, X, Trash2, Map as MapIcon, ChevronRight, Percent, Loader2, Edit2, DollarSign, MessageSquare, Sparkles, Wand2, PlusCircle, ExternalLink, CheckSquare, Gauge } from 'lucide-react';
+import { Plus, MapPin, Calendar, Truck, UserCheck, Navigation, X, Trash2, Map as MapIcon, ChevronRight, Percent, Loader2, Edit2, DollarSign, MessageSquare, Sparkles, Wand2, PlusCircle, ExternalLink, CheckSquare, Gauge, Utensils, Construction } from 'lucide-react';
 import { calculateANTT } from '../services/anttService';
 
 interface TripManagerProps {
@@ -50,7 +50,11 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
     date: getTodayLocal(),
     vehicle_id: '',
     status: TripStatus.SCHEDULED,
-    notes: ''
+    notes: '',
+    planned_toll_cost: 0,
+    planned_daily_cost: 0,
+    planned_extra_costs: 0,
+    return_empty: false
   });
 
   const calculatedCommission = (formData.agreed_price || 0) * ((formData.driver_commission_percentage || 0) / 100);
@@ -92,8 +96,18 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
     const vehicle = vehicles.find(v => v.id === formData.vehicle_id);
     if (!vehicle) return;
 
-    // Fixed: access result.total instead of result.value as defined in anttService.ts
-    const result = calculateANTT(formData.distance_km, vehicle.axles || 5, vehicle.cargo_type || 'geral');
+    // Sincronizado com os parâmetros extras
+    const result = calculateANTT(
+      formData.distance_km, 
+      vehicle.axles || 5, 
+      vehicle.cargo_type || 'geral',
+      {
+        toll: formData.planned_toll_cost,
+        daily: formData.planned_daily_cost,
+        other: formData.planned_extra_costs,
+        returnEmpty: formData.return_empty
+      }
+    );
     setFormData({ ...formData, agreed_price: Math.ceil(result.total) });
   };
 
@@ -121,7 +135,11 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
       date: getTodayLocal(),
       vehicle_id: '',
       status: TripStatus.SCHEDULED,
-      notes: ''
+      notes: '',
+      planned_toll_cost: 0,
+      planned_daily_cost: 0,
+      planned_extra_costs: 0,
+      return_empty: false
     });
   };
 
@@ -141,7 +159,11 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
       date: trip.date,
       vehicle_id: trip.vehicle_id || '',
       status: trip.status,
-      notes: trip.notes || ''
+      notes: trip.notes || '',
+      planned_toll_cost: trip.planned_toll_cost || 0,
+      planned_daily_cost: trip.planned_daily_cost || 0,
+      planned_extra_costs: trip.planned_extra_costs || 0,
+      return_empty: trip.return_empty || false
     });
     setIsModalOpen(true);
   };
@@ -313,7 +335,6 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                   </div>
                 </div>
 
-                {/* Seção de Paradas */}
                 <div className="space-y-3 pt-2">
                   <div className="flex justify-between items-center">
                     <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Paradas Intermediárias</label>
@@ -344,15 +365,28 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                     <button onClick={addStop} className="p-3 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all"><PlusCircle size={20}/></button>
                   </div>
                 </div>
+              </div>
 
-                {origin.city && destination.city && (
-                  <button 
-                    onClick={() => window.open(getMapsUrl(`${origin.city} - ${origin.state}`, `${destination.city} - ${destination.state}`, stops), '_blank')}
-                    className="w-full flex items-center justify-center gap-2 text-primary-600 font-black text-[10px] uppercase tracking-widest hover:underline mt-2"
-                  >
-                    <ExternalLink size={12}/> Abrir Rota no Google Maps
-                  </button>
-                )}
+              {/* Custos Operacionais Previstos (Novos campos adicionados aqui) */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-6 rounded-[2rem] border border-slate-100">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1 flex items-center gap-1"><Construction size={12}/> Pedágio (R$)</label>
+                  <input type="number" className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none" value={formData.planned_toll_cost || ''} onChange={e => setFormData({...formData, planned_toll_cost: Number(e.target.value)})} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1 flex items-center gap-1"><Utensils size={12}/> Diárias/Ref. (R$)</label>
+                  <input type="number" className="w-full p-4 bg-white border border-slate-200 rounded-2xl font-bold outline-none" value={formData.planned_daily_cost || ''} onChange={e => setFormData({...formData, planned_daily_cost: Number(e.target.value)})} />
+                </div>
+                <div className="space-y-1 flex flex-col justify-center pt-2">
+                   <span className="text-[10px] font-black uppercase text-slate-400 ml-1 mb-2">Retorno Vazio?</span>
+                   <button 
+                      type="button"
+                      onClick={() => setFormData({...formData, return_empty: !formData.return_empty})}
+                      className={`w-full py-3 rounded-2xl font-black text-xs transition-all ${formData.return_empty ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-500'}`}
+                    >
+                      {formData.return_empty ? 'SIM' : 'NÃO'}
+                   </button>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -369,15 +403,14 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                 </div>
               </div>
 
-              {/* Seção de Frete e Comissão */}
               <div className="bg-slate-900 p-6 rounded-[2rem] text-white space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <div className="flex justify-between items-center mb-1">
-                      <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Valor Bruto do Frete</label>
+                      <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Valor Bruto do Frete (Agreed)</label>
                       {formData.vehicle_id && formData.distance_km > 0 && (
                         <button onClick={suggestANTTPrice} className="text-[10px] font-black text-emerald-400 hover:text-emerald-300 flex items-center gap-1 bg-emerald-900/40 px-2 py-1 rounded-lg">
-                          <Sparkles size={10}/> Sugerir ANTT
+                          <Sparkles size={10}/> Sugerir Cálculo ANTT
                         </button>
                       )}
                     </div>

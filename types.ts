@@ -61,6 +61,11 @@ export interface Trip {
   notes?: string;
   vehicle_id?: string;
   user_id?: string;
+  // Novos campos para alinhar cálculos
+  planned_toll_cost?: number;
+  planned_daily_cost?: number;
+  planned_extra_costs?: number;
+  return_empty?: boolean;
 }
 
 export enum ExpenseCategory {
