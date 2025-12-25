@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Trip, TripStatus, Vehicle, TripStop } from '../types';
-import { Plus, MapPin, Calendar, Truck, UserCheck, Navigation, X, Trash2, Map as MapIcon, ChevronRight, Percent, Loader2, Edit2, DollarSign, MessageSquare, Sparkles, Wand2, PlusCircle, ExternalLink, CheckSquare } from 'lucide-react';
+import { Plus, MapPin, Calendar, Truck, UserCheck, Navigation, X, Trash2, Map as MapIcon, ChevronRight, Percent, Loader2, Edit2, DollarSign, MessageSquare, Sparkles, Wand2, PlusCircle, ExternalLink, CheckSquare, Gauge } from 'lucide-react';
 import { calculateANTT } from '../services/anttService';
 
 interface TripManagerProps {
@@ -9,7 +9,7 @@ interface TripManagerProps {
   vehicles: Vehicle[];
   onAddTrip: (trip: Omit<Trip, 'id'>) => Promise<void>;
   onUpdateTrip: (id: string, trip: Partial<Trip>) => Promise<void>;
-  onUpdateStatus: (id: string, status: TripStatus) => Promise<void>;
+  onUpdateStatus: (id: string, status: TripStatus, newVehicleKm?: number) => Promise<void>;
   onDeleteTrip: (id: string) => Promise<void>;
   isSaving?: boolean;
 }
@@ -32,7 +32,10 @@ const getTodayLocal = () => {
 
 export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAddTrip, onUpdateTrip, onUpdateStatus, onDeleteTrip, isSaving }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isKmModalOpen, setIsKmModalOpen] = useState(false);
   const [editingTripId, setEditingTripId] = useState<string | null>(null);
+  const [pendingStatusUpdate, setPendingStatusUpdate] = useState<{id: string, status: TripStatus, vehicleId?: string} | null>(null);
+  const [newVehicleKm, setNewVehicleKm] = useState<number>(0);
   
   const [origin, setOrigin] = useState({ city: '', state: 'SP' });
   const [destination, setDestination] = useState({ city: '', state: 'SP' });
@@ -51,6 +54,25 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
   });
 
   const calculatedCommission = (formData.agreed_price || 0) * ((formData.driver_commission_percentage || 0) / 100);
+
+  const handleStatusChange = (trip: Trip, newStatus: TripStatus) => {
+    if (newStatus === TripStatus.COMPLETED && trip.vehicle_id) {
+      const vehicle = vehicles.find(v => v.id === trip.vehicle_id);
+      setNewVehicleKm(vehicle?.current_km || 0);
+      setPendingStatusUpdate({ id: trip.id, status: newStatus, vehicleId: trip.vehicle_id });
+      setIsKmModalOpen(true);
+    } else {
+      onUpdateStatus(trip.id, newStatus);
+    }
+  };
+
+  const confirmKmUpdate = async () => {
+    if (pendingStatusUpdate) {
+      await onUpdateStatus(pendingStatusUpdate.id, pendingStatusUpdate.status, newVehicleKm);
+      setIsKmModalOpen(false);
+      setPendingStatusUpdate(null);
+    }
+  };
 
   const addStop = () => {
     if (!newStop.city) return;
@@ -164,7 +186,7 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                   <div className="flex items-center gap-3 mb-3">
                     <select 
                       value={trip.status} 
-                      onChange={(e) => onUpdateStatus(trip.id, e.target.value as TripStatus)}
+                      onChange={(e) => handleStatusChange(trip, e.target.value as TripStatus)}
                       className={`text-[10px] font-black uppercase px-3 py-1 rounded-full border-none cursor-pointer focus:ring-2 focus:ring-primary-500 ${
                         trip.status === TripStatus.COMPLETED ? 'bg-emerald-100 text-emerald-700' : 
                         trip.status === TripStatus.IN_PROGRESS ? 'bg-blue-100 text-blue-700' :
@@ -222,6 +244,41 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
           </div>
         ))}
       </div>
+
+      {/* Modal para Atualizar KM do Veículo */}
+      {isKmModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-[60]">
+          <div className="bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl p-8 animate-fade-in text-center">
+            <div className="bg-emerald-100 text-emerald-600 p-4 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+              <Gauge size={32} />
+            </div>
+            <h3 className="text-xl font-black mb-2">Viagem Concluída!</h3>
+            <p className="text-slate-500 text-sm font-bold mb-6">Informe o KM atual do veículo para atualizar o sistema:</p>
+            
+            <div className="space-y-4">
+              <input 
+                type="number" 
+                autoFocus
+                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-black text-3xl text-center outline-none focus:ring-4 focus:ring-emerald-500/20"
+                value={newVehicleKm}
+                onChange={e => setNewVehicleKm(Number(e.target.value))}
+              />
+              <button 
+                onClick={confirmKmUpdate}
+                className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-black text-lg shadow-xl active:scale-95 transition-all"
+              >
+                Confirmar e Salvar
+              </button>
+              <button 
+                onClick={() => setIsKmModalOpen(false)}
+                className="w-full text-slate-400 font-bold text-sm"
+              >
+                Pular atualização de KM
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-start justify-center p-4 z-50 overflow-y-auto">

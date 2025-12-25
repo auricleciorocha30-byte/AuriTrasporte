@@ -188,8 +188,49 @@ const App: React.FC = () => {
     }
   };
 
-  const handlePrint = () => {
-    window.print();
+  const handleUpdateStatus = async (id: string, status: TripStatus, newVehicleKm?: number) => {
+    setIsSaving(true);
+    try {
+      const { data: tripData, error: tripError } = await supabase
+        .from('trips')
+        .update({ status })
+        .eq('id', id)
+        .select()
+        .single();
+      
+      if (tripError) throw tripError;
+
+      if (status === TripStatus.COMPLETED && newVehicleKm !== undefined && tripData.vehicle_id) {
+        const { error: vehError } = await supabase
+          .from('vehicles')
+          .update({ current_km: newVehicleKm })
+          .eq('id', tripData.vehicle_id);
+        
+        if (vehError) throw vehError;
+      }
+
+      await fetchData();
+    } catch (err: any) {
+      alert("Erro ao atualizar status: " + err.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleShareOrPrint = async () => {
+    if (navigator.share && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+      try {
+        await navigator.share({
+          title: 'AuriLog - Relatório de Gestão',
+          text: 'Confira os dados de fretes e despesas do AuriLog.',
+          url: window.location.href
+        });
+      } catch (err) {
+        window.print();
+      }
+    } else {
+      window.print();
+    }
   };
 
   if (!session) {
@@ -217,7 +258,7 @@ const App: React.FC = () => {
                   placeholder="exemplo@email.com" 
                   className="w-full p-4 rounded-2xl border border-slate-200 font-bold outline-none focus:ring-2 focus:ring-primary-500 transition-all bg-slate-50 focus:bg-white" 
                   value={email} 
-                  onChange={e => setEmail(e.target.value)} 
+                  onChange={setEmail} 
                   required 
                 />
               </div>
@@ -229,7 +270,7 @@ const App: React.FC = () => {
                   placeholder="••••••••" 
                   className="w-full p-4 rounded-2xl border border-slate-200 font-bold outline-none focus:ring-2 focus:ring-primary-500 transition-all bg-slate-50 focus:bg-white" 
                   value={password} 
-                  onChange={e => setPassword(e.target.value)} 
+                  onChange={setPassword} 
                   required 
                 />
               </div>
@@ -275,7 +316,7 @@ const App: React.FC = () => {
           </div>
           <button onClick={() => setIsMobileMenuOpen(false)} className="md:hidden p-1 text-slate-500"><X size={20} /></button>
         </div>
-        <nav className="space-y-1 overflow-y-auto max-h-[calc(100vh-220px)]">
+        <nav className="space-y-1 overflow-y-auto max-h-[calc(100vh-240px)]">
           <MenuBtn icon={LayoutDashboard} label="Dashboard" active={currentView === AppView.DASHBOARD} onClick={() => setCurrentView(AppView.DASHBOARD)} />
           <MenuBtn icon={Truck} label="Viagens" active={currentView === AppView.TRIPS} onClick={() => setCurrentView(AppView.TRIPS)} />
           <MenuBtn icon={Settings} label="Veículos" active={currentView === AppView.VEHICLES} onClick={() => setCurrentView(AppView.VEHICLES)} />
@@ -289,16 +330,16 @@ const App: React.FC = () => {
         
         <div className="absolute bottom-6 left-4 right-4 space-y-2">
           <button 
-            onClick={handlePrint} 
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-primary-400 hover:bg-primary-500/10 transition-all font-bold text-sm"
+            onClick={handleShareOrPrint} 
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-primary-600/10 text-primary-400 hover:bg-primary-600/20 transition-all font-bold text-sm border border-primary-900/50"
           >
-            <Printer size={20} /> <span>Relatório / PDF</span>
+            <Share2 size={18} /> <span>Imprimir / Compartilhar</span>
           </button>
           <button 
             onClick={handleLogout} 
             className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-rose-400 hover:bg-rose-500/10 transition-all font-bold text-sm"
           >
-            <LogOut size={20} /> <span>Sair</span>
+            <LogOut size={18} /> <span>Sair</span>
           </button>
         </div>
       </aside>
@@ -333,7 +374,7 @@ const App: React.FC = () => {
                   vehicles={vehicles} 
                   onAddTrip={async (t) => { await supabase.from('trips').insert([{...t, user_id: session.user.id}]); fetchData(); }} 
                   onUpdateTrip={handleUpdateTrip}
-                  onUpdateStatus={async (id, s) => { await supabase.from('trips').update({status: s}).eq('id', id); fetchData(); }} 
+                  onUpdateStatus={handleUpdateStatus}
                   onDeleteTrip={async (id) => { if(confirm("Excluir?")) {await supabase.from('trips').delete().eq('id', id); fetchData();} }} 
                   isSaving={isSaving}
                 />
@@ -359,29 +400,4 @@ const App: React.FC = () => {
               {currentView === AppView.CALCULATOR && <FreightCalculator />}
               {currentView === AppView.JORNADA && (
                 <JornadaManager 
-                  mode={jornadaMode} 
-                  startTime={jornadaStartTime} 
-                  logs={jornadaLogs}
-                  setMode={setJornadaMode}
-                  setStartTime={setJornadaStartTime}
-                  setLogs={setJornadaLogs}
-                />
-              )}
-              {currentView === AppView.STATIONS && <StationLocator />}
-              {currentView === AppView.BACKUP && <BackupManager data={{ trips, expenses, vehicles, maintenance }} onRestored={fetchData} />}
-            </>
-          )}
-        </div>
-      </main>
-      {isMobileMenuOpen && <div className="fixed inset-0 bg-slate-900/60 z-30 md:hidden" onClick={() => setIsMobileMenuOpen(false)} />}
-    </div>
-  );
-};
-
-const MenuBtn = ({ icon: Icon, label, active, onClick }: any) => (
-  <button onClick={onClick} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all ${active ? 'bg-primary-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800'}`}>
-    <Icon size={20} /> <span className="font-bold text-sm">{label}</span>
-  </button>
-);
-
-export default App;
+                  mode={jornada
