@@ -282,6 +282,18 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                         <MapIcon size={14}/> Ver Rota
                       </button>
                     </div>
+
+                    {/* Exibição das Observações (Notas) */}
+                    {trip.notes && (
+                      <div className="mt-4 p-3 bg-slate-50/50 rounded-xl border border-slate-100/50">
+                        <div className="flex items-start gap-2">
+                          <MessageSquare size={14} className="text-slate-400 mt-0.5 shrink-0" />
+                          <p className="text-[11px] text-slate-500 font-medium leading-relaxed whitespace-pre-wrap italic">
+                            {trip.notes}
+                          </p>
+                        </div>
+                      </div>
+                    )}
                  </div>
                  <div className="md:text-right border-t md:border-t-0 md:border-l border-slate-100 pt-4 md:pt-0 md:pl-8 flex flex-col justify-center min-w-[150px]">
                     <p className="text-xs font-black text-slate-400 uppercase mb-1">Valor Frete</p>
