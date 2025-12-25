@@ -10,15 +10,39 @@ const COEF_TABLE: Record<number, Record<string, { ccd: number; cc: number }>> = 
   9: { default: { ccd: 9.3348, cc: 956.92 } },
 };
 
-export const calculateANTT = (distance: number, axles: number, cargoType: string = 'geral') => {
-  const base = COEF_TABLE[axles] || COEF_TABLE[5];
+export const calculateANTT = (
+  distance: number, 
+  axles: number, 
+  cargoType: string = 'geral',
+  extras: { toll?: number; daily?: number; other?: number; returnEmpty?: boolean } = {}
+) => {
+  // Nota 1: Busca o eixo imediatamente inferior se não existir o exato
+  const availableAxles = Object.keys(COEF_TABLE).map(Number).sort((a, b) => b - a);
+  const selectedAxles = availableAxles.find(a => a <= axles) || availableAxles[availableAxles.length - 1];
+  
+  const base = COEF_TABLE[selectedAxles] || COEF_TABLE[5];
   const coef = base[cargoType] || base['default'];
   
-  const value = (distance * coef.ccd) + coef.cc;
+  const valueBaseIda = (distance * coef.ccd) + coef.cc;
+  
+  // Nota 6: Retorno vazio (obrigatório em casos específicos, 92% do custo de deslocamento)
+  const valueRetorno = extras.returnEmpty ? (0.92 * distance * coef.ccd) : 0;
+  
+  // Notas 2, 3, 5: Adicionais
+  const totalToll = extras.toll || 0;
+  const totalDaily = extras.daily || 0;
+  const totalOther = extras.other || 0;
+
+  const totalFrete = valueBaseIda + valueRetorno + totalToll + totalDaily + totalOther;
+
   return {
-    value,
+    total: totalFrete,
+    pisoMinimo: valueBaseIda + valueRetorno,
+    deslocamento: valueBaseIda,
+    retorno: valueRetorno,
     ccd: coef.ccd,
-    cc: coef.cc
+    cc: coef.cc,
+    adicionais: totalToll + totalDaily + totalOther
   };
 };
 

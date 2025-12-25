@@ -92,8 +92,9 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
     const vehicle = vehicles.find(v => v.id === formData.vehicle_id);
     if (!vehicle) return;
 
+    // Fixed: access result.total instead of result.value as defined in anttService.ts
     const result = calculateANTT(formData.distance_km, vehicle.axles || 5, vehicle.cargo_type || 'geral');
-    setFormData({ ...formData, agreed_price: Math.ceil(result.value) });
+    setFormData({ ...formData, agreed_price: Math.ceil(result.total) });
   };
 
   const getMapsUrl = (originText: string, destText: string, tripStops: TripStop[] = []) => {
