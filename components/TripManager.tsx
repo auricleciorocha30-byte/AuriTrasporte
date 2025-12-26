@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Trip, TripStatus, Vehicle, TripStop } from '../types';
-import { Plus, MapPin, Calendar, Truck, UserCheck, Navigation, X, Trash2, Map as MapIcon, ChevronRight, Percent, Loader2, Edit2, DollarSign, MessageSquare, Sparkles, Wand2, PlusCircle, ExternalLink, CheckSquare, Gauge, Utensils, Construction, MapPinPlus, ShieldCheck, ChevronDown, AlignLeft } from 'lucide-react';
+import { Plus, MapPin, Calendar, Truck, UserCheck, Navigation, X, Trash2, Map as MapIcon, ChevronRight, Percent, Loader2, Edit2, DollarSign, MessageSquare, Sparkles, Wand2, PlusCircle, ExternalLink, CheckSquare, Gauge, Utensils, Construction, MapPinPlus, ShieldCheck, ChevronDown, AlignLeft, CheckCircle2 } from 'lucide-react';
 import { calculateANTT } from '../services/anttService';
 
 interface TripManagerProps {
@@ -68,6 +68,13 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
     } else {
       onUpdateStatus(trip.id, newStatus);
     }
+  };
+
+  const confirmKmUpdate = async () => {
+    if (!pendingStatusUpdate) return;
+    await onUpdateStatus(pendingStatusUpdate.id, pendingStatusUpdate.status, newVehicleKm);
+    setIsKmModalOpen(false);
+    setPendingStatusUpdate(null);
   };
 
   const addStop = () => {
@@ -284,6 +291,7 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
         })}
       </div>
 
+      {/* MODAL PRINCIPAL DE VIAGEM */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md flex items-end md:items-center justify-center p-0 md:p-6 z-[100] animate-fade-in" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
           <div className="bg-white w-full max-w-2xl rounded-t-[4rem] md:rounded-[3rem] shadow-2xl animate-slide-up relative h-[92vh] md:h-auto overflow-y-auto pb-10">
@@ -296,7 +304,6 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
             </div>
 
             <div className="p-10 space-y-8">
-              {/* Seção de Trajeto Principal */}
               <div className="space-y-4 bg-slate-50 p-8 rounded-[3rem] border border-slate-100">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
@@ -319,7 +326,6 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                   </div>
                 </div>
 
-                {/* Seção de Paradas */}
                 <div className="mt-6 pt-6 border-t border-slate-200">
                   <label className="text-[10px] font-black uppercase text-slate-400 ml-1 flex items-center gap-2 mb-3">
                     <MapPinPlus size={14}/> Paradas / Escalas (Opcional)
@@ -344,7 +350,6 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                 </div>
               </div>
 
-              {/* Seção de Associação de Veículo */}
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase text-slate-400 ml-1 flex items-center gap-2">
                   <Truck size={14} className="text-primary-500"/> Associar Veículo para Viagem
@@ -412,6 +417,50 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                   {isSaving ? 'Salvando...' : 'Confirmar Viagem'}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE ATUALIZAÇÃO DE KM AO CONCLUIR VIAGEM */}
+      {isKmModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-2xl flex items-center justify-center p-6 z-[120] animate-fade-in">
+          <div className="bg-white rounded-[3.5rem] w-full max-w-md p-10 md:p-12 shadow-2xl text-center">
+            <div className="bg-emerald-100 text-emerald-600 p-8 rounded-full w-24 h-24 flex items-center justify-center mx-auto mb-8">
+              <CheckCircle2 size={48} />
+            </div>
+            
+            <h3 className="text-3xl font-black text-slate-900 uppercase tracking-tighter mb-4 leading-none">Concluir Viagem</h3>
+            <p className="text-slate-500 font-bold text-sm mb-10">Para finalizar, atualize o odômetro (KM) final do veículo associado.</p>
+            
+            <div className="space-y-6 mb-12">
+              <div className="space-y-1 text-left">
+                <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Odômetro Final (KM)</label>
+                <div className="relative">
+                  <input 
+                    type="number" 
+                    className="w-full p-6 bg-slate-50 border-2 border-emerald-500/20 rounded-3xl font-black text-3xl text-slate-900 outline-none focus:ring-4 focus:ring-emerald-500/10 transition-all"
+                    value={newVehicleKm}
+                    onChange={(e) => setNewVehicleKm(Number(e.target.value))}
+                  />
+                  <Gauge className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-200" size={32} />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <button 
+                onClick={() => { setIsKmModalOpen(false); setPendingStatusUpdate(null); }} 
+                className="py-5 bg-slate-100 text-slate-600 rounded-3xl font-black uppercase text-xs hover:bg-slate-200 transition-all"
+              >
+                Voltar
+              </button>
+              <button 
+                onClick={confirmKmUpdate} 
+                className="py-5 bg-emerald-600 text-white rounded-3xl font-black uppercase text-xs shadow-2xl shadow-emerald-200 hover:bg-emerald-700 transition-all"
+              >
+                Salvar e Concluir
+              </button>
             </div>
           </div>
         </div>
