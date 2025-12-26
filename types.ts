@@ -63,14 +63,21 @@ export interface Trip {
 }
 
 export enum ExpenseCategory {
+  // Custos de Viagem (Variáveis)
   FUEL = 'Combustível',
   TOLL = 'Pedágio',
   MAINTENANCE = 'Manutenção',
   FOOD = 'Alimentação',
   LODGING = 'Hospedagem',
-  FINANCING = 'Financiamento / Prestação',
+  TIRE_REPAIR = 'Borracharia',
+  
+  // Custos Fixos
+  FINANCING = 'Financiamento',
   INSURANCE = 'Seguro',
   TRACKER = 'Rastreador',
+  SUBSCRIPTION = 'Assinatura',
+  
+  // Geral
   OTHER = 'Outros'
 }
 

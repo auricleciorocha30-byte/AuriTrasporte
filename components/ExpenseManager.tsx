@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Expense, ExpenseCategory, Trip, Vehicle } from '../types';
-import { Trash2, ChevronDown, ReceiptText, Banknote, Loader2, Edit2, CheckCircle2, X, ShieldCheck, Wallet, Calendar, ArrowRightCircle, Check, Info, AlertCircle } from 'lucide-react';
+import { Trash2, ChevronDown, ReceiptText, Banknote, Loader2, Edit2, CheckCircle2, X, ShieldCheck, Wallet, Calendar, ArrowRightCircle, Check, Info, AlertCircle, Wrench, Fuel, Utensils, Bed, Shield, Rss, Landmark, CreditCard } from 'lucide-react';
 
 interface ExpenseManagerProps {
   expenses: Expense[];
@@ -14,6 +14,24 @@ interface ExpenseManagerProps {
 }
 
 const getToday = () => new Date().toISOString().split('T')[0];
+
+const FIXED_CATEGORIES = [
+  ExpenseCategory.FINANCING,
+  ExpenseCategory.INSURANCE,
+  ExpenseCategory.TRACKER,
+  ExpenseCategory.SUBSCRIPTION,
+  ExpenseCategory.OTHER
+];
+
+const TRIP_CATEGORIES = [
+  ExpenseCategory.FUEL,
+  ExpenseCategory.TOLL,
+  ExpenseCategory.MAINTENANCE,
+  ExpenseCategory.FOOD,
+  ExpenseCategory.LODGING,
+  ExpenseCategory.TIRE_REPAIR,
+  ExpenseCategory.OTHER
+];
 
 export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips, vehicles, onAddExpense, onUpdateExpense, onDeleteExpense, isSaving }) => {
   const [modalType, setModalType] = useState<'TRIP' | 'FIXED' | null>(null);
@@ -52,7 +70,8 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
 
   const handleEdit = (expense: Expense) => {
     setEditingExpenseId(expense.id);
-    setModalType(expense.trip_id ? 'TRIP' : 'FIXED');
+    const isFixed = FIXED_CATEGORIES.includes(expense.category);
+    setModalType(isFixed ? 'FIXED' : 'TRIP');
     setFormData({
       description: expense.description,
       amount: expense.amount,
@@ -77,7 +96,6 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
       category: formData.category,
       date: formData.date,
       due_date: formData.due_date || formData.date,
-      // IMPORTANTE: Supabase UUID não aceita string vazia, deve ser null
       trip_id: modalType === 'TRIP' && formData.trip_id ? formData.trip_id : null,
       vehicle_id: formData.vehicle_id ? formData.vehicle_id : null,
       is_paid: Boolean(formData.is_paid),
@@ -93,7 +111,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
       }
       resetForm();
     } catch (err) {
-      // O erro já é tratado no App.tsx via alert
+      console.error(err);
     }
   };
 
@@ -115,6 +133,8 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
     setConfirmPaymentId(null);
   };
 
+  const currentCategories = modalType === 'FIXED' ? FIXED_CATEGORIES : TRIP_CATEGORIES;
+
   return (
     <div className="space-y-8 pb-32 animate-fade-in max-w-7xl mx-auto">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 px-4">
@@ -123,10 +143,24 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
           <p className="text-slate-400 font-bold text-sm uppercase tracking-widest mt-2">Gestão de Lucro e Despesas</p>
         </div>
         <div className="flex gap-4 w-full md:w-auto">
-          <button onClick={() => { resetForm(); setModalType('TRIP'); }} className="flex-1 md:flex-none flex items-center justify-center gap-2 px-8 py-5 bg-white border-2 border-slate-100 rounded-[2rem] font-black text-xs uppercase text-slate-600 hover:border-primary-500 hover:text-primary-600 transition-all shadow-sm active:scale-95">
+          <button 
+            onClick={() => { 
+              resetForm(); 
+              setModalType('TRIP'); 
+              setFormData(prev => ({ ...prev, category: ExpenseCategory.FUEL }));
+            }} 
+            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-8 py-5 bg-white border-2 border-slate-100 rounded-[2rem] font-black text-xs uppercase text-slate-600 hover:border-primary-500 hover:text-primary-600 transition-all shadow-sm active:scale-95"
+          >
             <ReceiptText size={20} /> Custo Viagem
           </button>
-          <button onClick={() => { resetForm(); setModalType('FIXED'); setFormData({...formData, category: ExpenseCategory.FINANCING, is_paid: false}) }} className="flex-1 md:flex-none flex items-center justify-center gap-2 px-8 py-5 bg-slate-900 text-white rounded-[2rem] font-black text-xs uppercase shadow-2xl hover:bg-black active:scale-95 transition-all">
+          <button 
+            onClick={() => { 
+              resetForm(); 
+              setModalType('FIXED'); 
+              setFormData(prev => ({ ...prev, category: ExpenseCategory.FINANCING, is_paid: false }));
+            }} 
+            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-8 py-5 bg-slate-900 text-white rounded-[2rem] font-black text-xs uppercase shadow-2xl hover:bg-black active:scale-95 transition-all"
+          >
             <Banknote size={20} /> Custo Fixo
           </button>
         </div>
@@ -137,12 +171,13 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
           const isOverdue = !expense.is_paid && expense.due_date && new Date(expense.due_date + 'T12:00:00') < new Date();
           const trip = trips.find(t => t.id === expense.trip_id);
           const vehicle = vehicles.find(v => v.id === expense.vehicle_id);
+          const isFixed = FIXED_CATEGORIES.includes(expense.category);
 
           return (
             <div key={expense.id} className={`bg-white p-8 rounded-[3rem] border-2 shadow-sm relative group hover:border-primary-500 transition-all ${isOverdue ? 'border-rose-200 ring-4 ring-rose-50' : 'border-slate-50'}`}>
               <div className="flex justify-between items-start mb-6">
-                <div className={`p-5 rounded-[1.5rem] ${expense.trip_id ? 'bg-indigo-50 text-indigo-600' : 'bg-amber-50 text-amber-600'}`}>
-                  {expense.trip_id ? <ReceiptText size={28}/> : <Wallet size={28}/>}
+                <div className={`p-5 rounded-[1.5rem] ${!isFixed ? 'bg-indigo-50 text-indigo-600' : 'bg-amber-50 text-amber-600'}`}>
+                  {!isFixed ? <ReceiptText size={28}/> : <Wallet size={28}/>}
                 </div>
                 <div className="text-right">
                   <div className="text-[10px] font-black uppercase text-slate-400 mb-1">Valor</div>
@@ -154,7 +189,9 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
                 <h3 className="text-xl font-black text-slate-800 leading-tight truncate">{expense.description}</h3>
                 
                 <div className="flex flex-wrap gap-2">
-                  <span className="text-[10px] font-black uppercase bg-slate-100 text-slate-500 px-3 py-1 rounded-lg">{expense.category}</span>
+                  <span className={`text-[10px] font-black uppercase px-3 py-1 rounded-lg ${isFixed ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'}`}>
+                    {expense.category}
+                  </span>
                   {trip && <span className="text-[10px] font-black uppercase bg-indigo-100 text-indigo-700 px-3 py-1 rounded-lg">Rota: {trip.destination.split(' - ')[0]}</span>}
                   {vehicle && <span className="text-[10px] font-black uppercase bg-slate-900 text-white px-3 py-1 rounded-lg">{vehicle.plate}</span>}
                 </div>
@@ -206,7 +243,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
             <form onSubmit={handleSubmit} className="space-y-6 pb-12">
               <div className="space-y-2">
                 <label className="text-[11px] font-black uppercase text-slate-400 ml-1">Descrição do Gasto</label>
-                <input required type="text" placeholder="Ex: Abastecimento em Posto Graal" className="w-full p-5 bg-slate-50 rounded-3xl border-2 border-transparent focus:border-primary-500 font-bold outline-none text-lg transition-all" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
+                <input required type="text" placeholder={modalType === 'FIXED' ? "Ex: Mensalidade Rastreador" : "Ex: Abastecimento Posto Graal"} className="w-full p-5 bg-slate-50 rounded-3xl border-2 border-transparent focus:border-primary-500 font-bold outline-none text-lg transition-all" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
               </div>
 
               <div className="grid grid-cols-2 gap-6">
@@ -218,7 +255,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
                   <label className="text-[11px] font-black uppercase text-slate-400 ml-1">Categoria</label>
                   <div className="relative">
                     <select className="w-full p-5 bg-slate-50 rounded-3xl border-2 border-transparent focus:border-primary-500 font-bold appearance-none pr-12 outline-none" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value as ExpenseCategory})}>
-                      {Object.values(ExpenseCategory).map(c => <option key={c} value={c}>{c}</option>)}
+                      {currentCategories.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                     <ChevronDown className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={20} />
                   </div>
@@ -240,10 +277,10 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <label className="text-[11px] font-black uppercase text-slate-400 ml-1">Vincular ao Veículo</label>
+                  <label className="text-[11px] font-black uppercase text-slate-400 ml-1">Vincular ao Veículo (Opcional)</label>
                   <div className="relative">
                     <select className="w-full p-5 bg-slate-100/50 rounded-3xl border-2 border-transparent focus:border-slate-500 font-bold appearance-none pr-12 outline-none" value={formData.vehicle_id} onChange={e => setFormData({...formData, vehicle_id: e.target.value})}>
-                      <option value="">Geral (Sem veículo específico)</option>
+                      <option value="">Geral (Frota)</option>
                       {vehicles.map(v => (
                         <option key={v.id} value={v.id}>{v.plate} - {v.model}</option>
                       ))}
@@ -276,7 +313,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
 
       {confirmPaymentId && (
         <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-2xl flex items-center justify-center p-6 z-[110] animate-fade-in">
-          <div className="bg-white rounded-[3.5rem] w-full max-sm p-12 shadow-2xl text-center">
+          <div className="bg-white rounded-[3.5rem] w-full max-w-sm p-12 shadow-2xl text-center">
             <div className="bg-emerald-100 text-emerald-600 p-8 rounded-full w-28 h-28 flex items-center justify-center mx-auto mb-8">
               <CheckCircle2 size={56} />
             </div>
