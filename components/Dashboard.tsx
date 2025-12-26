@@ -2,7 +2,7 @@
 import React, { useMemo } from 'react';
 import { Trip, Expense, FinancialSummary, Vehicle, AppView, TripStatus, ExpenseCategory } from '../types';
 import { StatsCard } from './StatsCard';
-import { TrendingUp, TrendingDown, DollarSign, Truck, UserCheck, ChevronRight, Calendar, Wallet } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, Truck, UserCheck, ChevronRight, Calendar, Wallet, BarChart3, PieChart as PieChartIcon } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell, PieChart, Pie } from 'recharts';
 
 interface DashboardProps {
@@ -64,10 +64,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ trips, expenses, vehicles,
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 px-2">
-        {/* Gráfico de Barras: Comparativo */}
-        <div className="bg-white p-6 rounded-[2.5rem] border shadow-sm">
-          <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-6">Comparativo Financeiro</h3>
-          <div className="h-64">
+        <div className="bg-white p-8 rounded-[2.5rem] border shadow-sm">
+          <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2">
+            <BarChart3 size={16}/> Comparativo Financeiro
+          </h3>
+          <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={[
                 { name: 'Receita', valor: summary.totalRevenue },
@@ -75,10 +76,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ trips, expenses, vehicles,
                 { name: 'Lucro', valor: summary.netProfit }
               ]}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 800}} />
                 <YAxis hide />
-                <Tooltip cursor={{fill: 'transparent'}} />
-                <Bar dataKey="valor" radius={[10, 10, 0, 0]}>
+                <Tooltip cursor={{fill: 'transparent'}} contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)'}} />
+                <Bar dataKey="valor" radius={[12, 12, 0, 0]} barSize={60}>
                   <Cell fill="#10b981" />
                   <Cell fill="#f43f5e" />
                   <Cell fill="#0ea5e9" />
@@ -88,36 +89,42 @@ export const Dashboard: React.FC<DashboardProps> = ({ trips, expenses, vehicles,
           </div>
         </div>
 
-        {/* Notificações Próximas */}
-        <div className="bg-slate-900 p-8 rounded-[2.5rem] text-white flex flex-col justify-center">
-          <div className="flex items-center gap-4 mb-6">
-            <div className="bg-primary-600 p-3 rounded-2xl">
-              <Calendar size={28} />
-            </div>
-            <div>
-              <h3 className="text-xl font-black uppercase tracking-tighter">Agenda Financeira</h3>
-              <p className="text-slate-400 text-xs font-bold uppercase">Compromissos pendentes</p>
-            </div>
+        <div className="bg-slate-900 p-10 rounded-[2.5rem] text-white flex flex-col justify-center relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-10 opacity-5">
+            <PieChartIcon size={120} />
           </div>
-          
-          <div className="space-y-3">
-             {expenses.filter(e => e.due_date).slice(0, 2).map(e => (
-               <div key={e.id} className="bg-slate-800 p-4 rounded-2xl flex justify-between items-center border border-slate-700">
-                  <div>
-                    <p className="text-[10px] font-black text-amber-500 uppercase">{e.category}</p>
-                    <p className="font-bold text-sm">{e.description}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs font-black text-rose-400">R$ {e.amount.toLocaleString()}</p>
-                    <p className="text-[10px] text-slate-500">Vence {new Date(e.due_date!).toLocaleDateString()}</p>
-                  </div>
-               </div>
-             ))}
-             {expenses.filter(e => e.due_date).length === 0 && (
-               <p className="text-slate-500 text-sm italic py-4">Nenhum vencimento próximo.</p>
-             )}
+          <div className="relative z-10">
+            <h3 className="text-2xl font-black uppercase tracking-tighter mb-2">Saúde da Frota</h3>
+            <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-8">Análise de custos operacionais</p>
+            
+            <div className="space-y-6">
+              <div className="flex justify-between items-end border-b border-slate-800 pb-4">
+                 <div>
+                   <p className="text-[10px] font-black text-slate-500 uppercase">Margem de Lucro</p>
+                   <p className="text-3xl font-black text-emerald-400">{summary.profitMargin.toFixed(1)}%</p>
+                 </div>
+                 <div className="text-right">
+                   <p className="text-[10px] font-black text-slate-500 uppercase">Ticket Médio/Viagem</p>
+                   <p className="text-lg font-black">{formatCurrency(summary.tripCount > 0 ? summary.totalRevenue / summary.tripCount : 0)}</p>
+                 </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                 <div className="bg-slate-800/50 p-4 rounded-2xl">
+                    <p className="text-[10px] font-black text-rose-400 uppercase mb-1">Custo Total</p>
+                    <p className="text-xl font-black">{formatCurrency(summary.totalTripExpenses + summary.totalFixedExpenses)}</p>
+                 </div>
+                 <div className="bg-slate-800/50 p-4 rounded-2xl">
+                    <p className="text-[10px] font-black text-primary-400 uppercase mb-1">Lucro Total</p>
+                    <p className="text-xl font-black">{formatCurrency(summary.netProfit)}</p>
+                 </div>
+              </div>
+            </div>
+
+            <button onClick={() => onSetView?.(AppView.EXPENSES)} className="mt-10 w-full py-4 bg-white/10 hover:bg-white/20 rounded-2xl text-xs font-black uppercase tracking-widest transition-all">
+              Acessar Financeiro Detalhado
+            </button>
           </div>
-          <button onClick={() => onSetView?.(AppView.EXPENSES)} className="mt-6 w-full py-3 bg-white/5 hover:bg-white/10 rounded-xl text-xs font-black uppercase tracking-widest transition-all">Ver Tudo</button>
         </div>
       </div>
     </div>

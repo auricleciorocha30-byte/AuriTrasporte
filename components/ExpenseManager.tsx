@@ -29,11 +29,9 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
     date: getTodayLocal(),
     trip_id: '',
     vehicle_id: '',
-    due_date: '',
-    installments: 1,
     description: '',
     amount: 0,
-    is_paid: false
+    is_paid: true
   });
 
   const isFixedCategory = (category: any) => 
@@ -47,11 +45,9 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
       date: getTodayLocal(), 
       trip_id: '', 
       vehicle_id: '', 
-      due_date: '', 
-      installments: 1,
       description: '',
       amount: 0,
-      is_paid: false
+      is_paid: true
     });
   };
 
@@ -66,18 +62,13 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
       date: expense.date,
       trip_id: expense.trip_id || '',
       vehicle_id: expense.vehicle_id || '',
-      due_date: expense.due_date || '',
-      installments: 1,
-      is_paid: expense.trip_id ? true : (expense.is_paid || false)
+      is_paid: true
     });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newExpense.description && newExpense.amount) {
-      // Se for gasto de viagem, is_paid é sempre true por padrão
-      const forcePaid = modalType === 'TRIP';
-      
       if (editingExpenseId && onUpdateExpense) {
         const payload: Partial<Expense> = {
           description: newExpense.description,
@@ -86,40 +77,21 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
           date: newExpense.date,
           trip_id: modalType === 'TRIP' ? (newExpense.trip_id || null) : null,
           vehicle_id: newExpense.vehicle_id || null,
-          due_date: modalType === 'FIXED' ? (newExpense.due_date || null) : null,
-          is_paid: forcePaid ? true : newExpense.is_paid
+          is_paid: true
         };
         await onUpdateExpense(editingExpenseId, payload);
         resetForm();
       } else {
-        const totalInstallments = modalType === 'FIXED' ? (newExpense.installments || 1) : 1;
-        
-        for (let i = 0; i < totalInstallments; i++) {
-          const expenseDate = new Date(newExpense.date + 'T12:00:00');
-          expenseDate.setMonth(expenseDate.getMonth() + i);
-          
-          let dueDateStr = null;
-          if (modalType === 'FIXED' && newExpense.due_date) {
-            const dueDate = new Date(newExpense.due_date + 'T12:00:00');
-            dueDate.setMonth(dueDate.getMonth() + i);
-            dueDateStr = dueDate.toISOString().split('T')[0];
-          }
-
-          const expense: Omit<Expense, 'id'> = {
-            description: totalInstallments > 1 
-              ? `${newExpense.description} (${i + 1}/${totalInstallments})` 
-              : newExpense.description,
-            amount: Number(newExpense.amount),
-            category: (newExpense.category as ExpenseCategory) || ExpenseCategory.OTHER,
-            date: expenseDate.toISOString().split('T')[0],
-            trip_id: modalType === 'TRIP' ? (newExpense.trip_id || null) : null,
-            vehicle_id: newExpense.vehicle_id || null,
-            due_date: dueDateStr,
-            is_paid: forcePaid ? true : newExpense.is_paid
-          };
-          
-          await onAddExpense(expense);
-        }
+        const expense: Omit<Expense, 'id'> = {
+          description: newExpense.description,
+          amount: Number(newExpense.amount),
+          category: (newExpense.category as ExpenseCategory) || ExpenseCategory.OTHER,
+          date: newExpense.date,
+          trip_id: modalType === 'TRIP' ? (newExpense.trip_id || null) : null,
+          vehicle_id: newExpense.vehicle_id || null,
+          is_paid: true
+        };
+        await onAddExpense(expense);
         resetForm();
       }
     }
@@ -127,38 +99,36 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
 
   return (
     <div className="space-y-6 pb-10 animate-fade-in max-w-7xl mx-auto">
-      {/* Header Alinhado */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 px-2">
         <div className="space-y-1">
           <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase leading-none">Financeiro</h2>
-          <p className="text-slate-400 font-bold text-sm uppercase tracking-widest">Fluxo de Caixa e Custos Fixos</p>
+          <p className="text-slate-400 font-bold text-sm uppercase tracking-widest">Lançamentos de Despesas</p>
         </div>
         <div className="flex flex-wrap gap-3 w-full md:w-auto">
           <button 
-            onClick={() => {setModalType('TRIP'); setNewExpense({...newExpense, category: ExpenseCategory.FUEL, installments: 1, is_paid: true})}} 
+            onClick={() => {setModalType('TRIP'); setNewExpense({...newExpense, category: ExpenseCategory.FUEL})}} 
             className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-4 bg-white border-2 border-slate-100 rounded-2xl font-black text-xs uppercase text-slate-600 hover:border-primary-500 hover:text-primary-600 transition-all shadow-sm"
           >
             <ReceiptText size={18} /> Gasto Viagem
           </button>
           <button 
-            onClick={() => {setModalType('FIXED'); setNewExpense({...newExpense, category: ExpenseCategory.FINANCING, installments: 1, is_paid: false})}} 
+            onClick={() => {setModalType('FIXED'); setNewExpense({...newExpense, category: ExpenseCategory.FINANCING})}} 
             className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-4 bg-primary-600 text-white rounded-2xl font-black text-xs uppercase shadow-xl hover:bg-primary-700 active:scale-95 transition-all"
           >
-            <Banknote size={18} /> Custo Fixo
+            <Banknote size={18} /> Gasto Fixo
           </button>
         </div>
       </div>
 
-      {/* Tabela "No Esquadro" */}
       <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden mx-2">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100">
-                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest w-1/3">Registro / Detalhes</th>
+                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest w-1/3">Descrição / Detalhes</th>
                 <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Categoria</th>
-                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Data Registro</th>
-                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Valor / Status</th>
+                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Data Lançamento</th>
+                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Valor</th>
                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Ações</th>
               </tr>
             </thead>
@@ -169,9 +139,9 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
                     <div className="text-sm font-black text-slate-800">{expense.description}</div>
                     <div className="flex items-center gap-2 mt-1.5">
                       {expense.trip_id ? (
-                        <span className="text-[9px] font-black uppercase text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">Saída em Viagem</span>
+                        <span className="text-[9px] font-black uppercase text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">Viagem</span>
                       ) : (
-                        <span className="text-[9px] font-black uppercase text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-100">Custo Fixo Mensal</span>
+                        <span className="text-[9px] font-black uppercase text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-100">Fixo</span>
                       )}
                       {expense.vehicle_id && (
                         <span className="text-[9px] font-black uppercase text-slate-500 bg-slate-100 px-2 py-0.5 rounded">Placa: {vehicles.find(v => v.id === expense.vehicle_id)?.plate || '---'}</span>
@@ -187,24 +157,12 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
                     <div className="text-sm font-bold text-slate-500">
                       {new Date(expense.date + 'T12:00:00').toLocaleDateString()}
                     </div>
-                    {expense.due_date && !expense.trip_id && (
-                      <div className="text-[9px] font-black text-amber-500 uppercase mt-0.5">
-                        Vencimento: {new Date(expense.due_date + 'T12:00:00').toLocaleDateString()}
-                      </div>
-                    )}
                   </td>
                   <td className="px-6 py-5 text-right">
                     <div className="text-sm font-black text-rose-600">- R$ {expense.amount.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</div>
-                    {expense.trip_id ? (
-                      <span className="inline-flex items-center gap-1 mt-2 text-[9px] font-black uppercase px-2.5 py-1 rounded-md bg-slate-50 text-slate-400 border border-slate-100 cursor-default">
-                        <CheckCircle2 size={12}/> Realizado
-                      </span>
-                    ) : (
-                      <span className={`inline-flex items-center gap-1.5 mt-2 text-[9px] font-black uppercase px-2.5 py-1 rounded-md border ${expense.is_paid ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-rose-50 text-rose-700 border-rose-100'}`}>
-                        {expense.is_paid ? <CheckCircle2 size={12}/> : <Circle size={12}/>}
-                        {expense.is_paid ? 'Pago' : 'Pendente'}
-                      </span>
-                    )}
+                    <span className="inline-flex items-center gap-1 mt-2 text-[9px] font-black uppercase px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-100 cursor-default">
+                      <CheckCircle2 size={12}/> Pago
+                    </span>
                   </td>
                   <td className="px-8 py-5 text-right">
                     <div className="flex items-center justify-end gap-2">
@@ -233,18 +191,14 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
         </div>
       </div>
 
-      {/* Modal Reformulado */}
       {modalType && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4 z-[100] overflow-y-auto">
           <div className="bg-white rounded-[3rem] w-full max-w-xl p-10 shadow-2xl animate-fade-in my-8 border border-white/20">
             <div className="flex justify-between items-center mb-8">
               <div>
                 <h3 className="text-3xl font-black text-slate-900 tracking-tighter uppercase leading-none">
-                  {editingExpenseId ? 'Editar Lançamento' : modalType === 'FIXED' ? 'Novo Custo Fixo' : 'Registrar Saída'}
+                  {editingExpenseId ? 'Editar Gasto' : modalType === 'FIXED' ? 'Lançar Gasto Fixo' : 'Lançar Gasto Viagem'}
                 </h3>
-                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-2">
-                  {modalType === 'FIXED' ? 'Controle de contas a pagar' : 'Despesas em operação de transporte'}
-                </p>
               </div>
               <button onClick={resetForm} className="bg-slate-50 p-4 rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-all">
                 <X size={24} />
@@ -257,7 +211,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
                 <input 
                   required 
                   type="text" 
-                  placeholder={modalType === 'FIXED' ? "Ex: Parcela do Scania FH-460" : "Ex: Diesel 400L Posto Graal"} 
+                  placeholder="Ex: Combustível, Parcela Caminhão, Manutenção..." 
                   className="w-full p-5 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-primary-500 focus:bg-white outline-none font-bold transition-all placeholder:text-slate-300" 
                   value={newExpense.description || ''} 
                   onChange={e => setNewExpense({...newExpense, description: e.target.value})} 
@@ -266,7 +220,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
               
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Valor Total (R$)</label>
+                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Valor (R$)</label>
                   <input required type="number" step="0.01" className="w-full p-5 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-primary-500 focus:bg-white outline-none font-black text-2xl text-slate-900" 
                     value={newExpense.amount || ''} onChange={e => setNewExpense({...newExpense, amount: Number(e.target.value)})} />
                 </div>
@@ -295,7 +249,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Caminhão / Veículo</label>
+                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Caminhão</label>
                   <select className="w-full p-5 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-primary-500 focus:bg-white outline-none font-bold appearance-none"
                     value={newExpense.vehicle_id || ''}
                     onChange={e => setNewExpense({...newExpense, vehicle_id: e.target.value})}
@@ -307,73 +261,31 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
                   </select>
                 </div>
 
-                {modalType === 'TRIP' && (
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Vincular à Viagem</label>
-                    <select className="w-full p-5 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-primary-500 focus:bg-white outline-none font-bold appearance-none"
-                      value={newExpense.trip_id || ''}
-                      onChange={e => setNewExpense({...newExpense, trip_id: e.target.value})}
-                    >
-                      <option value="">Despesa avulsa</option>
-                      {trips.filter(t => t.status !== TripStatus.CANCELLED).map(t => (
-                        <option key={t.id} value={t.id}>{t.destination.split(' - ')[0]} ({new Date(t.date + 'T12:00:00').toLocaleDateString()})</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Data da Saída</label>
+                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Data</label>
                   <input required type="date" value={newExpense.date} className="w-full p-5 bg-slate-50 border-2 border-transparent focus:border-primary-500 focus:bg-white rounded-2xl font-bold outline-none" 
                     onChange={e => setNewExpense({...newExpense, date: e.target.value})} />
                 </div>
-                {modalType === 'FIXED' && !editingExpenseId ? (
-                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-black uppercase text-primary-600 ml-1">Parcelas</label>
-                    <input type="number" min="1" max="120" value={newExpense.installments} className="w-full p-5 bg-primary-50 border-2 border-primary-100 focus:border-primary-500 focus:bg-white rounded-2xl font-black outline-none text-primary-700" 
-                      onChange={e => setNewExpense({...newExpense, installments: Number(e.target.value)})} />
-                  </div>
-                ) : (
-                  <div className="space-y-1.5 opacity-30 cursor-not-allowed">
-                    <label className="text-[10px] font-black uppercase text-slate-300 ml-1">Parcelas</label>
-                    <input type="number" disabled value="1" className="w-full p-5 bg-slate-100 border-2 border-transparent rounded-2xl font-bold" />
-                  </div>
-                )}
               </div>
 
-              {/* Status de Pagamento - Esconde para Gastos de Viagem */}
-              {modalType === 'FIXED' && (
-                <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-50">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-black uppercase text-amber-600 ml-1 flex items-center gap-1"><Calendar size={12}/> Vencimento</label>
-                    <input 
-                      required={modalType === 'FIXED'} 
-                      type="date" 
-                      value={newExpense.due_date} 
-                      className={`w-full p-5 rounded-2xl border-2 border-transparent focus:border-amber-500 focus:bg-white outline-none font-bold bg-amber-50`} 
-                      onChange={e => setNewExpense({...newExpense, due_date: e.target.value})} 
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Status Pagamento</label>
-                    <button 
-                      type="button"
-                      onClick={() => setNewExpense({...newExpense, is_paid: !newExpense.is_paid})}
-                      className={`w-full p-5 rounded-2xl border-2 font-black flex items-center justify-center gap-2 transition-all h-[68px] ${newExpense.is_paid ? 'bg-emerald-50 border-emerald-200 text-emerald-600 shadow-inner' : 'bg-rose-50 border-rose-200 text-rose-600'}`}
-                    >
-                      {newExpense.is_paid ? <CheckCircle2 size={20}/> : <Circle size={20}/>}
-                      <span className="text-xs uppercase">{newExpense.is_paid ? 'Já Pago' : 'Pendente'}</span>
-                    </button>
-                  </div>
+              {modalType === 'TRIP' && (
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Vincular à Viagem</label>
+                  <select className="w-full p-5 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-primary-500 focus:bg-white outline-none font-bold appearance-none"
+                    value={newExpense.trip_id || ''}
+                    onChange={e => setNewExpense({...newExpense, trip_id: e.target.value})}
+                  >
+                    <option value="">Gasto avulso</option>
+                    {trips.filter(t => t.status !== TripStatus.CANCELLED).map(t => (
+                      <option key={t.id} value={t.id}>{t.destination.split(' - ')[0]} ({new Date(t.date + 'T12:00:00').toLocaleDateString()})</option>
+                    ))}
+                  </select>
                 </div>
               )}
 
-              {/* Botão Salvar - Full Width */}
-              <button disabled={isSaving} type="submit" className={`w-full py-6 text-white rounded-[2rem] font-black text-xl shadow-2xl mt-4 transition-all flex items-center justify-center gap-3 active:scale-[0.98] ${modalType === 'FIXED' ? 'bg-amber-500 shadow-amber-100 hover:bg-amber-600' : 'bg-primary-600 shadow-primary-100 hover:bg-primary-700'}`}>
+              <button disabled={isSaving} type="submit" className={`w-full py-6 text-white rounded-[2rem] font-black text-xl shadow-2xl mt-4 transition-all flex items-center justify-center gap-3 active:scale-[0.98] ${modalType === 'FIXED' ? 'bg-amber-500 hover:bg-amber-600' : 'bg-primary-600 hover:bg-primary-700'}`}>
                 {isSaving ? <Loader2 className="animate-spin" /> : <ShieldCheck size={24}/>}
-                {isSaving ? 'Gravando...' : editingExpenseId ? 'Salvar Alterações' : 'Confirmar Lançamento'}
+                {isSaving ? 'Gravando...' : 'Confirmar Lançamento'}
               </button>
             </form>
           </div>
