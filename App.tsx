@@ -58,17 +58,8 @@ const App: React.FC = () => {
       if (dueDate < today) {
         list.push({ id: `exp-late-${e.id}`, type: 'URGENT', category: 'FINANCE', title: 'Conta Atrasada!', message: `${e.description} venceu dia ${dueDate.toLocaleDateString()}.`, date: 'Vencido' });
       } else if (dueDate.getTime() === today.getTime()) {
-        list.push({ id: `exp-today-${e.id}`, type: 'WARNING', category: 'FINANCE', title: 'Vence Hoje', message: `Lembrete: pagar ${e.description} - R$ ${e.amount.toLocaleString()}.`, date: 'Hoje' });
+        list.push({ id: `exp-today-${e.id}`, type: 'WARNING', category: 'FINANCE', title: 'Vence Hoje', message: `Pagar ${e.description} - R$ ${e.amount.toLocaleString()}.`, date: 'Hoje' });
       }
-    });
-
-    trips.filter(t => t.status === TripStatus.SCHEDULED).forEach(t => {
-      const tripDate = new Date(t.date + 'T12:00:00');
-      tripDate.setHours(0,0,0,0);
-      const diffTime = tripDate.getTime() - today.getTime();
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      if (diffDays === 0) list.push({ id: `trip-0-${t.id}`, type: 'URGENT', category: 'TRIP', title: 'VIAGEM HOJE', message: `De ${t.origin} para ${t.destination}.`, date: 'Hoje' });
-      else if (diffDays >= 1 && diffDays <= 3) list.push({ id: `trip-soon-${t.id}`, type: 'WARNING', category: 'TRIP', title: 'Viagem Próxima', message: `Viagem agendada em ${diffDays} dias.`, date: `${diffDays}d` });
     });
 
     return list;
@@ -79,11 +70,15 @@ const App: React.FC = () => {
       setSession(session);
       setLoading(false);
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => { setSession(session); });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
     return () => subscription.unsubscribe();
   }, []);
 
-  useEffect(() => { if (session?.user) fetchData(); }, [session]);
+  useEffect(() => {
+    if (session?.user) fetchData();
+  }, [session]);
 
   const fetchData = async () => {
     try {
@@ -99,25 +94,31 @@ const App: React.FC = () => {
       setVehicles(vehRes.data || []);
       setMaintenance(mainRes.data || []);
       setJornadaLogs(jornRes.data || []);
-    } catch (err) { console.error("Erro ao carregar dados:", err); }
+    } catch (err) {
+      console.error("Erro ao carregar dados:", err);
+    }
   };
 
   const handleAddExpense = async (e: any) => {
     setIsSaving(true);
     try {
       if (!session?.user?.id) throw new Error("Usuário não autenticado");
+      
+      const payload = { 
+        ...e, 
+        user_id: session.user.id 
+      };
+
       const { data, error } = await supabase
         .from('expenses')
-        .insert([{ ...e, user_id: session.user.id }])
+        .insert([payload])
         .select();
       
-      if (error) {
-        console.error("Supabase Error:", error);
-        throw error;
-      }
+      if (error) throw error;
       await fetchData();
     } catch (err: any) { 
-      alert("Erro ao salvar no Supabase: " + err.message); 
+      console.error("Erro ao salvar despesa:", err);
+      alert("Falha ao salvar no banco: " + err.message); 
     } finally { 
       setIsSaving(false); 
     }
@@ -136,7 +137,11 @@ const App: React.FC = () => {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       }
-    } catch (err: any) { setError(err.message); } finally { setAuthLoading(false); }
+    } catch (err: any) { 
+      setError(err.message); 
+    } finally { 
+      setAuthLoading(false); 
+    }
   };
 
   if (loading) return <div className="h-screen flex items-center justify-center bg-slate-50"><Loader2 className="animate-spin text-primary-600" size={48} /></div>;
@@ -191,9 +196,9 @@ const App: React.FC = () => {
             <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden p-2 text-slate-600"><Menu size={24} /></button>
             <div className="hidden lg:block"><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">AuriLog Enterprise</span></div>
           </div>
-          <button onClick={() => setIsNotificationOpen(true)} className="relative p-3 text-slate-500 hover:bg-slate-50 rounded-full transition-all">
+          <button onClick={() => setIsNotificationOpen(true)} className="relative p-3 text-slate-500 hover:bg-slate-50 rounded-full">
             <Bell size={24} />
-            {activeNotifications.length > 0 && <span className="absolute top-2 right-2 bg-rose-500 text-white text-[8px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-white animate-bounce">{activeNotifications.length}</span>}
+            {activeNotifications.length > 0 && <span className="absolute top-2 right-2 bg-rose-500 text-white text-[8px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-white">{activeNotifications.length}</span>}
           </button>
         </header>
 
@@ -210,16 +215,16 @@ const App: React.FC = () => {
                   const { error } = await supabase.from('expenses').update(e).eq('id', id); 
                   if (error) throw error;
                   await fetchData(); 
-                } catch(err: any) { alert("Erro ao atualizar: " + err.message); }
+                } catch(err: any) { console.error(err); alert("Erro ao atualizar."); }
                 finally { setIsSaving(false); }
               }} 
               onDeleteExpense={async (id) => { 
-                if(window.confirm('Deseja excluir este lançamento financeiro?')) { 
+                if(window.confirm('Excluir lançamento?')) { 
                   try {
                     const { error } = await supabase.from('expenses').delete().eq('id', id); 
                     if (error) throw error;
                     await fetchData(); 
-                  } catch(err: any) { alert("Erro ao excluir: " + err.message); }
+                  } catch(err: any) { alert("Erro ao excluir."); }
                 } 
               }} 
               isSaving={isSaving} 
