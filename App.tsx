@@ -149,21 +149,11 @@ const App: React.FC = () => {
   const handleDbError = (err: any, table: string) => {
     console.error(`Erro na tabela ${table}:`, err);
     if (err.message?.includes("violates row-level security policy") || err.message?.includes("policy already exists")) {
-      alert(`⚠️ ERRO DE SEGURANÇA OU CONFIGURAÇÃO NO SUPABASE:
-A tabela '${table}' precisa de permissão total. Execute este comando no SQL Editor:
+      alert(`⚠️ ERRO DE SEGURANÇA NO SUPABASE (${table.toUpperCase()}):
+A configuração de acesso falhou. Copie e cole este comando exato no SQL Editor do Supabase:
 
--- Limpa regras antigas primeiro
-DO $$ 
-DECLARE 
-    p RECORD;
-BEGIN 
-    FOR p IN (SELECT policyname FROM pg_policies WHERE tablename = '${table}') 
-    LOOP 
-        EXECUTE format('DROP POLICY IF EXISTS %I ON ${table}', p.policyname);
-    END LOOP; 
-END $$;
-
--- Cria a regra correta
+DROP POLICY IF EXISTS "Controle Total Proprietario" ON ${table};
+DROP POLICY IF EXISTS "Users can manage their own ${table}" ON ${table};
 ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Controle Total Proprietario" ON ${table} 
 FOR ALL TO authenticated 
