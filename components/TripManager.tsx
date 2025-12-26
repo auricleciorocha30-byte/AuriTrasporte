@@ -1,8 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Trip, TripStatus, Vehicle, TripStop } from '../types';
-// Added ShieldCheck to the imports
-import { Plus, MapPin, Calendar, Truck, UserCheck, Navigation, X, Trash2, Map as MapIcon, ChevronRight, Percent, Loader2, Edit2, DollarSign, MessageSquare, Sparkles, Wand2, PlusCircle, ExternalLink, CheckSquare, Gauge, Utensils, Construction, MapPinPlus, ShieldCheck } from 'lucide-react';
+import { Plus, MapPin, Calendar, Truck, UserCheck, Navigation, X, Trash2, Map as MapIcon, ChevronRight, Percent, Loader2, Edit2, DollarSign, MessageSquare, Sparkles, Wand2, PlusCircle, ExternalLink, CheckSquare, Gauge, Utensils, Construction, MapPinPlus, ShieldCheck, ChevronDown } from 'lucide-react';
 import { calculateANTT } from '../services/anttService';
 
 interface TripManagerProps {
@@ -326,6 +325,26 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                       <Plus size={20}/>
                     </button>
                   </div>
+                </div>
+              </div>
+
+              {/* Seção de Associação de Veículo */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-slate-400 ml-1 flex items-center gap-2">
+                  <Truck size={14} className="text-primary-500"/> Associar Veículo para Viagem
+                </label>
+                <div className="relative">
+                  <select 
+                    className="w-full p-5 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-primary-500 font-bold appearance-none outline-none transition-all"
+                    value={formData.vehicle_id}
+                    onChange={e => setFormData({...formData, vehicle_id: e.target.value})}
+                  >
+                    <option value="">Selecione um Veículo</option>
+                    {vehicles.map(v => (
+                      <option key={v.id} value={v.id}>{v.plate} - {v.model}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={20} />
                 </div>
               </div>
 
