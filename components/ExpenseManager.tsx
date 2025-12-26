@@ -46,9 +46,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
     vehicle_id: '',
     description: '',
     amount: 0,
-    is_paid: true,
-    installments_total: 1,
-    installments_remaining: 1
+    is_paid: true
   });
 
   const resetForm = () => {
@@ -62,9 +60,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
       vehicle_id: '', 
       description: '',
       amount: 0,
-      is_paid: true,
-      installments_total: 1,
-      installments_remaining: 1
+      is_paid: true
     });
   };
 
@@ -80,9 +76,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
       due_date: expense.due_date || expense.date,
       trip_id: expense.trip_id || '',
       vehicle_id: expense.vehicle_id || '',
-      is_paid: expense.is_paid ?? true,
-      installments_total: expense.installments_total || 1,
-      installments_remaining: expense.installments_remaining || 1
+      is_paid: expense.is_paid ?? true
     });
   };
 
@@ -98,9 +92,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
       due_date: formData.due_date || formData.date,
       trip_id: modalType === 'TRIP' && formData.trip_id ? formData.trip_id : null,
       vehicle_id: formData.vehicle_id ? formData.vehicle_id : null,
-      is_paid: Boolean(formData.is_paid),
-      installments_total: Number(formData.installments_total || 1),
-      installments_remaining: Number(formData.installments_remaining || 1)
+      is_paid: Boolean(formData.is_paid)
     };
 
     try {
@@ -120,15 +112,8 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
     const expense = expenses.find(e => e.id === confirmPaymentId);
     if (!expense) return;
 
-    const remaining = (expense.installments_remaining || 1) - 1;
-    const isNowPaid = remaining <= 0;
-    const currentDueDate = new Date(expense.due_date + 'T12:00:00');
-    currentDueDate.setMonth(currentDueDate.getMonth() + 1);
-
     await onUpdateExpense(expense.id, {
-      installments_remaining: Math.max(0, remaining),
-      is_paid: isNowPaid,
-      due_date: isNowPaid ? expense.due_date : currentDueDate.toISOString().split('T')[0]
+      is_paid: true
     });
     setConfirmPaymentId(null);
   };
