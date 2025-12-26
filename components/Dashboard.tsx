@@ -1,6 +1,6 @@
 
 import React, { useMemo } from 'react';
-import { Trip, Expense, FinancialSummary, Vehicle, AppView, TripStatus } from '../types';
+import { Trip, Expense, FinancialSummary, Vehicle, AppView, TripStatus, MaintenanceItem } from '../types';
 import { StatsCard } from './StatsCard';
 import { TrendingUp, TrendingDown, DollarSign, Truck, Wallet, BarChart3, PieChart as PieChartIcon, ArrowUpRight, ArrowDownRight, Clock } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
@@ -8,11 +8,12 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 interface DashboardProps {
   trips: Trip[];
   expenses: Expense[];
+  maintenance: MaintenanceItem[];
   vehicles: Vehicle[];
   onSetView?: (view: AppView) => void;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ trips, expenses, vehicles, onSetView }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ trips, expenses, maintenance, vehicles, onSetView }) => {
   
   const summary: FinancialSummary = useMemo(() => {
     // Filtramos apenas as viagens que NÃO foram canceladas para ter uma visão do "Giro" da empresa
@@ -24,19 +25,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ trips, expenses, vehicles,
     const tripExpenses = expenses.filter(e => e.trip_id !== null).reduce((acc, e) => acc + (e.amount || 0), 0);
     const fixedExpenses = expenses.filter(e => e.trip_id === null).reduce((acc, e) => acc + (e.amount || 0), 0);
     
-    const netProfit = totalRevenue - tripExpenses - fixedExpenses - totalCommissions;
+    // Somamos os custos de manutenção que estão em uma tabela separada
+    const totalMaintenanceCosts = maintenance.reduce((acc, m) => acc + (m.cost || 0), 0);
+    
+    const totalAllExpenses = tripExpenses + fixedExpenses + totalMaintenanceCosts;
+    const netProfit = totalRevenue - totalAllExpenses - totalCommissions;
     const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
 
     return { 
       totalRevenue, 
-      totalTripExpenses: tripExpenses, 
+      totalTripExpenses: tripExpenses + totalMaintenanceCosts, // Incluímos manutenção aqui para fins de visualização
       totalFixedExpenses: fixedExpenses, 
       totalCommissions, 
       netProfit, 
       tripCount: activeTrips.length, 
       profitMargin 
     };
-  }, [trips, expenses]);
+  }, [trips, expenses, maintenance]);
 
   const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(val);
 

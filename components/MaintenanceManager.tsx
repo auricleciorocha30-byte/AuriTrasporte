@@ -1,13 +1,12 @@
 
 import React, { useState } from 'react';
 import { MaintenanceItem, Vehicle } from '../types';
-// Fixed missing 'X' icon import by adding it to the lucide-react import list
 import { Plus, CheckSquare, Calendar, ShieldCheck, Trash2, Loader2, Gauge, AlertTriangle, CheckCircle2, Info, X } from 'lucide-react';
 
 interface MaintenanceManagerProps {
   maintenance: MaintenanceItem[];
   vehicles: Vehicle[];
-  onAddMaintenance: (m: Omit<MaintenanceItem, 'id'>) => void;
+  onAddMaintenance: (m: Omit<MaintenanceItem, 'id'>) => Promise<void>;
   onDeleteMaintenance: (id: string) => void;
   isSaving?: boolean;
 }
@@ -24,21 +23,45 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ maintena
     cost: 0
   });
 
+  const resetForm = () => {
+    setFormData({
+      vehicle_id: '',
+      part_name: '',
+      km_at_purchase: 0,
+      warranty_months: 12,
+      warranty_km: 10000,
+      purchase_date: new Date().toISOString().split('T')[0],
+      cost: 0
+    });
+  };
+
+  const handleOpenModal = () => {
+    resetForm();
+    setIsModalOpen(true);
+  };
+
+  const handleVehicleChange = (vId: string) => {
+    // Busca o veículo selecionado na lista para pegar o KM atual
+    const selectedVehicle = vehicles.find(v => v.id === vId);
+    setFormData({
+      ...formData,
+      vehicle_id: vId,
+      // Se encontrou o veículo, preenche o km_at_purchase com o KM atual dele
+      km_at_purchase: selectedVehicle ? selectedVehicle.current_km : 0
+    });
+  };
+
   const getStatus = (m: MaintenanceItem) => {
     const vehicle = vehicles.find(v => v.id === m.vehicle_id);
     if (!vehicle) return { label: 'Erro', color: 'text-slate-400', bg: 'bg-slate-100', icon: Info };
 
     const today = new Date();
-    const pDate = new Date(m.purchase_date);
+    const pDate = new Date(m.purchase_date + 'T12:00:00');
     const expiryDate = new Date(pDate);
     expiryDate.setMonth(pDate.getMonth() + (m.warranty_months || 0));
 
-    const kmLimit = m.km_at_purchase + (m.warranty_km || 0);
-    
-    // Status por KM
+    const kmLimit = (m.km_at_purchase || 0) + (m.warranty_km || 0);
     const kmLeft = kmLimit - vehicle.current_km;
-    
-    // Status por Tempo
     const daysLeft = Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
     if ((m.warranty_months > 0 && expiryDate < today) || (m.warranty_km > 0 && vehicle.current_km >= kmLimit)) {
@@ -56,7 +79,7 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ maintena
     <div className="space-y-6 animate-fade-in pb-12">
       <div className="flex justify-between items-center px-2">
         <h2 className="text-2xl font-black text-slate-900">Manutenção & Garantias</h2>
-        <button onClick={() => setIsModalOpen(true)} className="bg-emerald-600 text-white px-6 py-3 rounded-2xl flex items-center gap-2 font-bold shadow-lg active:scale-95 transition-all">
+        <button onClick={handleOpenModal} className="bg-emerald-600 text-white px-6 py-3 rounded-2xl flex items-center gap-2 font-bold shadow-lg active:scale-95 transition-all">
           <Plus size={20} /> Novo Registro
         </button>
       </div>
@@ -84,7 +107,7 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ maintena
                   <tr key={m.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-4">
                       <div className="text-sm font-bold text-slate-900">{m.part_name}</div>
-                      <div className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">Troca em {m.km_at_purchase.toLocaleString()} KM</div>
+                      <div className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">Troca em {(m.km_at_purchase || 0).toLocaleString()} KM</div>
                     </td>
                     <td className="px-6 py-4">
                       <span className="bg-slate-900 text-white px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider">{vehicle?.plate || '---'}</span>
@@ -103,13 +126,13 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ maintena
                         )}
                         {m.warranty_km > 0 && (
                           <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500">
-                            <Gauge size={12} className="text-blue-500"/> {m.warranty_km.toLocaleString()} KM
+                            <Gauge size={12} className="text-blue-500"/> {(m.warranty_km || 0).toLocaleString()} KM
                           </div>
                         )}
                       </div>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <div className="text-sm font-black text-rose-600">R$ {m.cost.toLocaleString()}</div>
+                      <div className="text-sm font-black text-rose-600">R$ {(m.cost || 0).toLocaleString()}</div>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <button onClick={() => onDeleteMaintenance(m.id)} className="text-slate-300 hover:text-rose-500 transition-colors">
@@ -143,7 +166,11 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ maintena
             <div className="space-y-4">
               <div className="space-y-1">
                 <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Veículo</label>
-                <select className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold outline-none" value={formData.vehicle_id} onChange={e => setFormData({...formData, vehicle_id: e.target.value})}>
+                <select 
+                  className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold outline-none" 
+                  value={formData.vehicle_id} 
+                  onChange={e => handleVehicleChange(e.target.value)}
+                >
                   <option value="">Selecionar Veículo</option>
                   {vehicles.map(v => <option key={v.id} value={v.id}>{v.plate} - {v.model}</option>)}
                 </select>
@@ -151,17 +178,32 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ maintena
 
               <div className="space-y-1">
                 <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Peça ou Serviço</label>
-                <input placeholder="Ex: Troca de Pneus Dianteiros" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold outline-none" onChange={e => setFormData({...formData, part_name: e.target.value})} />
+                <input 
+                  placeholder="Ex: Troca de Pneus Dianteiros" 
+                  className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold outline-none" 
+                  value={formData.part_name}
+                  onChange={e => setFormData({...formData, part_name: e.target.value})} 
+                />
               </div>
               
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-[10px] font-black uppercase text-slate-400 ml-1">KM na Troca</label>
-                  <input type="number" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-black outline-none" onChange={e => setFormData({...formData, km_at_purchase: Number(e.target.value)})} />
+                  <input 
+                    type="number" 
+                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-black outline-none" 
+                    value={formData.km_at_purchase ?? ''}
+                    onChange={e => setFormData({...formData, km_at_purchase: e.target.value === '' ? 0 : Number(e.target.value)})} 
+                  />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Data da Compra</label>
-                  <input type="date" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-xs outline-none" value={formData.purchase_date} onChange={e => setFormData({...formData, purchase_date: e.target.value})} />
+                  <input 
+                    type="date" 
+                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-xs outline-none" 
+                    value={formData.purchase_date} 
+                    onChange={e => setFormData({...formData, purchase_date: e.target.value})} 
+                  />
                 </div>
               </div>
 
@@ -172,18 +214,34 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ maintena
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Meses</label>
-                    <input type="number" className="w-full p-3 bg-white border border-primary-200 rounded-xl font-black outline-none" value={formData.warranty_months} onChange={e => setFormData({...formData, warranty_months: Number(e.target.value)})} />
+                    <input 
+                      type="number" 
+                      className="w-full p-3 bg-white border border-primary-200 rounded-xl font-black outline-none" 
+                      value={formData.warranty_months ?? ''} 
+                      onChange={e => setFormData({...formData, warranty_months: e.target.value === '' ? 0 : Number(e.target.value)})} 
+                    />
                   </div>
                   <div className="space-y-1">
                     <label className="text-[10px] font-black uppercase text-slate-400 ml-1">KM Máximo</label>
-                    <input type="number" className="w-full p-3 bg-white border border-primary-200 rounded-xl font-black outline-none" value={formData.warranty_km} onChange={e => setFormData({...formData, warranty_km: Number(e.target.value)})} />
+                    <input 
+                      type="number" 
+                      className="w-full p-3 bg-white border border-primary-200 rounded-xl font-black outline-none" 
+                      value={formData.warranty_km ?? ''} 
+                      onChange={e => setFormData({...formData, warranty_km: e.target.value === '' ? 0 : Number(e.target.value)})} 
+                    />
                   </div>
                 </div>
               </div>
 
               <div className="space-y-1">
                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Custo Total (R$)</label>
-                 <input type="number" placeholder="0.00" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-black text-xl text-rose-600 outline-none" onChange={e => setFormData({...formData, cost: Number(e.target.value)})} />
+                 <input 
+                  type="number" 
+                  placeholder="0.00" 
+                  className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-black text-xl text-rose-600 outline-none" 
+                  value={formData.cost ?? ''}
+                  onChange={e => setFormData({...formData, cost: e.target.value === '' ? 0 : Number(e.target.value)})} 
+                 />
               </div>
 
               <div className="flex gap-3 pt-6">

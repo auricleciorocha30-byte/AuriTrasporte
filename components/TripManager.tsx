@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Trip, TripStatus, Vehicle, TripStop } from '../types';
-import { Plus, MapPin, Calendar, Truck, UserCheck, Navigation, X, Trash2, Map as MapIcon, ChevronRight, Percent, Loader2, Edit2, DollarSign, MessageSquare, Sparkles, Wand2, PlusCircle, ExternalLink, CheckSquare, Gauge, Utensils, Construction, MapPinPlus, ShieldCheck, ChevronDown } from 'lucide-react';
+import { Plus, MapPin, Calendar, Truck, UserCheck, Navigation, X, Trash2, Map as MapIcon, ChevronRight, Percent, Loader2, Edit2, DollarSign, MessageSquare, Sparkles, Wand2, PlusCircle, ExternalLink, CheckSquare, Gauge, Utensils, Construction, MapPinPlus, ShieldCheck, ChevronDown, AlignLeft } from 'lucide-react';
 import { calculateANTT } from '../services/anttService';
 
 interface TripManagerProps {
@@ -259,6 +259,13 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                         <p className="text-xl font-black text-amber-700">R$ {trip.driver_commission.toLocaleString()}</p>
                       </div>
                     </div>
+
+                    {trip.notes && (
+                      <div className="mt-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                         <p className="text-[9px] font-black text-slate-400 uppercase mb-1 flex items-center gap-1"><AlignLeft size={10}/> Notas</p>
+                         <p className="text-xs text-slate-600 font-medium line-clamp-2 italic">{trip.notes}</p>
+                      </div>
+                    )}
                  </div>
               </div>
 
@@ -383,6 +390,17 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                     <input type="number" className="w-full p-5 bg-white/5 border border-white/10 rounded-2xl font-black text-2xl text-amber-400 outline-none" value={formData.driver_commission_percentage} onChange={e => setFormData({...formData, driver_commission_percentage: Number(e.target.value)})} />
                   </div>
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-slate-400 ml-1 flex items-center gap-1"><AlignLeft size={14}/> Observações</label>
+                <textarea 
+                  placeholder="Detalhes da carga, local de descarga, contatos..." 
+                  rows={3}
+                  className="w-full p-5 bg-slate-50 border-2 border-transparent focus:border-primary-500 rounded-3xl font-bold outline-none transition-all resize-none" 
+                  value={formData.notes} 
+                  onChange={e => setFormData({...formData, notes: e.target.value})} 
+                />
               </div>
 
               <div className="flex flex-col gap-4">
