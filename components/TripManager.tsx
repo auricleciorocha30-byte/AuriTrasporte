@@ -114,6 +114,7 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
   };
 
   const getMapsUrl = (originText: string, destText: string, tripStops: TripStop[] = []) => {
+    if (!originText || !destText) return "";
     const originStr = `${originText}, Brasil`.replace(' - ', ', ');
     const destStr = `${destText}, Brasil`.replace(' - ', ', ');
     let url = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(originStr)}&destination=${encodeURIComponent(destStr)}&travelmode=driving`;
@@ -122,6 +123,15 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
       url += `&waypoints=${encodeURIComponent(waypointsStr)}`;
     }
     return url;
+  };
+
+  const previewCurrentRoute = () => {
+    if (!origin.city || !destination.city) {
+      alert("Informe ao menos a cidade de origem e destino para ver a rota.");
+      return;
+    }
+    const url = getMapsUrl(`${origin.city} - ${origin.state}`, `${destination.city} - ${destination.state}`, stops);
+    window.open(url, '_blank');
   };
 
   const resetForm = () => {
@@ -186,7 +196,7 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
       date: formData.date,
       vehicle_id: formData.vehicle_id,
       status: formData.status,
-      notes: formData.notes.trim(), // Salva apenas o que o usuário escreveu
+      notes: formData.notes.trim(),
       stops: stops,
       planned_toll_cost: Number(calcParams.planned_toll_cost),
       planned_daily_cost: Number(calcParams.planned_daily_cost),
@@ -243,7 +253,6 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                       {trip.destination}
                     </h3>
                     
-                    {/* Exibição do Veículo da Viagem */}
                     <div className="flex items-center gap-2 mb-3">
                       <Truck size={14} className="text-slate-400" />
                       <span className="text-[10px] font-black uppercase bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md flex items-center gap-1.5">
@@ -282,7 +291,6 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                       </button>
                     </div>
 
-                    {/* Exibição das Observações (Notas) - Apenas o que o usuário escreveu */}
                     {trip.notes && (
                       <div className="mt-4 p-3 bg-slate-50/50 rounded-xl border border-slate-100/50">
                         <div className="flex items-start gap-2">
@@ -344,25 +352,35 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
             
             <div className="p-8 space-y-6">
               {/* Rota Detalhada com UF */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-6 rounded-[2rem] border">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-slate-400">Origem</label>
-                  <div className="flex gap-2">
-                    <input placeholder="Cidade" className="flex-1 p-4 bg-white rounded-2xl border font-bold" value={origin.city} onChange={e => setOrigin({...origin, city: e.target.value})} />
-                    <select className="w-20 p-4 bg-white rounded-2xl border font-bold" value={origin.state} onChange={e => setOrigin({...origin, state: e.target.value})}>
-                      {BRAZILIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
+              <div className="space-y-4 bg-slate-50 p-6 rounded-[2rem] border">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase text-slate-400">Origem</label>
+                    <div className="flex gap-2">
+                      <input placeholder="Cidade" className="flex-1 p-4 bg-white rounded-2xl border font-bold" value={origin.city} onChange={e => setOrigin({...origin, city: e.target.value})} />
+                      <select className="w-20 p-4 bg-white rounded-2xl border font-bold" value={origin.state} onChange={e => setOrigin({...origin, state: e.target.value})}>
+                        {BRAZILIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase text-slate-400">Destino</label>
+                    <div className="flex gap-2">
+                      <input placeholder="Cidade" className="flex-1 p-4 bg-white rounded-2xl border font-bold" value={destination.city} onChange={e => setDestination({...destination, city: e.target.value})} />
+                      <select className="w-20 p-4 bg-white rounded-2xl border font-bold" value={destination.state} onChange={e => setDestination({...destination, state: e.target.value})}>
+                        {BRAZILIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </div>
                   </div>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-slate-400">Destino</label>
-                  <div className="flex gap-2">
-                    <input placeholder="Cidade" className="flex-1 p-4 bg-white rounded-2xl border font-bold" value={destination.city} onChange={e => setDestination({...destination, city: e.target.value})} />
-                    <select className="w-20 p-4 bg-white rounded-2xl border font-bold" value={destination.state} onChange={e => setDestination({...destination, state: e.target.value})}>
-                      {BRAZILIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </div>
-                </div>
+                
+                {/* NOVO BOTÃO: Visualizar Trajeto */}
+                <button 
+                  onClick={previewCurrentRoute}
+                  className="w-full py-3 bg-white border border-primary-200 text-primary-600 rounded-xl text-xs font-black flex items-center justify-center gap-2 hover:bg-primary-50 transition-colors"
+                >
+                  <MapIcon size={16}/> VISUALIZAR TRAJETO NO MAPA
+                </button>
               </div>
 
               {/* Paradas */}

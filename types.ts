@@ -6,7 +6,6 @@ export enum AppView {
   CALCULATOR = 'CALCULATOR',
   VEHICLES = 'VEHICLES',
   MAINTENANCE = 'MAINTENANCE',
-  BACKUP = 'BACKUP',
   JORNADA = 'JORNADA',
   STATIONS = 'STATIONS'
 }
@@ -61,10 +60,6 @@ export interface Trip {
   notes?: string;
   vehicle_id?: string;
   user_id?: string;
-  planned_toll_cost?: number;
-  planned_daily_cost?: number;
-  planned_extra_costs?: number;
-  return_empty?: boolean;
 }
 
 export enum ExpenseCategory {
@@ -73,16 +68,21 @@ export enum ExpenseCategory {
   MAINTENANCE = 'Manutenção',
   FOOD = 'Alimentação',
   LODGING = 'Hospedagem',
+  FINANCING = 'Financiamento / Prestação',
+  INSURANCE = 'Seguro',
+  TRACKER = 'Rastreador',
   OTHER = 'Outros'
 }
 
 export interface Expense {
   id: string;
   trip_id?: string;
+  vehicle_id?: string;
   description: string;
   amount: number;
   category: ExpenseCategory;
   date: string;
+  due_date?: string;
   user_id?: string;
 }
 
@@ -94,25 +94,26 @@ export interface JornadaLog {
   type: 'Direção' | 'Descanso';
   duration_seconds: number;
   date: string;
-  created_at?: string;
-}
-
-export interface ANTTParams {
-  distance: number;
-  axles: number;
-  cargoType: string;
-  isComposition: boolean;
-  isHighPerformance: boolean;
-  returnEmpty: boolean;
-  tollCost?: number;
-  otherCosts?: number;
 }
 
 export interface FinancialSummary {
   totalRevenue: number;
-  totalExpenses: number;
+  totalTripExpenses: number;
+  totalFixedExpenses: number;
   totalCommissions: number;
   netProfit: number;
   tripCount: number;
   profitMargin: number;
+}
+
+// Fixed missing export: ANTTParams interface used for freight calculation and estimation
+export interface ANTTParams {
+  distance: number;
+  axles: number;
+  cargoType: string;
+  isComposition?: boolean;
+  isHighPerformance?: boolean;
+  returnEmpty: boolean;
+  tollCost?: number;
+  otherCosts?: number;
 }
