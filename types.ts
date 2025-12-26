@@ -92,8 +92,6 @@ export interface Expense {
   due_date?: string;
   user_id?: string;
   is_paid?: boolean;
-  installments_total?: number;
-  installments_remaining?: number;
 }
 
 export interface JornadaLog {

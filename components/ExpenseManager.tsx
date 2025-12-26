@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Expense, ExpenseCategory, Trip, Vehicle } from '../types';
-import { Trash2, ChevronDown, ReceiptText, Banknote, Loader2, Edit2, CheckCircle2, X, ShieldCheck, Wallet, Calendar, ArrowRightCircle, Check, Info, AlertCircle, Wrench, Fuel, Utensils, Bed, Shield, Rss, Landmark, CreditCard } from 'lucide-react';
+import { Trash2, ChevronDown, ReceiptText, Banknote, Loader2, Edit2, CheckCircle2, X, ShieldCheck, Wallet, Check } from 'lucide-react';
 
 interface ExpenseManagerProps {
   expenses: Expense[];
@@ -84,13 +84,14 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
     e.preventDefault();
     if (!formData.description || formData.amount <= 0) return alert("Preencha descrição e valor corretamente.");
 
+    // PAYLOAD LIMPO: Apenas colunas que existem garantidamente na tabela 'expenses'
     const payload = {
-      description: formData.description,
+      description: formData.description.toString(),
       amount: Number(formData.amount),
       category: formData.category,
       date: formData.date,
       due_date: formData.due_date || formData.date,
-      trip_id: modalType === 'TRIP' && formData.trip_id ? formData.trip_id : null,
+      trip_id: (modalType === 'TRIP' && formData.trip_id) ? formData.trip_id : null,
       vehicle_id: formData.vehicle_id ? formData.vehicle_id : null,
       is_paid: Boolean(formData.is_paid)
     };
@@ -103,19 +104,18 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
       }
       resetForm();
     } catch (err) {
-      console.error(err);
+      console.error("Erro ao salvar despesa:", err);
     }
   };
 
   const executePayment = async () => {
     if (!confirmPaymentId || !onUpdateExpense) return;
-    const expense = expenses.find(e => e.id === confirmPaymentId);
-    if (!expense) return;
-
-    await onUpdateExpense(expense.id, {
-      is_paid: true
-    });
-    setConfirmPaymentId(null);
+    try {
+      await onUpdateExpense(confirmPaymentId, { is_paid: true });
+      setConfirmPaymentId(null);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const currentCategories = modalType === 'FIXED' ? FIXED_CATEGORIES : TRIP_CATEGORIES;
@@ -204,7 +204,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
               </div>
 
               <div className="absolute top-6 right-6 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button onClick={() => handleEdit(expense)} className="p-3 bg-white shadow-md rounded-full text-slate-400 hover:text-primary-600"><Edit2 size={16} /></button>
+                <button onClick={() => handleEdit(expense)} className="p-3 bg-white shadow-md rounded-full text-slate-400 hover:text-primary-600 transition-all"><Edit2 size={16} /></button>
                 <button onClick={() => onDeleteExpense(expense.id)} className="p-3 bg-white shadow-md rounded-full text-slate-400 hover:text-rose-600"><Trash2 size={16} /></button>
               </div>
             </div>
