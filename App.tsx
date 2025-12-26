@@ -18,8 +18,8 @@ const sanitizeTripPayload = (payload: any) => {
 };
 
 const sanitizeExpensePayload = (payload: any) => {
-  const allowedKeys = ['trip_id', 'vehicle_id', 'description', 'amount', 'category', 'date', 'due_date', 'user_id'];
-  return Object.keys(payload).filter(key => allowedKeys.includes(key)).reduce((obj: any, key) => { obj[key] = payload[key] || null; return obj; }, {});
+  const allowedKeys = ['trip_id', 'vehicle_id', 'description', 'amount', 'category', 'date', 'due_date', 'user_id', 'is_paid'];
+  return Object.keys(payload).filter(key => allowedKeys.includes(key)).reduce((obj: any, key) => { obj[key] = payload[key] === undefined ? null : payload[key]; return obj; }, {});
 };
 
 interface AppNotification {
@@ -129,7 +129,7 @@ const App: React.FC = () => {
 
     // Contas a Pagar (Notificar hoje e vencimentos nos próximos 7 dias)
     currentExpenses.forEach(e => {
-      if (e.due_date) {
+      if (e.due_date && !e.is_paid) {
         const dueDate = new Date(e.due_date + 'T12:00:00');
         dueDate.setHours(0, 0, 0, 0);
         

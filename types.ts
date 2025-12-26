@@ -84,6 +84,7 @@ export interface Expense {
   date: string;
   due_date?: string;
   user_id?: string;
+  is_paid?: boolean;
 }
 
 export interface JornadaLog {
