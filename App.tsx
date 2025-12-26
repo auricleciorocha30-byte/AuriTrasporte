@@ -40,6 +40,7 @@ const App: React.FC = () => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
+    // Notificações de Manutenção
     maintenance.forEach(m => {
       const vehicle = vehicles.find(v => v.id === m.vehicle_id);
       if (!vehicle) return;
@@ -52,18 +53,52 @@ const App: React.FC = () => {
       }
     });
 
+    // Notificações de Despesas (Financeiro)
     expenses.filter(e => !e.is_paid).forEach(e => {
+      if (!e.due_date) return;
+      
       const dueDate = new Date(e.due_date + 'T12:00:00');
       dueDate.setHours(0,0,0,0);
-      if (dueDate < today) {
-        list.push({ id: `exp-late-${e.id}`, type: 'URGENT', category: 'FINANCE', title: 'Conta Atrasada!', message: `${e.description} venceu dia ${dueDate.toLocaleDateString()}.`, date: 'Vencido' });
-      } else if (dueDate.getTime() === today.getTime()) {
-        list.push({ id: `exp-today-${e.id}`, type: 'WARNING', category: 'FINANCE', title: 'Vence Hoje', message: `Pagar ${e.description} - R$ ${e.amount.toLocaleString()}.`, date: 'Hoje' });
+      
+      const diffTime = dueDate.getTime() - today.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      const isFixed = !e.trip_id; // Se não tem trip_id, é custo fixo
+
+      if (diffDays < 0) {
+        // Atrasado
+        list.push({ 
+          id: `exp-late-${e.id}`, 
+          type: 'URGENT', 
+          category: 'FINANCE', 
+          title: isFixed ? `Custo Fixo Atrasado!` : `Gasto de Viagem Atrasado!`, 
+          message: `${e.description} venceu em ${dueDate.toLocaleDateString()}. Valor: R$ ${e.amount.toLocaleString()}`, 
+          date: 'Atrasado' 
+        });
+      } else if (diffDays === 0) {
+        // Vence Hoje
+        list.push({ 
+          id: `exp-today-${e.id}`, 
+          type: 'WARNING', 
+          category: 'FINANCE', 
+          title: isFixed ? `Custo Fixo Vence Hoje` : `Gasto de Viagem Hoje`, 
+          message: `Pagar ${e.description} hoje. Valor: R$ ${e.amount.toLocaleString()}`, 
+          date: 'Hoje' 
+        });
+      } else if (diffDays > 0 && diffDays <= 3) {
+        // Vencimento Próximo (até 3 dias)
+        list.push({ 
+          id: `exp-soon-${e.id}`, 
+          type: 'INFO', 
+          category: 'FINANCE', 
+          title: isFixed ? `Vencimento de Custo Fixo` : `Vencimento Próximo`, 
+          message: `${e.description} vence em ${diffDays} ${diffDays === 1 ? 'dia' : 'dias'}.`, 
+          date: 'Em breve' 
+        });
       }
     });
 
     return list;
-  }, [trips, expenses, maintenance, vehicles, jornadaMode]);
+  }, [trips, expenses, maintenance, vehicles]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -241,6 +276,7 @@ const App: React.FC = () => {
           )}
           {currentView === AppView.CALCULATOR && <FreightCalculator />}
           {currentView === AppView.JORNADA && (
+            // Fixed reference to undefined function setStartTime by using setJornadaStartTime.
             <JornadaManager mode={jornadaMode} startTime={jornadaStartTime} logs={jornadaLogs} setMode={setJornadaMode} setStartTime={setJornadaStartTime} onSaveLog={async (l) => { await supabase.from('jornada_logs').insert([{...l, user_id: session.user.id}]); fetchData(); }} onDeleteLog={async (id) => { await supabase.from('jornada_logs').delete().eq('id', id); fetchData(); }} addGlobalNotification={() => {}} />
           )}
           {currentView === AppView.STATIONS && <StationLocator />}
