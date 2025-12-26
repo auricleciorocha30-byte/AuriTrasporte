@@ -18,19 +18,12 @@ const sanitizeTripPayload = (payload: any) => {
 };
 
 const sanitizeExpensePayload = (payload: any) => {
-  const allowedKeys = ['trip_id', 'vehicle_id', 'description', 'amount', 'category', 'date', 'due_date', 'user_id', 'is_paid'];
+  const allowedKeys = ['trip_id', 'vehicle_id', 'description', 'amount', 'category', 'date', 'user_id', 'is_paid', 'due_date'];
   const sanitized: any = {};
-  
   allowedKeys.forEach(key => {
-    if (key === 'is_paid') {
-      sanitized[key] = payload[key] === true;
-    } else if (payload[key] !== undefined) {
-      sanitized[key] = payload[key];
-    } else {
-      sanitized[key] = null;
-    }
+    if (payload[key] !== undefined) sanitized[key] = payload[key];
+    else sanitized[key] = null;
   });
-  
   return sanitized;
 };
 
@@ -48,21 +41,16 @@ const App: React.FC = () => {
   const [authLoading, setAuthLoading] = useState(false);
   const [currentView, setCurrentView] = useState<AppView>(AppView.DASHBOARD);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  
-  // Login
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
   const [error, setError] = useState('');
 
-  // Data
   const [trips, setTrips] = useState<Trip[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [maintenance, setMaintenance] = useState<MaintenanceItem[]>([]);
   const [jornadaLogs, setJornadaLogs] = useState<JornadaLog[]>([]);
-  
-  // Notifications
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [dismissedIds, setDismissedIds] = useState<string[]>(() => {
@@ -102,13 +90,11 @@ const App: React.FC = () => {
         supabase.from('maintenance').select('*').order('purchase_date', { ascending: false }),
         supabase.from('jornada_logs').select('*').order('created_at', { ascending: false })
       ]);
-      
       setTrips(tripsRes.data || []);
       setExpenses(expRes.data || []);
       setVehicles(vehRes.data || []);
       setMaintenance(mainRes.data || []);
       setJornadaLogs(jornRes.data || []);
-      
       checkSystemNotifications(tripsRes.data || [], mainRes.data || [], vehRes.data || [], expRes.data || []);
     } finally { setLoading(false); }
   };
@@ -118,7 +104,7 @@ const App: React.FC = () => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const todayStr = today.toISOString().split('T')[0];
-    
+
     currentTrips.forEach(t => {
       if (t.status === TripStatus.SCHEDULED && t.date === todayStr && !dismissedIds.includes(`trip-${t.id}`)) {
         alerts.push({ id: `trip-${t.id}`, title: 'Viagem Hoje!', msg: `Destino: ${t.destination}`, type: 'warning' });
@@ -133,12 +119,17 @@ const App: React.FC = () => {
     });
 
     currentExpenses.forEach(e => {
-      if (e.due_date && !e.is_paid && !e.trip_id) {
+      if (!e.is_paid && e.due_date && !dismissedIds.includes(`exp-${e.id}`)) {
         const dueDate = new Date(e.due_date + 'T12:00:00');
-        dueDate.setHours(0, 0, 0, 0);
-        const diffDays = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-        if (diffDays >= 0 && diffDays <= 7 && !dismissedIds.includes(`exp-${e.id}`)) {
-          alerts.push({ id: `exp-${e.id}`, title: diffDays === 0 ? 'Vence HOJE' : `Vence em ${diffDays} dias`, msg: `${e.description} (R$ ${e.amount})`, type: 'warning' });
+        dueDate.setHours(0,0,0,0);
+        
+        if (dueDate <= today) {
+          alerts.push({ 
+            id: `exp-${e.id}`, 
+            title: dueDate < today ? 'Conta Atrasada!' : 'Vence Hoje!', 
+            msg: `${e.description} - R$ ${e.amount.toLocaleString()}`, 
+            type: 'warning' 
+          });
         }
       }
     });
@@ -148,24 +139,7 @@ const App: React.FC = () => {
 
   const handleDbError = (err: any, table: string) => {
     console.error(`Erro na tabela ${table}:`, err);
-    if (err.message?.includes("violates row-level security policy") || err.message?.includes("policy already exists")) {
-      alert(`⚠️ ERRO DE SEGURANÇA NO SUPABASE (${table.toUpperCase()}):
-A configuração de acesso falhou. Copie e cole este comando exato no SQL Editor do Supabase:
-
-DROP POLICY IF EXISTS "Controle Total Proprietario" ON ${table};
-DROP POLICY IF EXISTS "Users can manage their own ${table}" ON ${table};
-ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Controle Total Proprietario" ON ${table} 
-FOR ALL TO authenticated 
-USING (auth.uid() = user_id) 
-WITH CHECK (auth.uid() = user_id);`);
-    } else if (err.message?.includes("column \"is_paid\" of relation \"expenses\" does not exist")) {
-      alert(`⚠️ ERRO DE SCHEMA:
-A coluna 'is_paid' não existe na tabela 'expenses'. Execute:
-ALTER TABLE expenses ADD COLUMN IF NOT EXISTS is_paid BOOLEAN DEFAULT false;`);
-    } else {
-      alert(`Erro: ${err.message}`);
-    }
+    alert(`Erro no Banco de Dados (${table}): ${err.message}`);
   };
 
   const handleAddExpense = async (e: Omit<Expense, 'id'>) => {
@@ -176,9 +150,7 @@ ALTER TABLE expenses ADD COLUMN IF NOT EXISTS is_paid BOOLEAN DEFAULT false;`);
       const { error } = await supabase.from('expenses').insert([payload]);
       if (error) throw error;
       fetchData();
-    } catch (err: any) { 
-      handleDbError(err, 'expenses');
-    } finally { setIsSaving(false); }
+    } catch (err: any) { handleDbError(err, 'expenses'); } finally { setIsSaving(false); }
   };
 
   const handleUpdateExpense = async (id: string, e: Partial<Expense>) => {
@@ -188,9 +160,7 @@ ALTER TABLE expenses ADD COLUMN IF NOT EXISTS is_paid BOOLEAN DEFAULT false;`);
       const { error } = await supabase.from('expenses').update(payload).eq('id', id);
       if (error) throw error;
       fetchData();
-    } catch (err: any) { 
-      handleDbError(err, 'expenses');
-    } finally { setIsSaving(false); }
+    } catch (err: any) { handleDbError(err, 'expenses'); } finally { setIsSaving(false); }
   };
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -209,12 +179,6 @@ ALTER TABLE expenses ADD COLUMN IF NOT EXISTS is_paid BOOLEAN DEFAULT false;`);
     } catch (err: any) { setError(err.message); } finally { setAuthLoading(false); }
   };
 
-  const setStartTimeWithStorage = (time: number | null) => {
-    setJornadaStartTime(time);
-    if (time) localStorage.setItem('aurilog_jornada_start', time.toString());
-    else localStorage.removeItem('aurilog_jornada_start');
-  };
-
   if (loading) return <div className="h-screen flex items-center justify-center bg-slate-50"><Loader2 className="animate-spin text-primary-600" size={48} /></div>;
 
   if (!session) return (
@@ -222,7 +186,7 @@ ALTER TABLE expenses ADD COLUMN IF NOT EXISTS is_paid BOOLEAN DEFAULT false;`);
       <div className="w-full max-w-md bg-white rounded-[2.5rem] shadow-2xl p-10 animate-fade-in">
         <div className="flex flex-col items-center mb-8">
           <div className="bg-primary-600 p-4 rounded-3xl shadow-lg mb-4"><Truck size={40} className="text-white" /></div>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tighter uppercase">AuriLog</h1>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tighter uppercase leading-none text-center">AuriLog</h1>
           <p className="text-slate-400 font-bold text-sm mt-1 uppercase tracking-widest">{isSignUp ? 'Criar conta' : 'Gestão de Fretes'}</p>
         </div>
         <form onSubmit={handleAuth} className="space-y-4">
@@ -309,8 +273,7 @@ ALTER TABLE expenses ADD COLUMN IF NOT EXISTS is_paid BOOLEAN DEFAULT false;`);
           {currentView === AppView.TRIPS && <TripManager trips={trips} vehicles={vehicles} onAddTrip={async (t) => { 
             try { 
               const { error } = await supabase.from('trips').insert([sanitizeTripPayload({...t, user_id: session.user.id})]); 
-              if (error) throw error;
-              fetchData(); 
+              if (error) throw error; fetchData(); 
             } catch (err) { handleDbError(err, 'trips'); }
           }} onUpdateStatus={async (id, s, km) => { 
             try {
@@ -319,60 +282,30 @@ ALTER TABLE expenses ADD COLUMN IF NOT EXISTS is_paid BOOLEAN DEFAULT false;`);
               fetchData(); 
             } catch (err) { handleDbError(err, 'trips/vehicles'); }
           }} onDeleteTrip={async (id) => { 
-            try {
-              await supabase.from('trips').delete().eq('id', id); 
-              fetchData(); 
-            } catch (err) { handleDbError(err, 'trips'); }
+            try { await supabase.from('trips').delete().eq('id', id); fetchData(); } catch (err) { handleDbError(err, 'trips'); }
           }} onUpdateTrip={async (id, t) => { 
-            try {
-              await supabase.from('trips').update(sanitizeTripPayload(t)).eq('id', id); 
-              fetchData(); 
-            } catch (err) { handleDbError(err, 'trips'); }
+            try { await supabase.from('trips').update(sanitizeTripPayload(t)).eq('id', id); fetchData(); } catch (err) { handleDbError(err, 'trips'); }
           }} isSaving={isSaving} />}
           {currentView === AppView.VEHICLES && <VehicleManager vehicles={vehicles} onAddVehicle={async (v) => { 
-            try {
-              await supabase.from('vehicles').insert([{...v, user_id: session.user.id}]); 
-              fetchData(); 
-            } catch (err) { handleDbError(err, 'vehicles'); }
+            try { await supabase.from('vehicles').insert([{...v, user_id: session.user.id}]); fetchData(); } catch (err) { handleDbError(err, 'vehicles'); }
           }} onUpdateVehicle={async (id, v) => { 
-            try {
-              await supabase.from('vehicles').update(v).eq('id', id); 
-              fetchData(); 
-            } catch (err) { handleDbError(err, 'vehicles'); }
+            try { await supabase.from('vehicles').update(v).eq('id', id); fetchData(); } catch (err) { handleDbError(err, 'vehicles'); }
           }} onDeleteVehicle={async (id) => { 
-            try {
-              await supabase.from('vehicles').delete().eq('id', id); 
-              fetchData(); 
-            } catch (err) { handleDbError(err, 'vehicles'); }
+            try { await supabase.from('vehicles').delete().eq('id', id); fetchData(); } catch (err) { handleDbError(err, 'vehicles'); }
           }} isSaving={isSaving} />}
           {currentView === AppView.MAINTENANCE && <MaintenanceManager maintenance={maintenance} vehicles={vehicles} onAddMaintenance={async (m) => { 
-            try {
-              await supabase.from('maintenance').insert([{...m, user_id: session.user.id}]); 
-              fetchData(); 
-            } catch (err) { handleDbError(err, 'maintenance'); }
+            try { await supabase.from('maintenance').insert([{...m, user_id: session.user.id}]); fetchData(); } catch (err) { handleDbError(err, 'maintenance'); }
           }} onDeleteMaintenance={async (id) => { 
-            try {
-              await supabase.from('maintenance').delete().eq('id', id); 
-              fetchData(); 
-            } catch (err) { handleDbError(err, 'maintenance'); }
+            try { await supabase.from('maintenance').delete().eq('id', id); fetchData(); } catch (err) { handleDbError(err, 'maintenance'); }
           }} isSaving={isSaving} />}
           {currentView === AppView.EXPENSES && <ExpenseManager expenses={expenses} trips={trips} vehicles={vehicles} onAddExpense={handleAddExpense} onUpdateExpense={handleUpdateExpense} onDeleteExpense={async (id) => { 
-            try {
-              await supabase.from('expenses').delete().eq('id', id); 
-              fetchData(); 
-            } catch (err) { handleDbError(err, 'expenses'); }
+            try { await supabase.from('expenses').delete().eq('id', id); fetchData(); } catch (err) { handleDbError(err, 'expenses'); }
           }} isSaving={isSaving} />}
           {currentView === AppView.CALCULATOR && <FreightCalculator />}
-          {currentView === AppView.JORNADA && <JornadaManager mode={jornadaMode} startTime={jornadaStartTime} logs={jornadaLogs} setMode={setJornadaMode} setStartTime={setStartTimeWithStorage} onSaveLog={async (l) => { 
-            try {
-              await supabase.from('jornada_logs').insert([{...l, user_id: session.user.id}]); 
-              fetchData(); 
-            } catch (err) { handleDbError(err, 'jornada_logs'); }
+          {currentView === AppView.JORNADA && <JornadaManager mode={jornadaMode} startTime={jornadaStartTime} logs={jornadaLogs} setMode={setJornadaMode} setStartTime={(t) => { setJornadaStartTime(t); if(t) localStorage.setItem('aurilog_jornada_start', t.toString()); else localStorage.removeItem('aurilog_jornada_start'); }} onSaveLog={async (l) => { 
+            try { await supabase.from('jornada_logs').insert([{...l, user_id: session.user.id}]); fetchData(); } catch (err) { handleDbError(err, 'jornada_logs'); }
           }} onDeleteLog={async (id) => { 
-            try {
-              await supabase.from('jornada_logs').delete().eq('id', id); 
-              fetchData(); 
-            } catch (err) { handleDbError(err, 'jornada_logs'); }
+            try { await supabase.from('jornada_logs').delete().eq('id', id); fetchData(); } catch (err) { handleDbError(err, 'jornada_logs'); }
           }} addGlobalNotification={(t, m, tp) => setNotifications([{id: Date.now().toString(), title: t, msg: m, type: tp || 'info'}, ...notifications])} />}
           {currentView === AppView.STATIONS && <StationLocator />}
         </div>
