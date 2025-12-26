@@ -72,13 +72,6 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
     });
   };
 
-  const handleTogglePaid = async (expense: Expense) => {
-    // Apenas permite toggle se NÃO for uma despesa vinculada a viagem
-    if (!expense.trip_id && onUpdateExpense) {
-      await onUpdateExpense(expense.id, { is_paid: !expense.is_paid });
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newExpense.description && newExpense.amount) {
@@ -207,14 +200,10 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
                         <CheckCircle2 size={12}/> Realizado
                       </span>
                     ) : (
-                      <button 
-                        onClick={() => handleTogglePaid(expense)}
-                        className={`inline-flex items-center gap-1.5 mt-2 text-[9px] font-black uppercase px-2.5 py-1 rounded-md transition-all border ${expense.is_paid ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-rose-50 text-rose-700 border-rose-100 hover:scale-105 active:scale-95'}`}
-                        title="Clique para alternar status de pagamento"
-                      >
+                      <span className={`inline-flex items-center gap-1.5 mt-2 text-[9px] font-black uppercase px-2.5 py-1 rounded-md border ${expense.is_paid ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-rose-50 text-rose-700 border-rose-100'}`}>
                         {expense.is_paid ? <CheckCircle2 size={12}/> : <Circle size={12}/>}
                         {expense.is_paid ? 'Pago' : 'Pendente'}
-                      </button>
+                      </span>
                     )}
                   </td>
                   <td className="px-8 py-5 text-right">
