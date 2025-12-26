@@ -237,17 +237,17 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
         )}
       </div>
 
-      {/* Modal Reformulado */}
+      {/* Modal Reformulado com Correção de Topo */}
       {modalType && (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4 z-[100] overflow-y-auto">
-          <div className="bg-white rounded-[3rem] w-full max-w-xl p-10 shadow-2xl animate-fade-in my-8 border border-white/20">
-            <div className="flex justify-between items-center mb-10">
-              <div>
-                <h3 className="text-3xl font-black text-slate-900 tracking-tighter uppercase leading-none">
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-start justify-center p-4 z-[100] overflow-y-auto" style={{ paddingTop: 'calc(1rem + env(safe-area-inset-top))' }}>
+          <div className="bg-white rounded-[3rem] w-full max-w-xl p-8 md:p-10 shadow-2xl animate-fade-in mb-8 border border-white/20">
+            <div className="flex justify-between items-center mb-8">
+              <div className="pr-4">
+                <h3 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tighter uppercase leading-none">
                   {editingExpenseId ? 'Editar Lançamento' : modalType === 'FIXED' ? 'Lançar Gasto Fixo' : 'Lançar Gasto Operacional'}
                 </h3>
               </div>
-              <button onClick={resetForm} className="bg-slate-50 p-4 rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-all">
+              <button onClick={resetForm} className="bg-slate-50 p-4 rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-all shrink-0">
                 <X size={24} />
               </button>
             </div>

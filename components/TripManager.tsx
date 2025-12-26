@@ -322,7 +322,7 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
       </div>
 
       {isKmModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-[60]">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-[60]" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
           <div className="bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl p-8 animate-fade-in text-center">
             <div className="bg-emerald-100 text-emerald-600 p-4 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
               <Gauge size={32} />
@@ -342,9 +342,10 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
         </div>
       )}
 
+      {/* Modal Principal de Viagem com Safe Area */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-start justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl animate-fade-in relative mt-16 mb-10 overflow-hidden">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-start justify-center p-4 z-50 overflow-y-auto" style={{ paddingTop: 'calc(1rem + env(safe-area-inset-top))' }}>
+          <div className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl animate-fade-in relative mb-10 overflow-hidden">
             <div className="flex justify-between items-center p-8 pb-4 border-b">
               <h3 className="text-2xl font-black">{editingTripId ? 'Editar Viagem' : 'Nova Viagem'}</h3>
               <button onClick={() => setIsModalOpen(false)} className="text-slate-400 p-2"><X size={28} /></button>
@@ -374,7 +375,6 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                   </div>
                 </div>
                 
-                {/* NOVO BOTÃO: Visualizar Trajeto */}
                 <button 
                   onClick={previewCurrentRoute}
                   className="w-full py-3 bg-white border border-primary-200 text-primary-600 rounded-xl text-xs font-black flex items-center justify-center gap-2 hover:bg-primary-50 transition-colors"

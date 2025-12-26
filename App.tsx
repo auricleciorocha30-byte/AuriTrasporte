@@ -182,7 +182,7 @@ const App: React.FC = () => {
   if (loading) return <div className="h-screen flex items-center justify-center bg-slate-50"><Loader2 className="animate-spin text-primary-600" size={48} /></div>;
 
   if (!session) return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-slate-900 p-4">
+    <div className="min-h-screen w-full flex items-center justify-center bg-slate-900 p-4" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
       <div className="w-full max-w-md bg-white rounded-[2.5rem] shadow-2xl p-10 animate-fade-in">
         <div className="flex flex-col items-center mb-8">
           <div className="bg-primary-600 p-4 rounded-3xl shadow-lg mb-4"><Truck size={40} className="text-white" /></div>
@@ -221,12 +221,12 @@ const App: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden">
-      <aside className={`fixed md:relative z-40 w-64 h-full bg-slate-900 text-slate-300 p-4 transition-transform duration-300 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+      <aside className={`fixed md:relative z-40 w-64 h-full bg-slate-900 text-slate-300 p-4 transition-transform duration-300 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`} style={{ paddingTop: 'calc(1rem + env(safe-area-inset-top))' }}>
         <div className="flex items-center justify-between mb-10 px-2">
           <div className="flex items-center gap-2"><Truck className="text-primary-500" size={28} /><span className="text-xl font-bold text-white tracking-tighter uppercase">AuriLog</span></div>
           <button onClick={() => setIsMobileMenuOpen(false)} className="md:hidden p-1 text-slate-500"><X size={20} /></button>
         </div>
-        <nav className="space-y-1 overflow-y-auto max-h-[calc(100vh-200px)]">
+        <nav className="space-y-1 overflow-y-auto max-h-[calc(100vh-250px)]">
           <MenuBtn icon={LayoutDashboard} label="Dashboard" active={currentView === AppView.DASHBOARD} onClick={() => {setCurrentView(AppView.DASHBOARD); setIsMobileMenuOpen(false);}} />
           <MenuBtn icon={Truck} label="Viagens" active={currentView === AppView.TRIPS} onClick={() => {setCurrentView(AppView.TRIPS); setIsMobileMenuOpen(false);}} />
           <MenuBtn icon={Settings} label="Veículos" active={currentView === AppView.VEHICLES} onClick={() => {setCurrentView(AppView.VEHICLES); setIsMobileMenuOpen(false);}} />
@@ -237,14 +237,14 @@ const App: React.FC = () => {
           <MenuBtn icon={Timer} label="Jornada" active={currentView === AppView.JORNADA} onClick={() => {setCurrentView(AppView.JORNADA); setIsMobileMenuOpen(false);}} />
           <MenuBtn icon={Fuel} label="Postos Próximos" active={currentView === AppView.STATIONS} onClick={() => {setCurrentView(AppView.STATIONS); setIsMobileMenuOpen(false);}} />
         </nav>
-        <div className="absolute bottom-6 left-4 right-4 space-y-2">
+        <div className="absolute bottom-6 left-4 right-4 space-y-2 mb-[env(safe-area-inset-bottom)]">
           <button onClick={() => window.print()} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-primary-600/10 text-primary-400 font-bold text-sm border border-primary-900/50"><Share2 size={18} /><span>Relatório</span></button>
           <button onClick={() => supabase.auth.signOut()} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-rose-400 font-bold text-sm"><LogOut size={18} /> Sair</button>
         </div>
       </aside>
 
       <main className="flex-1 flex flex-col overflow-hidden">
-        <header className="h-16 bg-white border-b flex items-center justify-between px-6 shrink-0 z-10">
+        <header className="h-16 bg-white border-b flex items-center justify-between px-6 shrink-0 z-10" style={{ paddingTop: 'env(safe-area-inset-top)', height: 'calc(4rem + env(safe-area-inset-top))' }}>
           <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden p-2 text-slate-600"><Menu size={24} /></button>
           <div className="relative">
             <button onClick={() => setShowNotifications(!showNotifications)} className="p-2 text-slate-500 hover:bg-slate-100 rounded-full relative">
@@ -268,7 +268,7 @@ const App: React.FC = () => {
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50">
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50 pb-[env(safe-area-inset-bottom)]">
           {currentView === AppView.DASHBOARD && <Dashboard trips={trips} expenses={expenses} vehicles={vehicles} onSetView={setCurrentView} />}
           {currentView === AppView.TRIPS && <TripManager trips={trips} vehicles={vehicles} onAddTrip={async (t) => { 
             try { 
