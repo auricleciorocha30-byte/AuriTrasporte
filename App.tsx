@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { LayoutDashboard, Truck, Wallet, Calculator, Menu, X, LogOut, Bell, Settings, CheckSquare, Timer, Fuel, Loader2, Mail, Key, UserPlus, LogIn, AlertCircle, Share2, AlertTriangle } from 'lucide-react';
+import { LayoutDashboard, Truck, Wallet, Calculator, Menu, X, LogOut, Bell, Settings, CheckSquare, Timer, Fuel, Loader2, Mail, Key, UserPlus, LogIn, AlertCircle, Share2, AlertTriangle, KeyRound } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { TripManager } from './components/TripManager';
 import { ExpenseManager } from './components/ExpenseManager';
@@ -25,6 +25,7 @@ const App: React.FC = () => {
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
   const [error, setError] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
 
   const [jornadaMode, setJornadaMode] = useState<'IDLE' | 'DRIVING' | 'RESTING'>('IDLE');
   const [jornadaStartTime, setJornadaStartTime] = useState<number | null>(null);
@@ -188,15 +189,37 @@ const App: React.FC = () => {
     }
   };
 
+  const handleResetPassword = async () => {
+    if (!email) {
+      setError("Por favor, digite seu e-mail primeiro.");
+      return;
+    }
+    setAuthLoading(true);
+    setError('');
+    setSuccessMsg('');
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin,
+      });
+      if (error) throw error;
+      setSuccessMsg("E-mail de recuperação enviado! Verifique sua caixa de entrada.");
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setSuccessMsg('');
     setAuthLoading(true);
     try {
       if (isSignUp) {
         const { error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
-        alert("Cadastro realizado! Verifique seu e-mail.");
+        setSuccessMsg("Cadastro realizado! Verifique seu e-mail.");
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
@@ -225,15 +248,29 @@ const App: React.FC = () => {
           </div>
           <div className="space-y-1.5">
             <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Senha</label>
-            <input required type="password" placeholder="••••••••" className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:ring-2 focus:ring-primary-500 transition-all" value={password} onChange={e => setPassword(e.target.value)} />
+            <input required={!isSignUp} type="password" placeholder="••••••••" className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:ring-2 focus:ring-primary-500 transition-all" value={password} onChange={e => setPassword(e.target.value)} />
+            
+            {!isSignUp && (
+              <div className="flex justify-end pr-1">
+                <button 
+                  type="button" 
+                  onClick={handleResetPassword}
+                  className="text-[10px] font-black uppercase text-primary-600 hover:text-primary-700 transition-colors"
+                >
+                  Esqueceu a senha?
+                </button>
+              </div>
+            )}
           </div>
-          {error && <div className="bg-rose-50 border border-rose-100 p-4 rounded-2xl text-rose-600 text-xs font-bold">{error}</div>}
+          {error && <div className="bg-rose-50 border border-rose-100 p-4 rounded-2xl text-rose-600 text-xs font-bold animate-pulse">{error}</div>}
+          {successMsg && <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-2xl text-emerald-600 text-xs font-bold">{successMsg}</div>}
+          
           <button disabled={authLoading} type="submit" className="w-full py-5 bg-primary-600 text-white rounded-2xl font-black text-lg shadow-xl hover:bg-primary-700 transition-all flex items-center justify-center gap-3">
             {authLoading ? <Loader2 className="animate-spin" /> : isSignUp ? <UserPlus size={20} /> : <LogIn size={20} />}
             {isSignUp ? 'Cadastrar agora' : 'Entrar no Sistema'}
           </button>
         </form>
-        <button onClick={() => setIsSignUp(!isSignUp)} className="mt-8 w-full text-primary-600 font-black text-sm uppercase hover:underline">{isSignUp ? 'Já tem conta? Entre' : 'Não tem conta? Cadastre-se'}</button>
+        <button onClick={() => { setIsSignUp(!isSignUp); setError(''); setSuccessMsg(''); }} className="mt-8 w-full text-primary-600 font-black text-sm uppercase hover:underline">{isSignUp ? 'Já tem conta? Entre' : 'Não tem conta? Cadastre-se'}</button>
       </div>
     </div>
   );
