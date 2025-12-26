@@ -53,6 +53,35 @@ const App: React.FC = () => {
       }
     });
 
+    // Notificações de Viagens (Próximas)
+    trips.filter(t => t.status === TripStatus.SCHEDULED).forEach(t => {
+      const tripDate = new Date(t.date + 'T12:00:00');
+      tripDate.setHours(0,0,0,0);
+      
+      const diffTime = tripDate.getTime() - today.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      if (diffDays === 0) {
+        list.push({ 
+          id: `trip-today-${t.id}`, 
+          type: 'WARNING', 
+          category: 'TRIP', 
+          title: `Viagem Começa Hoje!`, 
+          message: `Rota: ${t.origin.split(' - ')[0]} -> ${t.destination.split(' - ')[0]}. Verifique os documentos e o veículo.`, 
+          date: 'Hoje' 
+        });
+      } else if (diffDays > 0 && diffDays <= 2) {
+        list.push({ 
+          id: `trip-soon-${t.id}`, 
+          type: 'INFO', 
+          category: 'TRIP', 
+          title: `Viagem em ${diffDays} ${diffDays === 1 ? 'dia' : 'dias'}`, 
+          message: `Início programado para ${t.destination.split(' - ')[0]}.`, 
+          date: 'Em breve' 
+        });
+      }
+    });
+
     // Notificações de Despesas (Financeiro)
     expenses.filter(e => !e.is_paid).forEach(e => {
       if (!e.due_date) return;
@@ -276,7 +305,6 @@ const App: React.FC = () => {
           )}
           {currentView === AppView.CALCULATOR && <FreightCalculator />}
           {currentView === AppView.JORNADA && (
-            // Fixed reference to undefined function setStartTime by using setJornadaStartTime.
             <JornadaManager mode={jornadaMode} startTime={jornadaStartTime} logs={jornadaLogs} setMode={setJornadaMode} setStartTime={setJornadaStartTime} onSaveLog={async (l) => { await supabase.from('jornada_logs').insert([{...l, user_id: session.user.id}]); fetchData(); }} onDeleteLog={async (id) => { await supabase.from('jornada_logs').delete().eq('id', id); fetchData(); }} addGlobalNotification={() => {}} />
           )}
           {currentView === AppView.STATIONS && <StationLocator />}
