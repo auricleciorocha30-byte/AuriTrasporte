@@ -240,14 +240,23 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="bg-slate-50 p-4 rounded-2xl">
-                        <p className="text-[9px] font-black text-slate-400 uppercase">Distância</p>
-                        <p className="text-lg font-black text-slate-800">{trip.distance_km} KM</p>
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="bg-slate-50 p-4 rounded-2xl">
+                          <p className="text-[9px] font-black text-slate-400 uppercase">Distância</p>
+                          <p className="text-lg font-black text-slate-800">{trip.distance_km} KM</p>
+                        </div>
+                        <div className="bg-primary-50 p-4 rounded-2xl">
+                          <p className="text-[9px] font-black text-primary-400 uppercase">Valor Frete</p>
+                          <p className="text-lg font-black text-primary-700">R$ {trip.agreed_price.toLocaleString()}</p>
+                        </div>
                       </div>
-                      <div className="bg-primary-50 p-4 rounded-2xl">
-                        <p className="text-[9px] font-black text-primary-400 uppercase">Valor Frete</p>
-                        <p className="text-lg font-black text-primary-700">R$ {trip.agreed_price.toLocaleString()}</p>
+                      
+                      <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100/50">
+                        <p className="text-[9px] font-black text-amber-600 uppercase flex items-center gap-1">
+                          <Percent size={10} /> Comissão ({trip.driver_commission_percentage}%)
+                        </p>
+                        <p className="text-xl font-black text-amber-700">R$ {trip.driver_commission.toLocaleString()}</p>
                       </div>
                     </div>
                  </div>
