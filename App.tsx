@@ -19,7 +19,20 @@ const sanitizeTripPayload = (payload: any) => {
 
 const sanitizeExpensePayload = (payload: any) => {
   const allowedKeys = ['trip_id', 'vehicle_id', 'description', 'amount', 'category', 'date', 'due_date', 'user_id', 'is_paid'];
-  return Object.keys(payload).filter(key => allowedKeys.includes(key)).reduce((obj: any, key) => { obj[key] = payload[key] === undefined ? null : payload[key]; return obj; }, {});
+  const sanitized: any = {};
+  
+  allowedKeys.forEach(key => {
+    if (payload[key] === undefined) {
+      sanitized[key] = null;
+    } else if (key === 'is_paid') {
+      // Garante que é booleano ou default false se omitido
+      sanitized[key] = payload[key] === true;
+    } else {
+      sanitized[key] = payload[key];
+    }
+  });
+  
+  return sanitized;
 };
 
 interface AppNotification {
@@ -129,7 +142,7 @@ const App: React.FC = () => {
 
     // Contas a Pagar (Notificar hoje e vencimentos nos próximos 7 dias)
     currentExpenses.forEach(e => {
-      if (e.due_date && !e.is_paid) {
+      if (e.due_date && !e.is_paid && !e.trip_id) {
         const dueDate = new Date(e.due_date + 'T12:00:00');
         dueDate.setHours(0, 0, 0, 0);
         
@@ -169,7 +182,12 @@ const App: React.FC = () => {
       const { error } = await supabase.from('expenses').insert([payload]);
       if (error) throw error;
       fetchData();
-    } catch (err: any) { alert(err.message); } finally { setIsSaving(false); }
+    } catch (err: any) { 
+      console.error(err);
+      alert(err.message.includes("Could not find the 'is_paid' column") 
+        ? "Erro: A coluna 'is_paid' não foi encontrada no banco. Adicione-a via SQL no Supabase." 
+        : err.message); 
+    } finally { setIsSaving(false); }
   };
 
   const handleUpdateExpense = async (id: string, e: Partial<Expense>) => {
@@ -179,7 +197,12 @@ const App: React.FC = () => {
       const { error } = await supabase.from('expenses').update(payload).eq('id', id);
       if (error) throw error;
       fetchData();
-    } catch (err: any) { alert(err.message); } finally { setIsSaving(false); }
+    } catch (err: any) { 
+      console.error(err);
+      alert(err.message.includes("Could not find the 'is_paid' column") 
+        ? "Erro: A coluna 'is_paid' não foi encontrada no banco. Adicione-a via SQL no Supabase." 
+        : err.message); 
+    } finally { setIsSaving(false); }
   };
 
   const setStartTimeWithStorage = (time: number | null) => {

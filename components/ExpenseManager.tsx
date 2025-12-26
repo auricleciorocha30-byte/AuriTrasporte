@@ -68,12 +68,13 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
       vehicle_id: expense.vehicle_id || '',
       due_date: expense.due_date || '',
       installments: 1,
-      is_paid: expense.is_paid || false
+      is_paid: expense.trip_id ? true : (expense.is_paid || false)
     });
   };
 
   const handleTogglePaid = async (expense: Expense) => {
-    if (onUpdateExpense) {
+    // Apenas permite toggle se NÃO for uma despesa vinculada a viagem
+    if (!expense.trip_id && onUpdateExpense) {
       await onUpdateExpense(expense.id, { is_paid: !expense.is_paid });
     }
   };
@@ -81,6 +82,9 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newExpense.description && newExpense.amount) {
+      // Se for gasto de viagem, is_paid é sempre true por padrão
+      const forcePaid = modalType === 'TRIP';
+      
       if (editingExpenseId && onUpdateExpense) {
         const payload: Partial<Expense> = {
           description: newExpense.description,
@@ -90,7 +94,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
           trip_id: modalType === 'TRIP' ? (newExpense.trip_id || null) : null,
           vehicle_id: newExpense.vehicle_id || null,
           due_date: modalType === 'FIXED' ? (newExpense.due_date || null) : null,
-          is_paid: newExpense.is_paid
+          is_paid: forcePaid ? true : newExpense.is_paid
         };
         await onUpdateExpense(editingExpenseId, payload);
         resetForm();
@@ -118,7 +122,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
             trip_id: modalType === 'TRIP' ? (newExpense.trip_id || null) : null,
             vehicle_id: newExpense.vehicle_id || null,
             due_date: dueDateStr,
-            is_paid: newExpense.is_paid
+            is_paid: forcePaid ? true : newExpense.is_paid
           };
           
           await onAddExpense(expense);
@@ -160,7 +164,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
               <tr className="bg-slate-50 border-b border-slate-100">
                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest w-1/3">Registro / Detalhes</th>
                 <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Categoria</th>
-                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Data / Vencimento</th>
+                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Data Registro</th>
                 <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Valor / Status</th>
                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Ações</th>
               </tr>
@@ -172,9 +176,9 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
                     <div className="text-sm font-black text-slate-800">{expense.description}</div>
                     <div className="flex items-center gap-2 mt-1.5">
                       {expense.trip_id ? (
-                        <span className="text-[9px] font-black uppercase text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">Em Viagem</span>
+                        <span className="text-[9px] font-black uppercase text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">Saída em Viagem</span>
                       ) : (
-                        <span className="text-[9px] font-black uppercase text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-100">Custo Fixo</span>
+                        <span className="text-[9px] font-black uppercase text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-100">Custo Fixo Mensal</span>
                       )}
                       {expense.vehicle_id && (
                         <span className="text-[9px] font-black uppercase text-slate-500 bg-slate-100 px-2 py-0.5 rounded">Placa: {vehicles.find(v => v.id === expense.vehicle_id)?.plate || '---'}</span>
@@ -190,22 +194,28 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
                     <div className="text-sm font-bold text-slate-500">
                       {new Date(expense.date + 'T12:00:00').toLocaleDateString()}
                     </div>
-                    {expense.due_date && (
+                    {expense.due_date && !expense.trip_id && (
                       <div className="text-[9px] font-black text-amber-500 uppercase mt-0.5">
-                        Limite: {new Date(expense.due_date + 'T12:00:00').toLocaleDateString()}
+                        Vencimento: {new Date(expense.due_date + 'T12:00:00').toLocaleDateString()}
                       </div>
                     )}
                   </td>
                   <td className="px-6 py-5 text-right">
                     <div className="text-sm font-black text-rose-600">- R$ {expense.amount.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</div>
-                    <button 
-                      onClick={() => handleTogglePaid(expense)}
-                      className={`inline-flex items-center gap-1.5 mt-2 text-[9px] font-black uppercase px-2.5 py-1 rounded-md transition-all border ${expense.is_paid ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-rose-50 text-rose-700 border-rose-100 hover:scale-105 active:scale-95'}`}
-                      title="Clique para mudar status de pagamento"
-                    >
-                      {expense.is_paid ? <CheckCircle2 size={12}/> : <Circle size={12}/>}
-                      {expense.is_paid ? 'Pago' : 'Pendente'}
-                    </button>
+                    {expense.trip_id ? (
+                      <span className="inline-flex items-center gap-1 mt-2 text-[9px] font-black uppercase px-2.5 py-1 rounded-md bg-slate-50 text-slate-400 border border-slate-100 cursor-default">
+                        <CheckCircle2 size={12}/> Realizado
+                      </span>
+                    ) : (
+                      <button 
+                        onClick={() => handleTogglePaid(expense)}
+                        className={`inline-flex items-center gap-1.5 mt-2 text-[9px] font-black uppercase px-2.5 py-1 rounded-md transition-all border ${expense.is_paid ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-rose-50 text-rose-700 border-rose-100 hover:scale-105 active:scale-95'}`}
+                        title="Clique para alternar status de pagamento"
+                      >
+                        {expense.is_paid ? <CheckCircle2 size={12}/> : <Circle size={12}/>}
+                        {expense.is_paid ? 'Pago' : 'Pendente'}
+                      </button>
+                    )}
                   </td>
                   <td className="px-8 py-5 text-right">
                     <div className="flex items-center justify-end gap-2">
@@ -241,9 +251,11 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
             <div className="flex justify-between items-center mb-8">
               <div>
                 <h3 className="text-3xl font-black text-slate-900 tracking-tighter uppercase leading-none">
-                  {editingExpenseId ? 'Editar Lançamento' : modalType === 'FIXED' ? 'Novo Custo Fixo' : 'Lançar Gasto'}
+                  {editingExpenseId ? 'Editar Lançamento' : modalType === 'FIXED' ? 'Novo Custo Fixo' : 'Registrar Saída'}
                 </h3>
-                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-2">Gestão Financeira Profissional</p>
+                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-2">
+                  {modalType === 'FIXED' ? 'Controle de contas a pagar' : 'Despesas em operação de transporte'}
+                </p>
               </div>
               <button onClick={resetForm} className="bg-slate-50 p-4 rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-all">
                 <X size={24} />
@@ -256,7 +268,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
                 <input 
                   required 
                   type="text" 
-                  placeholder={modalType === 'FIXED' ? "Ex: Parcela do Scania R450" : "Ex: Diesel Posto Ipiranga BR-101"} 
+                  placeholder={modalType === 'FIXED' ? "Ex: Parcela do Scania FH-460" : "Ex: Diesel 400L Posto Graal"} 
                   className="w-full p-5 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-primary-500 focus:bg-white outline-none font-bold transition-all placeholder:text-slate-300" 
                   value={newExpense.description || ''} 
                   onChange={e => setNewExpense({...newExpense, description: e.target.value})} 
@@ -313,7 +325,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
                       value={newExpense.trip_id || ''}
                       onChange={e => setNewExpense({...newExpense, trip_id: e.target.value})}
                     >
-                      <option value="">Lançamento Avulso</option>
+                      <option value="">Despesa avulsa</option>
                       {trips.filter(t => t.status !== TripStatus.CANCELLED).map(t => (
                         <option key={t.id} value={t.id}>{t.destination.split(' - ')[0]} ({new Date(t.date + 'T12:00:00').toLocaleDateString()})</option>
                       ))}
@@ -324,7 +336,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Data do Lançamento</label>
+                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Data da Saída</label>
                   <input required type="date" value={newExpense.date} className="w-full p-5 bg-slate-50 border-2 border-transparent focus:border-primary-500 focus:bg-white rounded-2xl font-bold outline-none" 
                     onChange={e => setNewExpense({...newExpense, date: e.target.value})} />
                 </div>
@@ -342,31 +354,34 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-50">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase text-amber-600 ml-1 flex items-center gap-1"><Calendar size={12}/> Vencimento</label>
-                  <input 
-                    required={modalType === 'FIXED'} 
-                    type="date" 
-                    value={newExpense.due_date} 
-                    className={`w-full p-5 rounded-2xl border-2 border-transparent focus:border-amber-500 focus:bg-white outline-none font-bold ${modalType === 'FIXED' ? 'bg-amber-50' : 'bg-slate-50 opacity-40'}`} 
-                    onChange={e => setNewExpense({...newExpense, due_date: e.target.value})} 
-                    disabled={modalType !== 'FIXED'} 
-                  />
+              {/* Status de Pagamento - Esconde para Gastos de Viagem */}
+              {modalType === 'FIXED' && (
+                <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-50">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black uppercase text-amber-600 ml-1 flex items-center gap-1"><Calendar size={12}/> Vencimento</label>
+                    <input 
+                      required={modalType === 'FIXED'} 
+                      type="date" 
+                      value={newExpense.due_date} 
+                      className={`w-full p-5 rounded-2xl border-2 border-transparent focus:border-amber-500 focus:bg-white outline-none font-bold bg-amber-50`} 
+                      onChange={e => setNewExpense({...newExpense, due_date: e.target.value})} 
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Status Pagamento</label>
+                    <button 
+                      type="button"
+                      onClick={() => setNewExpense({...newExpense, is_paid: !newExpense.is_paid})}
+                      className={`w-full p-5 rounded-2xl border-2 font-black flex items-center justify-center gap-2 transition-all h-[68px] ${newExpense.is_paid ? 'bg-emerald-50 border-emerald-200 text-emerald-600 shadow-inner' : 'bg-rose-50 border-rose-200 text-rose-600'}`}
+                    >
+                      {newExpense.is_paid ? <CheckCircle2 size={20}/> : <Circle size={20}/>}
+                      <span className="text-xs uppercase">{newExpense.is_paid ? 'Já Pago' : 'Pendente'}</span>
+                    </button>
+                  </div>
                 </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Status Pagamento</label>
-                  <button 
-                    type="button"
-                    onClick={() => setNewExpense({...newExpense, is_paid: !newExpense.is_paid})}
-                    className={`w-full p-5 rounded-2xl border-2 font-black flex items-center justify-center gap-2 transition-all h-[68px] ${newExpense.is_paid ? 'bg-emerald-50 border-emerald-200 text-emerald-600 shadow-inner' : 'bg-rose-50 border-rose-200 text-rose-600'}`}
-                  >
-                    {newExpense.is_paid ? <CheckCircle2 size={20}/> : <Circle size={20}/>}
-                    <span className="text-xs uppercase">{newExpense.is_paid ? 'Já Pago' : 'Pendente'}</span>
-                  </button>
-                </div>
-              </div>
+              )}
 
+              {/* Botão Salvar - Full Width */}
               <button disabled={isSaving} type="submit" className={`w-full py-6 text-white rounded-[2rem] font-black text-xl shadow-2xl mt-4 transition-all flex items-center justify-center gap-3 active:scale-[0.98] ${modalType === 'FIXED' ? 'bg-amber-500 shadow-amber-100 hover:bg-amber-600' : 'bg-primary-600 shadow-primary-100 hover:bg-primary-700'}`}>
                 {isSaving ? <Loader2 className="animate-spin" /> : <ShieldCheck size={24}/>}
                 {isSaving ? 'Gravando...' : editingExpenseId ? 'Salvar Alterações' : 'Confirmar Lançamento'}
