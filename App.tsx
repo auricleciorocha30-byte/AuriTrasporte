@@ -168,9 +168,16 @@ const App: React.FC = () => {
       const payload = sanitizeExpensePayload({...e, user_id: session.user.id});
       const { error } = await supabase.from('expenses').insert([payload]);
       if (error) throw error;
-      // Não chamamos fetchData aqui para permitir loops no componente filho
-      // fetchData() será chamado ao final do loop no ExpenseManager se necessário, 
-      // ou apenas atualizamos o estado local. Para manter simples e evitar race condition:
+      fetchData();
+    } catch (err: any) { alert(err.message); } finally { setIsSaving(false); }
+  };
+
+  const handleUpdateExpense = async (id: string, e: Partial<Expense>) => {
+    setIsSaving(true);
+    try {
+      const payload = sanitizeExpensePayload(e);
+      const { error } = await supabase.from('expenses').update(payload).eq('id', id);
+      if (error) throw error;
       fetchData();
     } catch (err: any) { alert(err.message); } finally { setIsSaving(false); }
   };
@@ -275,7 +282,7 @@ const App: React.FC = () => {
           {currentView === AppView.TRIPS && <TripManager trips={trips} vehicles={vehicles} onAddTrip={async (t) => { await supabase.from('trips').insert([sanitizeTripPayload({...t, user_id: session.user.id})]); fetchData(); }} onUpdateStatus={async (id, s, km) => { await supabase.from('trips').update({status: s}).eq('id', id); if(km) await supabase.from('vehicles').update({current_km: km}).eq('id', trips.find(x => x.id === id)?.vehicle_id); fetchData(); }} onDeleteTrip={async (id) => { await supabase.from('trips').delete().eq('id', id); fetchData(); }} onUpdateTrip={async (id, t) => { await supabase.from('trips').update(sanitizeTripPayload(t)).eq('id', id); fetchData(); }} isSaving={isSaving} />}
           {currentView === AppView.VEHICLES && <VehicleManager vehicles={vehicles} onAddVehicle={async (v) => { await supabase.from('vehicles').insert([{...v, user_id: session.user.id}]); fetchData(); }} onUpdateVehicle={async (id, v) => { await supabase.from('vehicles').update(v).eq('id', id); fetchData(); }} onDeleteVehicle={async (id) => { await supabase.from('vehicles').delete().eq('id', id); fetchData(); }} isSaving={isSaving} />}
           {currentView === AppView.MAINTENANCE && <MaintenanceManager maintenance={maintenance} vehicles={vehicles} onAddMaintenance={async (m) => { await supabase.from('maintenance').insert([{...m, user_id: session.user.id}]); fetchData(); }} onDeleteMaintenance={async (id) => { await supabase.from('maintenance').delete().eq('id', id); fetchData(); }} isSaving={isSaving} />}
-          {currentView === AppView.EXPENSES && <ExpenseManager expenses={expenses} trips={trips} vehicles={vehicles} onAddExpense={handleAddExpense} onDeleteExpense={async (id) => { await supabase.from('expenses').delete().eq('id', id); fetchData(); }} isSaving={isSaving} />}
+          {currentView === AppView.EXPENSES && <ExpenseManager expenses={expenses} trips={trips} vehicles={vehicles} onAddExpense={handleAddExpense} onUpdateExpense={handleUpdateExpense} onDeleteExpense={async (id) => { await supabase.from('expenses').delete().eq('id', id); fetchData(); }} isSaving={isSaving} />}
           {currentView === AppView.CALCULATOR && <FreightCalculator />}
           {currentView === AppView.JORNADA && <JornadaManager mode={jornadaMode} startTime={jornadaStartTime} logs={jornadaLogs} setMode={setJornadaMode} setStartTime={setStartTimeWithStorage} onSaveLog={async (l) => { await supabase.from('jornada_logs').insert([{...l, user_id: session.user.id}]); fetchData(); }} onDeleteLog={async (id) => { await supabase.from('jornada_logs').delete().eq('id', id); fetchData(); }} addGlobalNotification={(t, m, tp) => setNotifications([{id: Date.now().toString(), title: t, msg: m, type: tp || 'info'}, ...notifications])} />}
           {currentView === AppView.STATIONS && <StationLocator />}

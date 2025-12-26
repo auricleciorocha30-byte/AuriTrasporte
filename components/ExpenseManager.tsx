@@ -1,13 +1,14 @@
 
 import React, { useState } from 'react';
 import { Expense, ExpenseCategory, Trip, TripStatus, Vehicle } from '../types';
-import { Plus, Trash2, MapPin, ChevronDown, Truck, AlertCircle, ShieldCheck, Clock, ReceiptText, Banknote, Loader2, Calendar } from 'lucide-react';
+import { Plus, Trash2, MapPin, ChevronDown, Truck, AlertCircle, ShieldCheck, Clock, ReceiptText, Banknote, Loader2, Calendar, Edit2 } from 'lucide-react';
 
 interface ExpenseManagerProps {
   expenses: Expense[];
   trips: Trip[];
   vehicles: Vehicle[];
   onAddExpense: (expense: Omit<Expense, 'id'>) => void;
+  onUpdateExpense?: (id: string, expense: Partial<Expense>) => void;
   onDeleteExpense: (id: string) => void;
   isSaving?: boolean;
 }
@@ -20,8 +21,9 @@ const getTodayLocal = () => {
   return `${year}-${month}-${day}`;
 };
 
-export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips, vehicles, onAddExpense, onDeleteExpense, isSaving }) => {
+export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips, vehicles, onAddExpense, onUpdateExpense, onDeleteExpense, isSaving }) => {
   const [modalType, setModalType] = useState<'TRIP' | 'FIXED' | null>(null);
+  const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
   const [newExpense, setNewExpense] = useState<any>({
     category: ExpenseCategory.FUEL,
     date: getTodayLocal(),
@@ -36,49 +38,84 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
   const isFixedCategory = (category: any) => 
     [ExpenseCategory.FINANCING, ExpenseCategory.INSURANCE, ExpenseCategory.TRACKER].includes(category);
 
+  const resetForm = () => {
+    setModalType(null);
+    setEditingExpenseId(null);
+    setNewExpense({ 
+      category: ExpenseCategory.FUEL, 
+      date: getTodayLocal(), 
+      trip_id: '', 
+      vehicle_id: '', 
+      due_date: '', 
+      installments: 1,
+      description: '',
+      amount: 0
+    });
+  };
+
+  const handleEdit = (expense: Expense) => {
+    setEditingExpenseId(expense.id);
+    const type = expense.trip_id ? 'TRIP' : 'FIXED';
+    setModalType(type);
+    setNewExpense({
+      description: expense.description,
+      amount: expense.amount,
+      category: expense.category,
+      date: expense.date,
+      trip_id: expense.trip_id || '',
+      vehicle_id: expense.vehicle_id || '',
+      due_date: expense.due_date || '',
+      installments: 1 // Não permitimos editar parcelamento em lote, apenas o registro individual
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newExpense.description && newExpense.amount) {
-      const totalInstallments = modalType === 'FIXED' ? (newExpense.installments || 1) : 1;
-      
-      for (let i = 0; i < totalInstallments; i++) {
-        // Calcular datas para parcelas
-        const expenseDate = new Date(newExpense.date + 'T12:00:00');
-        expenseDate.setMonth(expenseDate.getMonth() + i);
-        
-        let dueDateStr = null;
-        if (modalType === 'FIXED' && newExpense.due_date) {
-          const dueDate = new Date(newExpense.due_date + 'T12:00:00');
-          dueDate.setMonth(dueDate.getMonth() + i);
-          dueDateStr = dueDate.toISOString().split('T')[0];
-        }
-
-        const expense: Omit<Expense, 'id'> = {
-          description: totalInstallments > 1 
-            ? `${newExpense.description} (${i + 1}/${totalInstallments})` 
-            : newExpense.description,
+      if (editingExpenseId && onUpdateExpense) {
+        // Edição de um registro único
+        const payload: Partial<Expense> = {
+          description: newExpense.description,
           amount: Number(newExpense.amount),
-          category: (newExpense.category as ExpenseCategory) || ExpenseCategory.OTHER,
-          date: expenseDate.toISOString().split('T')[0],
+          category: (newExpense.category as ExpenseCategory),
+          date: newExpense.date,
           trip_id: modalType === 'TRIP' ? (newExpense.trip_id || null) : null,
           vehicle_id: newExpense.vehicle_id || null,
-          due_date: dueDateStr
+          due_date: modalType === 'FIXED' ? (newExpense.due_date || null) : null
         };
+        await onUpdateExpense(editingExpenseId, payload);
+        resetForm();
+      } else {
+        // Criação de novos registros (pode incluir parcelas)
+        const totalInstallments = modalType === 'FIXED' ? (newExpense.installments || 1) : 1;
         
-        await onAddExpense(expense);
-      }
+        for (let i = 0; i < totalInstallments; i++) {
+          const expenseDate = new Date(newExpense.date + 'T12:00:00');
+          expenseDate.setMonth(expenseDate.getMonth() + i);
+          
+          let dueDateStr = null;
+          if (modalType === 'FIXED' && newExpense.due_date) {
+            const dueDate = new Date(newExpense.due_date + 'T12:00:00');
+            dueDate.setMonth(dueDate.getMonth() + i);
+            dueDateStr = dueDate.toISOString().split('T')[0];
+          }
 
-      setModalType(null);
-      setNewExpense({ 
-        category: ExpenseCategory.FUEL, 
-        date: getTodayLocal(), 
-        trip_id: '', 
-        vehicle_id: '', 
-        due_date: '', 
-        installments: 1,
-        description: '',
-        amount: 0
-      });
+          const expense: Omit<Expense, 'id'> = {
+            description: totalInstallments > 1 
+              ? `${newExpense.description} (${i + 1}/${totalInstallments})` 
+              : newExpense.description,
+            amount: Number(newExpense.amount),
+            category: (newExpense.category as ExpenseCategory) || ExpenseCategory.OTHER,
+            date: expenseDate.toISOString().split('T')[0],
+            trip_id: modalType === 'TRIP' ? (newExpense.trip_id || null) : null,
+            vehicle_id: newExpense.vehicle_id || null,
+            due_date: dueDateStr
+          };
+          
+          await onAddExpense(expense);
+        }
+        resetForm();
+      }
     }
   };
 
@@ -134,7 +171,10 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
                     - R$ {expense.amount.toLocaleString()}
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <button onClick={() => onDeleteExpense(expense.id)} className="text-slate-300 hover:text-rose-500 transition-colors p-2"><Trash2 size={18} /></button>
+                    <div className="flex items-center justify-end gap-1">
+                      <button onClick={() => handleEdit(expense)} className="text-slate-300 hover:text-primary-600 transition-colors p-2"><Edit2 size={18} /></button>
+                      <button onClick={() => onDeleteExpense(expense.id)} className="text-slate-300 hover:text-rose-500 transition-colors p-2"><Trash2 size={18} /></button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -155,8 +195,8 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="bg-white rounded-[2.5rem] w-full max-w-lg p-8 shadow-2xl animate-fade-in my-8">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-2xl font-black">{modalType === 'FIXED' ? 'Lançar Custo Fixo' : 'Gasto em Viagem'}</h3>
-              <button onClick={() => setModalType(null)} className="text-slate-400 p-2 hover:bg-slate-50 rounded-full transition-colors"><Plus size={28} className="rotate-45" /></button>
+              <h3 className="text-2xl font-black">{editingExpenseId ? 'Editar Lançamento' : modalType === 'FIXED' ? 'Lançar Custo Fixo' : 'Gasto em Viagem'}</h3>
+              <button onClick={resetForm} className="text-slate-400 p-2 hover:bg-slate-50 rounded-full transition-colors"><Plus size={28} className="rotate-45" /></button>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -168,7 +208,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
               
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-xs font-black uppercase text-slate-400 ml-1">Valor da Parcela (R$)</label>
+                  <label className="text-xs font-black uppercase text-slate-400 ml-1">Valor {modalType === 'FIXED' ? 'da Parcela' : ''} (R$)</label>
                   <input required type="number" step="0.01" className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-200 font-black text-xl" 
                     value={newExpense.amount || ''} onChange={e => setNewExpense({...newExpense, amount: Number(e.target.value)})} />
                 </div>
@@ -192,7 +232,6 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
                 </div>
               </div>
 
-              {/* Vínculo de Veículo - Disponível para ambos os tipos de gasto agora */}
               <div className="space-y-1">
                 <label className="text-xs font-black uppercase text-slate-400 ml-1">Vincular a um Veículo</label>
                 <div className="relative">
@@ -226,19 +265,19 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-xs font-black uppercase text-slate-400 ml-1">Data Início</label>
+                  <label className="text-xs font-black uppercase text-slate-400 ml-1">Data</label>
                   <input required type="date" value={newExpense.date} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold" 
                     onChange={e => setNewExpense({...newExpense, date: e.target.value})} />
                 </div>
-                {modalType === 'FIXED' ? (
+                {modalType === 'FIXED' && !editingExpenseId ? (
                    <div className="space-y-1">
                     <label className="text-xs font-black uppercase text-primary-600 ml-1">Qtd. Parcelas</label>
                     <input type="number" min="1" max="60" value={newExpense.installments} className="w-full p-4 bg-primary-50 border border-primary-200 rounded-2xl font-black" 
                       onChange={e => setNewExpense({...newExpense, installments: Number(e.target.value)})} />
                   </div>
                 ) : (
-                  <div className="space-y-1 opacity-50 grayscale pointer-events-none">
-                    <label className="text-xs font-black uppercase text-slate-300 ml-1">Parcelas (Apenas Fixo)</label>
+                  <div className={`space-y-1 ${!editingExpenseId ? 'opacity-50 grayscale pointer-events-none' : ''}`}>
+                    <label className="text-xs font-black uppercase text-slate-300 ml-1">Parcelas</label>
                     <input type="number" disabled value="1" className="w-full p-4 bg-slate-100 border border-slate-200 rounded-2xl font-bold" />
                   </div>
                 )}
@@ -246,16 +285,16 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
 
               {modalType === 'FIXED' && (
                 <div className="space-y-1">
-                  <label className="text-xs font-black uppercase text-amber-600 ml-1 flex items-center gap-1"><Calendar size={14}/> Vencimento (1ª Parcela)</label>
+                  <label className="text-xs font-black uppercase text-amber-600 ml-1 flex items-center gap-1"><Calendar size={14}/> Vencimento</label>
                   <input required type="date" value={newExpense.due_date} className="w-full p-4 bg-amber-50 border border-amber-200 rounded-2xl font-bold" 
                     onChange={e => setNewExpense({...newExpense, due_date: e.target.value})} />
-                  <p className="text-[10px] font-bold text-slate-400 ml-1 uppercase">O sistema notificará você todo mês antes desta data.</p>
+                  {!editingExpenseId && <p className="text-[10px] font-bold text-slate-400 ml-1 uppercase">O sistema notificará você todo mês antes desta data.</p>}
                 </div>
               )}
 
               <button disabled={isSaving} type="submit" className={`w-full py-5 text-white rounded-2xl font-black text-lg shadow-xl mt-4 transition-all flex items-center justify-center gap-2 ${modalType === 'FIXED' ? 'bg-amber-500 hover:bg-amber-600' : 'bg-primary-600 hover:bg-primary-700'}`}>
                 {isSaving ? <Loader2 className="animate-spin" /> : <ShieldCheck size={20}/>}
-                {isSaving ? 'Salvando...' : modalType === 'FIXED' && newExpense.installments > 1 ? `Gerar ${newExpense.installments} Lançamentos` : 'Salvar Registro'}
+                {isSaving ? 'Salvando...' : editingExpenseId ? 'Salvar Alterações' : modalType === 'FIXED' && newExpense.installments > 1 ? `Gerar ${newExpense.installments} Lançamentos` : 'Salvar Registro'}
               </button>
             </form>
           </div>
