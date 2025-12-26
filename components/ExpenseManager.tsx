@@ -147,7 +147,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
             onClick={() => { 
               resetForm(); 
               setModalType('TRIP'); 
-              setFormData(prev => ({ ...prev, category: ExpenseCategory.FUEL }));
+              setFormData(prev => ({ ...prev, category: ExpenseCategory.FUEL, is_paid: true }));
             }} 
             className="flex-1 md:flex-none flex items-center justify-center gap-2 px-8 py-5 bg-white border-2 border-slate-100 rounded-[2rem] font-black text-xs uppercase text-slate-600 hover:border-primary-500 hover:text-primary-600 transition-all shadow-sm active:scale-95"
           >
@@ -290,16 +290,9 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label className="text-[11px] font-black uppercase text-slate-400 ml-1">Vencimento</label>
-                  <input required type="date" value={formData.due_date} className="w-full p-5 bg-primary-50 border-2 border-primary-100 rounded-3xl font-black outline-none" onChange={e => setFormData({...formData, due_date: e.target.value})} />
-                </div>
-                <div className="space-y-2 flex flex-col justify-end">
-                   <button type="button" onClick={() => setFormData({...formData, is_paid: !formData.is_paid})} className={`w-full p-5 rounded-3xl font-black text-xs uppercase tracking-tighter transition-all border-2 ${formData.is_paid ? 'bg-emerald-500 text-white border-emerald-600' : 'bg-rose-50 text-rose-600 border-rose-200'}`}>
-                    {formData.is_paid ? 'Está Pago ✓' : 'Pendente ⚠'}
-                  </button>
-                </div>
+              <div className="space-y-2">
+                <label className="text-[11px] font-black uppercase text-slate-400 ml-1">Data de Vencimento / Pagamento</label>
+                <input required type="date" value={formData.due_date} className="w-full p-5 bg-primary-50 border-2 border-primary-100 rounded-3xl font-black outline-none" onChange={e => setFormData({...formData, due_date: e.target.value})} />
               </div>
 
               <button disabled={isSaving} type="submit" className="w-full py-7 bg-primary-600 text-white rounded-[2.5rem] font-black text-xl shadow-2xl flex items-center justify-center gap-4 active:scale-95 transition-all">
@@ -313,7 +306,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
 
       {confirmPaymentId && (
         <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-2xl flex items-center justify-center p-6 z-[110] animate-fade-in">
-          <div className="bg-white rounded-[3.5rem] w-full max-w-sm p-12 shadow-2xl text-center">
+          <div className="bg-white rounded-[3.5rem] w-full max-sm p-12 shadow-2xl text-center">
             <div className="bg-emerald-100 text-emerald-600 p-8 rounded-full w-28 h-28 flex items-center justify-center mx-auto mb-8">
               <CheckCircle2 size={56} />
             </div>
