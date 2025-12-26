@@ -85,6 +85,8 @@ export interface Expense {
   due_date?: string;
   user_id?: string;
   is_paid?: boolean;
+  installments_total?: number;
+  installments_remaining?: number;
 }
 
 export interface JornadaLog {
@@ -107,7 +109,6 @@ export interface FinancialSummary {
   profitMargin: number;
 }
 
-// Fixed missing export: ANTTParams interface used for freight calculation and estimation
 export interface ANTTParams {
   distance: number;
   axles: number;
