@@ -22,13 +22,12 @@ const sanitizeExpensePayload = (payload: any) => {
   const sanitized: any = {};
   
   allowedKeys.forEach(key => {
-    if (payload[key] === undefined) {
-      sanitized[key] = null;
-    } else if (key === 'is_paid') {
-      // Garante que é booleano ou default false se omitido
+    if (key === 'is_paid') {
       sanitized[key] = payload[key] === true;
-    } else {
+    } else if (payload[key] !== undefined) {
       sanitized[key] = payload[key];
+    } else {
+      sanitized[key] = null;
     }
   });
   
@@ -63,7 +62,7 @@ const App: React.FC = () => {
   const [maintenance, setMaintenance] = useState<MaintenanceItem[]>([]);
   const [jornadaLogs, setJornadaLogs] = useState<JornadaLog[]>([]);
   
-  // Notifications & Jornada
+  // Notifications
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [dismissedIds, setDismissedIds] = useState<string[]>(() => {
@@ -104,18 +103,13 @@ const App: React.FC = () => {
         supabase.from('jornada_logs').select('*').order('created_at', { ascending: false })
       ]);
       
-      const tData = tripsRes.data || [];
-      const eData = expRes.data || [];
-      const vData = vehRes.data || [];
-      const mData = mainRes.data || [];
-      
-      setTrips(tData);
-      setExpenses(eData);
-      setVehicles(vData);
-      setMaintenance(mData);
+      setTrips(tripsRes.data || []);
+      setExpenses(expRes.data || []);
+      setVehicles(vehRes.data || []);
+      setMaintenance(mainRes.data || []);
       setJornadaLogs(jornRes.data || []);
       
-      checkSystemNotifications(tData, mData, vData, eData);
+      checkSystemNotifications(tripsRes.data || [], mainRes.data || [], vehRes.data || [], expRes.data || []);
     } finally { setLoading(false); }
   };
 
@@ -125,14 +119,12 @@ const App: React.FC = () => {
     today.setHours(0, 0, 0, 0);
     const todayStr = today.toISOString().split('T')[0];
     
-    // Viagens Hoje
     currentTrips.forEach(t => {
       if (t.status === TripStatus.SCHEDULED && t.date === todayStr && !dismissedIds.includes(`trip-${t.id}`)) {
         alerts.push({ id: `trip-${t.id}`, title: 'Viagem Hoje!', msg: `Destino: ${t.destination}`, type: 'warning' });
       }
     });
 
-    // Manutenções
     currentMain.forEach(m => {
       const v = currentVehicles.find(veh => veh.id === m.vehicle_id);
       if (v && v.current_km >= (m.km_at_purchase + m.warranty_km) && !dismissedIds.includes(`main-${m.id}`)) {
@@ -140,18 +132,13 @@ const App: React.FC = () => {
       }
     });
 
-    // Contas a Pagar (Notificar hoje e vencimentos nos próximos 7 dias)
     currentExpenses.forEach(e => {
       if (e.due_date && !e.is_paid && !e.trip_id) {
         const dueDate = new Date(e.due_date + 'T12:00:00');
         dueDate.setHours(0, 0, 0, 0);
-        
-        const diffTime = dueDate.getTime() - today.getTime();
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
+        const diffDays = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
         if (diffDays >= 0 && diffDays <= 7 && !dismissedIds.includes(`exp-${e.id}`)) {
-          const title = diffDays === 0 ? 'Conta Vence HOJE' : `Conta Vence em ${diffDays} dias`;
-          alerts.push({ id: `exp-${e.id}`, title, msg: `${e.description} (R$ ${e.amount})`, type: 'warning' });
+          alerts.push({ id: `exp-${e.id}`, title: diffDays === 0 ? 'Vence HOJE' : `Vence em ${diffDays} dias`, msg: `${e.description} (R$ ${e.amount})`, type: 'warning' });
         }
       }
     });
@@ -159,23 +146,28 @@ const App: React.FC = () => {
     setNotifications(alerts);
   };
 
-  const handleAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setAuthLoading(true);
-    try {
-      if (isSignUp) {
-        const { error } = await supabase.auth.signUp({ email, password });
-        if (error) throw error;
-        alert("Verifique seu e-mail!");
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-      }
-    } catch (err: any) { setError(err.message); } finally { setAuthLoading(false); }
+  const handleDbError = (err: any, table: string) => {
+    console.error(`Erro na tabela ${table}:`, err);
+    if (err.message?.includes("violates row-level security policy")) {
+      alert(`⚠️ ERRO DE SEGURANÇA (RLS):
+A tabela '${table}' no Supabase precisa de uma política (Policy) de inserção. 
+Execute este comando no SQL Editor do Supabase:
+
+ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Permitir Tudo Usuário Logado" ON ${table} FOR ALL USING (auth.uid() = user_id);`);
+    } else if (err.message?.includes("column \"is_paid\" of relation \"expenses\" does not exist")) {
+      alert(`⚠️ ERRO DE SCHEMA:
+A coluna 'is_paid' não existe na tabela 'expenses'.
+Execute este comando no SQL Editor do Supabase:
+
+ALTER TABLE expenses ADD COLUMN is_paid BOOLEAN DEFAULT false;`);
+    } else {
+      alert(`Erro: ${err.message}`);
+    }
   };
 
   const handleAddExpense = async (e: Omit<Expense, 'id'>) => {
+    if (!session?.user) return;
     setIsSaving(true);
     try {
       const payload = sanitizeExpensePayload({...e, user_id: session.user.id});
@@ -183,10 +175,7 @@ const App: React.FC = () => {
       if (error) throw error;
       fetchData();
     } catch (err: any) { 
-      console.error(err);
-      alert(err.message.includes("Could not find the 'is_paid' column") 
-        ? "Erro: A coluna 'is_paid' não foi encontrada no banco. Adicione-a via SQL no Supabase." 
-        : err.message); 
+      handleDbError(err, 'expenses');
     } finally { setIsSaving(false); }
   };
 
@@ -198,11 +187,24 @@ const App: React.FC = () => {
       if (error) throw error;
       fetchData();
     } catch (err: any) { 
-      console.error(err);
-      alert(err.message.includes("Could not find the 'is_paid' column") 
-        ? "Erro: A coluna 'is_paid' não foi encontrada no banco. Adicione-a via SQL no Supabase." 
-        : err.message); 
+      handleDbError(err, 'expenses');
     } finally { setIsSaving(false); }
+  };
+
+  const handleAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setAuthLoading(true);
+    try {
+      if (isSignUp) {
+        const { error } = await supabase.auth.signUp({ email, password });
+        if (error) throw error;
+        alert("Cadastro realizado! Verifique seu e-mail.");
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+      }
+    } catch (err: any) { setError(err.message); } finally { setAuthLoading(false); }
   };
 
   const setStartTimeWithStorage = (time: number | null) => {
@@ -302,12 +304,74 @@ const App: React.FC = () => {
 
         <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50">
           {currentView === AppView.DASHBOARD && <Dashboard trips={trips} expenses={expenses} vehicles={vehicles} onSetView={setCurrentView} />}
-          {currentView === AppView.TRIPS && <TripManager trips={trips} vehicles={vehicles} onAddTrip={async (t) => { await supabase.from('trips').insert([sanitizeTripPayload({...t, user_id: session.user.id})]); fetchData(); }} onUpdateStatus={async (id, s, km) => { await supabase.from('trips').update({status: s}).eq('id', id); if(km) await supabase.from('vehicles').update({current_km: km}).eq('id', trips.find(x => x.id === id)?.vehicle_id); fetchData(); }} onDeleteTrip={async (id) => { await supabase.from('trips').delete().eq('id', id); fetchData(); }} onUpdateTrip={async (id, t) => { await supabase.from('trips').update(sanitizeTripPayload(t)).eq('id', id); fetchData(); }} isSaving={isSaving} />}
-          {currentView === AppView.VEHICLES && <VehicleManager vehicles={vehicles} onAddVehicle={async (v) => { await supabase.from('vehicles').insert([{...v, user_id: session.user.id}]); fetchData(); }} onUpdateVehicle={async (id, v) => { await supabase.from('vehicles').update(v).eq('id', id); fetchData(); }} onDeleteVehicle={async (id) => { await supabase.from('vehicles').delete().eq('id', id); fetchData(); }} isSaving={isSaving} />}
-          {currentView === AppView.MAINTENANCE && <MaintenanceManager maintenance={maintenance} vehicles={vehicles} onAddMaintenance={async (m) => { await supabase.from('maintenance').insert([{...m, user_id: session.user.id}]); fetchData(); }} onDeleteMaintenance={async (id) => { await supabase.from('maintenance').delete().eq('id', id); fetchData(); }} isSaving={isSaving} />}
-          {currentView === AppView.EXPENSES && <ExpenseManager expenses={expenses} trips={trips} vehicles={vehicles} onAddExpense={handleAddExpense} onUpdateExpense={handleUpdateExpense} onDeleteExpense={async (id) => { await supabase.from('expenses').delete().eq('id', id); fetchData(); }} isSaving={isSaving} />}
+          {currentView === AppView.TRIPS && <TripManager trips={trips} vehicles={vehicles} onAddTrip={async (t) => { 
+            try { 
+              const { error } = await supabase.from('trips').insert([sanitizeTripPayload({...t, user_id: session.user.id})]); 
+              if (error) throw error;
+              fetchData(); 
+            } catch (err) { handleDbError(err, 'trips'); }
+          }} onUpdateStatus={async (id, s, km) => { 
+            try {
+              await supabase.from('trips').update({status: s}).eq('id', id); 
+              if(km) await supabase.from('vehicles').update({current_km: km}).eq('id', trips.find(x => x.id === id)?.vehicle_id); 
+              fetchData(); 
+            } catch (err) { handleDbError(err, 'trips/vehicles'); }
+          }} onDeleteTrip={async (id) => { 
+            try {
+              await supabase.from('trips').delete().eq('id', id); 
+              fetchData(); 
+            } catch (err) { handleDbError(err, 'trips'); }
+          }} onUpdateTrip={async (id, t) => { 
+            try {
+              await supabase.from('trips').update(sanitizeTripPayload(t)).eq('id', id); 
+              fetchData(); 
+            } catch (err) { handleDbError(err, 'trips'); }
+          }} isSaving={isSaving} />}
+          {currentView === AppView.VEHICLES && <VehicleManager vehicles={vehicles} onAddVehicle={async (v) => { 
+            try {
+              await supabase.from('vehicles').insert([{...v, user_id: session.user.id}]); 
+              fetchData(); 
+            } catch (err) { handleDbError(err, 'vehicles'); }
+          }} onUpdateVehicle={async (id, v) => { 
+            try {
+              await supabase.from('vehicles').update(v).eq('id', id); 
+              fetchData(); 
+            } catch (err) { handleDbError(err, 'vehicles'); }
+          }} onDeleteVehicle={async (id) => { 
+            try {
+              await supabase.from('vehicles').delete().eq('id', id); 
+              fetchData(); 
+            } catch (err) { handleDbError(err, 'vehicles'); }
+          }} isSaving={isSaving} />}
+          {currentView === AppView.MAINTENANCE && <MaintenanceManager maintenance={maintenance} vehicles={vehicles} onAddMaintenance={async (m) => { 
+            try {
+              await supabase.from('maintenance').insert([{...m, user_id: session.user.id}]); 
+              fetchData(); 
+            } catch (err) { handleDbError(err, 'maintenance'); }
+          }} onDeleteMaintenance={async (id) => { 
+            try {
+              await supabase.from('maintenance').delete().eq('id', id); 
+              fetchData(); 
+            } catch (err) { handleDbError(err, 'maintenance'); }
+          }} isSaving={isSaving} />}
+          {currentView === AppView.EXPENSES && <ExpenseManager expenses={expenses} trips={trips} vehicles={vehicles} onAddExpense={handleAddExpense} onUpdateExpense={handleUpdateExpense} onDeleteExpense={async (id) => { 
+            try {
+              await supabase.from('expenses').delete().eq('id', id); 
+              fetchData(); 
+            } catch (err) { handleDbError(err, 'expenses'); }
+          }} isSaving={isSaving} />}
           {currentView === AppView.CALCULATOR && <FreightCalculator />}
-          {currentView === AppView.JORNADA && <JornadaManager mode={jornadaMode} startTime={jornadaStartTime} logs={jornadaLogs} setMode={setJornadaMode} setStartTime={setStartTimeWithStorage} onSaveLog={async (l) => { await supabase.from('jornada_logs').insert([{...l, user_id: session.user.id}]); fetchData(); }} onDeleteLog={async (id) => { await supabase.from('jornada_logs').delete().eq('id', id); fetchData(); }} addGlobalNotification={(t, m, tp) => setNotifications([{id: Date.now().toString(), title: t, msg: m, type: tp || 'info'}, ...notifications])} />}
+          {currentView === AppView.JORNADA && <JornadaManager mode={jornadaMode} startTime={jornadaStartTime} logs={jornadaLogs} setMode={setJornadaMode} setStartTime={setStartTimeWithStorage} onSaveLog={async (l) => { 
+            try {
+              await supabase.from('jornada_logs').insert([{...l, user_id: session.user.id}]); 
+              fetchData(); 
+            } catch (err) { handleDbError(err, 'jornada_logs'); }
+          }} onDeleteLog={async (id) => { 
+            try {
+              await supabase.from('jornada_logs').delete().eq('id', id); 
+              fetchData(); 
+            } catch (err) { handleDbError(err, 'jornada_logs'); }
+          }} addGlobalNotification={(t, m, tp) => setNotifications([{id: Date.now().toString(), title: t, msg: m, type: tp || 'info'}, ...notifications])} />}
           {currentView === AppView.STATIONS && <StationLocator />}
         </div>
       </main>
