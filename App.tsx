@@ -148,19 +148,30 @@ const App: React.FC = () => {
 
   const handleDbError = (err: any, table: string) => {
     console.error(`Erro na tabela ${table}:`, err);
-    if (err.message?.includes("violates row-level security policy")) {
-      alert(`⚠️ ERRO DE SEGURANÇA (RLS):
-A tabela '${table}' no Supabase precisa de uma política (Policy) de acesso. 
-Execute este comando no SQL Editor do Supabase:
+    if (err.message?.includes("violates row-level security policy") || err.message?.includes("policy already exists")) {
+      alert(`⚠️ ERRO DE SEGURANÇA OU CONFIGURAÇÃO NO SUPABASE:
+A tabela '${table}' precisa de permissão total. Execute este comando no SQL Editor:
 
+-- Limpa regras antigas primeiro
+DO $$ 
+DECLARE 
+    p RECORD;
+BEGIN 
+    FOR p IN (SELECT policyname FROM pg_policies WHERE tablename = '${table}') 
+    LOOP 
+        EXECUTE format('DROP POLICY IF EXISTS %I ON ${table}', p.policyname);
+    END LOOP; 
+END $$;
+
+-- Cria a regra correta
 ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Acesso Total ${table}" ON ${table};
-CREATE POLICY "Acesso Total ${table}" ON ${table} FOR ALL USING (auth.uid() = user_id);`);
+CREATE POLICY "Controle Total Proprietario" ON ${table} 
+FOR ALL TO authenticated 
+USING (auth.uid() = user_id) 
+WITH CHECK (auth.uid() = user_id);`);
     } else if (err.message?.includes("column \"is_paid\" of relation \"expenses\" does not exist")) {
       alert(`⚠️ ERRO DE SCHEMA:
-A coluna 'is_paid' não existe na tabela 'expenses'.
-Execute este comando no SQL Editor do Supabase:
-
+A coluna 'is_paid' não existe na tabela 'expenses'. Execute:
 ALTER TABLE expenses ADD COLUMN IF NOT EXISTS is_paid BOOLEAN DEFAULT false;`);
     } else {
       alert(`Erro: ${err.message}`);
