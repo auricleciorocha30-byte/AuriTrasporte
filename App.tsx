@@ -150,17 +150,18 @@ const App: React.FC = () => {
     console.error(`Erro na tabela ${table}:`, err);
     if (err.message?.includes("violates row-level security policy")) {
       alert(`⚠️ ERRO DE SEGURANÇA (RLS):
-A tabela '${table}' no Supabase precisa de uma política (Policy) de inserção. 
+A tabela '${table}' no Supabase precisa de uma política (Policy) de acesso. 
 Execute este comando no SQL Editor do Supabase:
 
 ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Permitir Tudo Usuário Logado" ON ${table} FOR ALL USING (auth.uid() = user_id);`);
+DROP POLICY IF EXISTS "Acesso Total ${table}" ON ${table};
+CREATE POLICY "Acesso Total ${table}" ON ${table} FOR ALL USING (auth.uid() = user_id);`);
     } else if (err.message?.includes("column \"is_paid\" of relation \"expenses\" does not exist")) {
       alert(`⚠️ ERRO DE SCHEMA:
 A coluna 'is_paid' não existe na tabela 'expenses'.
 Execute este comando no SQL Editor do Supabase:
 
-ALTER TABLE expenses ADD COLUMN is_paid BOOLEAN DEFAULT false;`);
+ALTER TABLE expenses ADD COLUMN IF NOT EXISTS is_paid BOOLEAN DEFAULT false;`);
     } else {
       alert(`Erro: ${err.message}`);
     }
