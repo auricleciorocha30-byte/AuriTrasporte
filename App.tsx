@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { LayoutDashboard, Truck, Wallet, Calculator, Menu, X, LogOut, Bell, Settings, CheckSquare, Timer, Fuel, Loader2, Mail, Key, UserPlus, LogIn, AlertCircle, Share2, AlertTriangle, KeyRound } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { LayoutDashboard, Truck, Wallet, Calculator, Menu, X, LogOut, Bell, Settings, CheckSquare, Timer, Fuel, Loader2, Mail, Key, UserPlus, LogIn, AlertCircle, Share2, AlertTriangle, KeyRound, Wifi, WifiOff, CloudUpload, CheckCircle2 } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { TripManager } from './components/TripManager';
 import { ExpenseManager } from './components/ExpenseManager';
@@ -12,12 +12,16 @@ import { StationLocator } from './components/StationLocator';
 import { NotificationCenter } from './components/NotificationCenter';
 import { AppView, Trip, Expense, Vehicle, MaintenanceItem, TripStatus, JornadaLog, ExpenseCategory } from './types';
 import { supabase } from './lib/supabase';
+import { offlineStorage } from './lib/offlineStorage';
 
 const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [syncing, setSyncing] = useState(false);
+  
   const [currentView, setCurrentView] = useState<AppView>(AppView.DASHBOARD);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
@@ -36,12 +40,88 @@ const App: React.FC = () => {
   const [maintenance, setMaintenance] = useState<MaintenanceItem[]>([]);
   const [jornadaLogs, setJornadaLogs] = useState<JornadaLog[]>([]);
 
+  // Monitorar Conexão
+  useEffect(() => {
+    const handleOnline = () => { setIsOnline(true); syncData(); };
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  const syncData = useCallback(async () => {
+    if (!navigator.onLine || syncing) return;
+    setSyncing(true);
+    try {
+      const pending = await offlineStorage.getPendingSync();
+      if (pending.length === 0) return;
+
+      for (const item of pending) {
+        let error = null;
+        if (item.action === 'insert' || item.action === 'update') {
+          ({ error } = await supabase.from(item.table).upsert([item.data]));
+        } else if (item.action === 'delete') {
+          ({ error } = await supabase.from(item.table).delete().eq('id', item.id));
+        }
+        
+        if (!error) {
+          await offlineStorage.markAsSynced(item.id);
+        }
+      }
+      await fetchData(); // Atualiza tudo após sync
+    } catch (err) {
+      console.error("Erro na sincronização:", err);
+    } finally {
+      setSyncing(false);
+    }
+  }, [syncing]);
+
+  const fetchData = async () => {
+    try {
+      // Se estiver online, tenta baixar do Supabase e atualizar o cache local
+      if (navigator.onLine && session?.user) {
+        const [tripsRes, expRes, vehRes, mainRes, jornRes] = await Promise.all([
+          supabase.from('trips').select('*').order('date', { ascending: false }),
+          supabase.from('expenses').select('*').order('date', { ascending: false }),
+          supabase.from('vehicles').select('*').order('plate', { ascending: true }),
+          supabase.from('maintenance').select('*').order('purchase_date', { ascending: false }),
+          supabase.from('jornada_logs').select('*').order('created_at', { ascending: false })
+        ]);
+
+        if (tripsRes.data) { await offlineStorage.clearTable('trips'); await offlineStorage.bulkSave('trips', tripsRes.data); }
+        if (expRes.data) { await offlineStorage.clearTable('expenses'); await offlineStorage.bulkSave('expenses', expRes.data); }
+        if (vehRes.data) { await offlineStorage.clearTable('vehicles'); await offlineStorage.bulkSave('vehicles', vehRes.data); }
+        if (mainRes.data) { await offlineStorage.clearTable('maintenance'); await offlineStorage.bulkSave('maintenance', mainRes.data); }
+        if (jornRes.data) { await offlineStorage.clearTable('jornada_logs'); await offlineStorage.bulkSave('jornada_logs', jornRes.data); }
+      }
+
+      // Carrega do Banco Local (IndexedDB) - Sempre rápido e funciona offline
+      const [lTrips, lExp, lVeh, lMain, lJorn] = await Promise.all([
+        offlineStorage.getAll('trips'),
+        offlineStorage.getAll('expenses'),
+        offlineStorage.getAll('vehicles'),
+        offlineStorage.getAll('maintenance'),
+        offlineStorage.getAll('jornada_logs')
+      ]);
+
+      setTrips(lTrips);
+      setExpenses(lExp);
+      setVehicles(lVeh);
+      setMaintenance(lMain);
+      setJornadaLogs(lJorn);
+    } catch (err) {
+      console.error("Erro ao carregar dados:", err);
+    }
+  };
+
   const activeNotifications = useMemo(() => {
     const list: any[] = [];
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-    // Notificações de Manutenção
     maintenance.forEach(m => {
       const vehicle = vehicles.find(v => v.id === m.vehicle_id);
       if (!vehicle) return;
@@ -54,76 +134,31 @@ const App: React.FC = () => {
       }
     });
 
-    // Notificações de Viagens (Próximas)
     trips.filter(t => t.status === TripStatus.SCHEDULED).forEach(t => {
       const tripDate = new Date(t.date + 'T12:00:00');
       tripDate.setHours(0,0,0,0);
-      
       const diffTime = tripDate.getTime() - today.getTime();
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
       if (diffDays === 0) {
-        list.push({ 
-          id: `trip-today-${t.id}`, 
-          type: 'WARNING', 
-          category: 'TRIP', 
-          title: `Viagem Começa Hoje!`, 
-          message: `Rota: ${t.origin.split(' - ')[0]} -> ${t.destination.split(' - ')[0]}. Verifique os documentos e o veículo.`, 
-          date: 'Hoje' 
-        });
+        list.push({ id: `trip-today-${t.id}`, type: 'WARNING', category: 'TRIP', title: `Viagem Começa Hoje!`, message: `Rota: ${t.origin.split(' - ')[0]} -> ${t.destination.split(' - ')[0]}.`, date: 'Hoje' });
       } else if (diffDays > 0 && diffDays <= 2) {
-        list.push({ 
-          id: `trip-soon-${t.id}`, 
-          type: 'INFO', 
-          category: 'TRIP', 
-          title: `Viagem em ${diffDays} ${diffDays === 1 ? 'dia' : 'dias'}`, 
-          message: `Início programado para ${t.destination.split(' - ')[0]}.`, 
-          date: 'Em breve' 
-        });
+        list.push({ id: `trip-soon-${t.id}`, type: 'INFO', category: 'TRIP', title: `Viagem em ${diffDays} ${diffDays === 1 ? 'dia' : 'dias'}`, message: `Início programado para ${t.destination.split(' - ')[0]}.`, date: 'Em breve' });
       }
     });
 
-    // Notificações de Despesas (Financeiro)
     expenses.filter(e => !e.is_paid).forEach(e => {
       if (!e.due_date) return;
-      
       const dueDate = new Date(e.due_date + 'T12:00:00');
       dueDate.setHours(0,0,0,0);
-      
       const diffTime = dueDate.getTime() - today.getTime();
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      const isFixed = !e.trip_id; // Se não tem trip_id, é custo fixo
-
+      const isFixed = !e.trip_id;
       if (diffDays < 0) {
-        // Atrasado
-        list.push({ 
-          id: `exp-late-${e.id}`, 
-          type: 'URGENT', 
-          category: 'FINANCE', 
-          title: isFixed ? `Custo Fixo Atrasado!` : `Gasto de Viagem Atrasado!`, 
-          message: `${e.description} venceu em ${dueDate.toLocaleDateString()}. Valor: R$ ${e.amount.toLocaleString()}`, 
-          date: 'Atrasado' 
-        });
+        list.push({ id: `exp-late-${e.id}`, type: 'URGENT', category: 'FINANCE', title: isFixed ? `Custo Fixo Atrasado!` : `Gasto de Viagem Atrasado!`, message: `${e.description} venceu em ${dueDate.toLocaleDateString()}.`, date: 'Atrasado' });
       } else if (diffDays === 0) {
-        // Vence Hoje
-        list.push({ 
-          id: `exp-today-${e.id}`, 
-          type: 'WARNING', 
-          category: 'FINANCE', 
-          title: isFixed ? `Custo Fixo Vence Hoje` : `Gasto de Viagem Hoje`, 
-          message: `Pagar ${e.description} hoje. Valor: R$ ${e.amount.toLocaleString()}`, 
-          date: 'Hoje' 
-        });
+        list.push({ id: `exp-today-${e.id}`, type: 'WARNING', category: 'FINANCE', title: isFixed ? `Custo Fixo Vence Hoje` : `Gasto de Viagem Hoje`, message: `Pagar ${e.description} hoje.`, date: 'Hoje' });
       } else if (diffDays > 0 && diffDays <= 3) {
-        // Vencimento Próximo (até 3 dias)
-        list.push({ 
-          id: `exp-soon-${e.id}`, 
-          type: 'INFO', 
-          category: 'FINANCE', 
-          title: isFixed ? `Vencimento de Custo Fixo` : `Vencimento Próximo`, 
-          message: `${e.description} vence em ${diffDays} ${diffDays === 1 ? 'dia' : 'dias'}.`, 
-          date: 'Em breve' 
-        });
+        list.push({ id: `exp-soon-${e.id}`, type: 'INFO', category: 'FINANCE', title: isFixed ? `Vencimento de Custo Fixo` : `Vencimento Próximo`, message: `${e.description} vence em ${diffDays} dias.`, date: 'Em breve' });
       }
     });
 
@@ -141,57 +176,10 @@ const App: React.FC = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  useEffect(() => {
-    if (session?.user) fetchData();
-  }, [session]);
-
-  const fetchData = async () => {
-    try {
-      const [tripsRes, expRes, vehRes, mainRes, jornRes] = await Promise.all([
-        supabase.from('trips').select('*').order('date', { ascending: false }),
-        supabase.from('expenses').select('*').order('date', { ascending: false }),
-        supabase.from('vehicles').select('*').order('plate', { ascending: true }),
-        supabase.from('maintenance').select('*').order('purchase_date', { ascending: false }),
-        supabase.from('jornada_logs').select('*').order('created_at', { ascending: false })
-      ]);
-      setTrips(tripsRes.data || []);
-      setExpenses(expRes.data || []);
-      setVehicles(vehRes.data || []);
-      setMaintenance(mainRes.data || []);
-      setJornadaLogs(jornRes.data || []);
-    } catch (err) {
-      console.error("Erro ao carregar dados:", err);
-    }
-  };
-
-  const handleAddExpense = async (e: any) => {
-    setIsSaving(true);
-    try {
-      if (!session?.user?.id) throw new Error("Usuário não autenticado");
-      
-      const payload = { 
-        ...e, 
-        user_id: session.user.id 
-      };
-
-      const { data, error } = await supabase
-        .from('expenses')
-        .insert([payload])
-        .select();
-      
-      if (error) throw error;
-      await fetchData();
-    } catch (err: any) { 
-      console.error("Erro ao salvar despesa:", err);
-      alert("Falha ao salvar no banco: " + err.message); 
-    } finally { 
-      setIsSaving(false); 
-    }
-  };
-
+  // Added handleResetPassword to resolve "Cannot find name 'handleResetPassword'" error
   const handleResetPassword = async () => {
     if (!email) {
-      setError("Por favor, digite seu e-mail primeiro.");
+      setError("Por favor, informe seu e-mail para recuperar a senha.");
       return;
     }
     setAuthLoading(true);
@@ -202,7 +190,7 @@ const App: React.FC = () => {
         redirectTo: window.location.origin,
       });
       if (error) throw error;
-      setSuccessMsg("E-mail de recuperação enviado! Verifique sua caixa de entrada.");
+      setSuccessMsg("Link de recuperação enviado para seu e-mail.");
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -210,24 +198,32 @@ const App: React.FC = () => {
     }
   };
 
-  const handleAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setSuccessMsg('');
-    setAuthLoading(true);
+  useEffect(() => {
+    if (session?.user) {
+      fetchData();
+      syncData();
+    }
+  }, [session]);
+
+  const handleAction = async (table: string, data: any, action: 'insert' | 'update' | 'delete' = 'insert') => {
+    setIsSaving(true);
     try {
-      if (isSignUp) {
-        const { error } = await supabase.auth.signUp({ email, password });
-        if (error) throw error;
-        setSuccessMsg("Cadastro realizado! Verifique seu e-mail.");
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
+      if (!session?.user?.id) throw new Error("Usuário não autenticado");
+      const payload = { ...data, user_id: session.user.id };
+      
+      // Salva localmente primeiro (funciona offline)
+      await offlineStorage.save(table, payload, action);
+      
+      // Tenta sincronizar imediatamente se estiver online
+      if (navigator.onLine) {
+        await syncData();
       }
-    } catch (err: any) { 
-      setError(err.message); 
-    } finally { 
-      setAuthLoading(false); 
+      
+      await fetchData();
+    } catch (err: any) {
+      console.error(`Erro ao salvar em ${table}:`, err);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -241,7 +237,7 @@ const App: React.FC = () => {
           <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase leading-none text-center">AuriLog</h1>
           <p className="text-slate-400 font-bold text-xs mt-2 uppercase tracking-widest">{isSignUp ? 'Criar nova conta' : 'Gestão Profissional de Fretes'}</p>
         </div>
-        <form onSubmit={handleAuth} className="space-y-5">
+        <form onSubmit={async (e) => { e.preventDefault(); setError(''); setSuccessMsg(''); setAuthLoading(true); try { if (isSignUp) { const { error } = await supabase.auth.signUp({ email, password }); if (error) throw error; setSuccessMsg("Cadastro realizado! Verifique seu e-mail."); } else { const { error } = await supabase.auth.signInWithPassword({ email, password }); if (error) throw error; } } catch (err: any) { setError(err.message); } finally { setAuthLoading(false); } }} className="space-y-5">
           <div className="space-y-1.5">
             <label className="text-[10px] font-black uppercase text-slate-400 ml-1">E-mail</label>
             <input required type="email" placeholder="seu@email.com" className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:ring-2 focus:ring-primary-500 transition-all" value={email} onChange={e => setEmail(e.target.value)} />
@@ -249,22 +245,14 @@ const App: React.FC = () => {
           <div className="space-y-1.5">
             <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Senha</label>
             <input required={!isSignUp} type="password" placeholder="••••••••" className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:ring-2 focus:ring-primary-500 transition-all" value={password} onChange={e => setPassword(e.target.value)} />
-            
             {!isSignUp && (
               <div className="flex justify-end pr-1">
-                <button 
-                  type="button" 
-                  onClick={handleResetPassword}
-                  className="text-[10px] font-black uppercase text-primary-600 hover:text-primary-700 transition-colors"
-                >
-                  Esqueceu a senha?
-                </button>
+                <button type="button" onClick={handleResetPassword} className="text-[10px] font-black uppercase text-primary-600 hover:text-primary-700 transition-colors">Esqueceu a senha?</button>
               </div>
             )}
           </div>
           {error && <div className="bg-rose-50 border border-rose-100 p-4 rounded-2xl text-rose-600 text-xs font-bold animate-pulse">{error}</div>}
           {successMsg && <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-2xl text-emerald-600 text-xs font-bold">{successMsg}</div>}
-          
           <button disabled={authLoading} type="submit" className="w-full py-5 bg-primary-600 text-white rounded-2xl font-black text-lg shadow-xl hover:bg-primary-700 transition-all flex items-center justify-center gap-3">
             {authLoading ? <Loader2 className="animate-spin" /> : isSignUp ? <UserPlus size={20} /> : <LogIn size={20} />}
             {isSignUp ? 'Cadastrar agora' : 'Entrar no Sistema'}
@@ -295,7 +283,17 @@ const App: React.FC = () => {
         <header className="h-16 bg-white border-b flex items-center justify-between px-6 shrink-0 z-10">
           <div className="flex items-center gap-4">
             <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden p-2 text-slate-600"><Menu size={24} /></button>
-            <div className="hidden lg:block"><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">AuriLog Enterprise</span></div>
+            <div className="flex items-center gap-2">
+              <span className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter border ${isOnline ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>
+                {isOnline ? <Wifi size={12}/> : <WifiOff size={12}/>}
+                {isOnline ? 'Online' : 'Offline'}
+              </span>
+              {syncing && (
+                <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter bg-blue-50 text-blue-600 border border-blue-100 animate-pulse">
+                  <CloudUpload size={12}/> Sincronizando...
+                </span>
+              )}
+            </div>
           </div>
           <button onClick={() => setIsNotificationOpen(true)} className="relative p-3 text-slate-500 hover:bg-slate-50 rounded-full">
             <Bell size={24} />
@@ -306,43 +304,55 @@ const App: React.FC = () => {
         <div className="flex-1 overflow-y-auto p-4 md:p-8">
           {currentView === AppView.EXPENSES && (
             <ExpenseManager 
-              expenses={expenses} 
-              trips={trips} 
-              vehicles={vehicles} 
-              onAddExpense={handleAddExpense} 
-              onUpdateExpense={async (id, e) => { 
-                setIsSaving(true); 
-                try {
-                  const { error } = await supabase.from('expenses').update(e).eq('id', id); 
-                  if (error) throw error;
-                  await fetchData(); 
-                } catch(err: any) { console.error(err); alert("Erro ao atualizar."); }
-                finally { setIsSaving(false); }
-              }} 
-              onDeleteExpense={async (id) => { 
-                if(window.confirm('Excluir lançamento?')) { 
-                  try {
-                    const { error } = await supabase.from('expenses').delete().eq('id', id); 
-                    if (error) throw error;
-                    await fetchData(); 
-                  } catch(err: any) { alert("Erro ao excluir."); }
-                } 
-              }} 
+              expenses={expenses} trips={trips} vehicles={vehicles} 
+              onAddExpense={(e) => handleAction('expenses', e, 'insert')} 
+              onUpdateExpense={(id, e) => handleAction('expenses', { ...e, id }, 'update')} 
+              onDeleteExpense={(id) => handleAction('expenses', { id }, 'delete')} 
               isSaving={isSaving} 
             />
           )}
           {currentView === AppView.TRIPS && (
-            <TripManager trips={trips} vehicles={vehicles} onAddTrip={async (t) => { await supabase.from('trips').insert([{...t, user_id: session.user.id}]); fetchData(); }} onUpdateTrip={async (id, t) => { await supabase.from('trips').update(t).eq('id', id); fetchData(); }} onUpdateStatus={async (id, s, km) => { await supabase.from('trips').update({status: s}).eq('id', id); if(km) { const trip = trips.find(x => x.id === id); if(trip?.vehicle_id) await supabase.from('vehicles').update({current_km: km}).eq('id', trip.vehicle_id); } fetchData(); }} onDeleteTrip={async (id) => { if(window.confirm('Excluir?')) { await supabase.from('trips').delete().eq('id', id); fetchData(); } }} isSaving={isSaving} />
+            <TripManager 
+              trips={trips} vehicles={vehicles} 
+              onAddTrip={(t) => handleAction('trips', t, 'insert')} 
+              onUpdateTrip={(id, t) => handleAction('trips', { ...t, id }, 'update')} 
+              onUpdateStatus={async (id, s, km) => { 
+                await handleAction('trips', { id, status: s }, 'update');
+                if (km) {
+                  const trip = trips.find(x => x.id === id);
+                  if (trip?.vehicle_id) await handleAction('vehicles', { id: trip.vehicle_id, current_km: km }, 'update');
+                }
+              }} 
+              onDeleteTrip={(id) => handleAction('trips', { id }, 'delete')} 
+              isSaving={isSaving} 
+            />
           )}
           {currentView === AppView.VEHICLES && (
-            <VehicleManager vehicles={vehicles} onAddVehicle={async (v) => { await supabase.from('vehicles').insert([{...v, user_id: session.user.id}]); fetchData(); }} onUpdateVehicle={async (id, v) => { await supabase.from('vehicles').update(v).eq('id', id); fetchData(); }} onDeleteVehicle={async (id) => { if(window.confirm('Excluir?')) { await supabase.from('vehicles').delete().eq('id', id); fetchData(); } }} isSaving={isSaving} />
+            <VehicleManager 
+              vehicles={vehicles} 
+              onAddVehicle={(v) => handleAction('vehicles', v, 'insert')} 
+              onUpdateVehicle={(id, v) => handleAction('vehicles', { ...v, id }, 'update')} 
+              onDeleteVehicle={(id) => handleAction('vehicles', { id }, 'delete')} 
+              isSaving={isSaving} 
+            />
           )}
           {currentView === AppView.MAINTENANCE && (
-            <MaintenanceManager maintenance={maintenance} vehicles={vehicles} onAddMaintenance={async (m) => { setIsSaving(true); try { const { error } = await supabase.from('maintenance').insert([{...m, user_id: session.user.id}]); if (error) throw error; await fetchData(); } catch(err: any) { alert(err.message); } finally { setIsSaving(false); } }} onDeleteMaintenance={async (id) => { if(window.confirm('Excluir?')) { await supabase.from('maintenance').delete().eq('id', id); fetchData(); } }} isSaving={isSaving} />
+            <MaintenanceManager 
+              maintenance={maintenance} vehicles={vehicles} 
+              onAddMaintenance={(m) => handleAction('maintenance', m, 'insert')} 
+              onDeleteMaintenance={(id) => handleAction('maintenance', { id }, 'delete')} 
+              isSaving={isSaving} 
+            />
           )}
           {currentView === AppView.CALCULATOR && <FreightCalculator />}
           {currentView === AppView.JORNADA && (
-            <JornadaManager mode={jornadaMode} startTime={jornadaStartTime} logs={jornadaLogs} setMode={setJornadaMode} setStartTime={setJornadaStartTime} onSaveLog={async (l) => { await supabase.from('jornada_logs').insert([{...l, user_id: session.user.id}]); fetchData(); }} onDeleteLog={async (id) => { await supabase.from('jornada_logs').delete().eq('id', id); fetchData(); }} addGlobalNotification={() => {}} />
+            <JornadaManager 
+              mode={jornadaMode} startTime={jornadaStartTime} logs={jornadaLogs} 
+              setMode={setJornadaMode} setStartTime={setJornadaStartTime} 
+              onSaveLog={(l) => handleAction('jornada_logs', l, 'insert')} 
+              onDeleteLog={(id) => handleAction('jornada_logs', { id }, 'delete')} 
+              addGlobalNotification={() => {}} 
+            />
           )}
           {currentView === AppView.STATIONS && <StationLocator />}
           {currentView === AppView.DASHBOARD && <Dashboard trips={trips} expenses={expenses} maintenance={maintenance} vehicles={vehicles} onSetView={setCurrentView} />}
