@@ -36,7 +36,6 @@ const TRIP_CATEGORIES = [
 export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips, vehicles, onAddExpense, onUpdateExpense, onDeleteExpense, isSaving }) => {
   const [modalType, setModalType] = useState<'TRIP' | 'FIXED' | null>(null);
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
-  const [confirmPaymentId, setConfirmPaymentId] = useState<string | null>(null);
   
   const [formData, setFormData] = useState<any>({
     category: ExpenseCategory.FUEL,
@@ -86,6 +85,14 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
     });
   };
 
+  const handleMarkAsPaid = async (id: string, description: string, amount: number) => {
+    if (confirm(`Confirmar o pagamento de "${description}" no valor de R$ ${amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}?`)) {
+      if (onUpdateExpense) {
+        await onUpdateExpense(id, { is_paid: true });
+      }
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanAmount = parseFloat(formData.amount);
@@ -117,16 +124,6 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
     } catch (err: any) {
       console.error("Erro ao salvar despesa:", err);
       alert("Erro ao salvar.");
-    }
-  };
-
-  const executePayment = async () => {
-    if (!confirmPaymentId || !onUpdateExpense) return;
-    try {
-      await onUpdateExpense(confirmPaymentId, { is_paid: true });
-      setConfirmPaymentId(null);
-    } catch (err) {
-      console.error(err);
     }
   };
 
@@ -170,7 +167,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
                 </div>
                 <div className="text-right">
                   <div className="text-[10px] font-black uppercase text-slate-400 mb-1">Valor</div>
-                  <div className="text-3xl font-black text-rose-500">R$ {expense.amount.toLocaleString()}</div>
+                  <div className="text-3xl font-black text-rose-500">R$ {expense.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
                   {expense.installments_total && expense.installments_total > 1 && (
                     <div className="text-[10px] font-black text-slate-400 uppercase mt-1">Parcela {expense.installment_number}/{expense.installments_total}</div>
                   )}
@@ -204,7 +201,10 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
                 </div>
 
                 {!expense.is_paid && (
-                  <button onClick={() => setConfirmPaymentId(expense.id)} className="w-full mt-4 py-4 bg-emerald-600 text-white rounded-[1.5rem] font-black text-xs uppercase flex items-center justify-center gap-2 hover:bg-emerald-700 shadow-xl active:scale-95 transition-all">
+                  <button 
+                    onClick={() => handleMarkAsPaid(expense.id, expense.description, expense.amount)} 
+                    className="w-full mt-4 py-4 bg-emerald-600 text-white rounded-[1.5rem] font-black text-xs uppercase flex items-center justify-center gap-2 hover:bg-emerald-700 shadow-xl active:scale-95 transition-all"
+                  >
                     <Check size={18}/> Marcar como Pago
                   </button>
                 )}
