@@ -25,13 +25,9 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
   const drivingAlertFired = useRef(false);
   const restAlertFired = useRef(false);
 
-  // Função utilitária para pegar a data local normalizada para YYYY-MM-DD
   const getLocalDateStr = () => {
     const d = new Date();
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   };
 
   const formatTime = (s: number) => {
@@ -41,29 +37,31 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
     return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Filtra logs de hoje e injeta a sessão ATIVA (Live) se houver
+  // Histórico com injeção de sessão ativa e ordenação garantida
   const historyItems = useMemo(() => {
     const todayStr = getLocalDateStr();
-    // Filtramos os logs que batem com a data de hoje (YYYY-MM-DD)
-    const filtered = logs.filter(l => l.date === todayStr);
     
-    // Se houver uma jornada ativa, cria um log "virtual" para exibição no topo
+    // 1. Filtrar logs do dia e ordenar por tempo de início (decrescente)
+    const sortedLogs = [...logs]
+      .filter(l => l.date === todayStr)
+      .sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime());
+    
+    // 2. Injetar a sessão AO VIVO no topo se existir
     if (mode !== 'IDLE' && startTime) {
       const activeLog: any = {
-        id: 'active-session',
+        id: 'active-session-live',
         is_live: true,
         type: mode === 'DRIVING' ? 'Direção' : 'Descanso',
         start_time: new Date(startTime).toISOString(),
         duration_seconds: currentTime,
         date: todayStr
       };
-      return [activeLog, ...filtered];
+      return [activeLog, ...sortedLogs];
     }
     
-    return filtered;
+    return sortedLogs;
   }, [logs, mode, startTime, currentTime]);
 
-  // Efeito do cronômetro baseado na diferença absoluta de tempo
   useEffect(() => {
     let interval: any;
     if (mode !== 'IDLE' && startTime) {
@@ -72,7 +70,6 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
         const elapsed = Math.floor((now - startTime) / 1000);
         setCurrentTime(elapsed > 0 ? elapsed : 0);
       };
-      
       updateTime();
       interval = setInterval(updateTime, 1000);
     } else {
@@ -81,7 +78,6 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
     return () => clearInterval(interval);
   }, [mode, startTime]);
 
-  // Gestão de Alertas de Tempo
   useEffect(() => {
     if (mode === 'DRIVING' && currentTime >= LIMIT_DRIVING) {
       const msg = "⚠️ LIMITE DE 5h30 ATINGIDO!";
@@ -104,25 +100,23 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
   }, [currentTime, mode]);
 
   const handleAction = async (newMode: 'IDLE' | 'DRIVING' | 'RESTING') => {
-    // Se está finalizando uma ação anterior, salva o log
     if (mode !== 'IDLE' && startTime) {
       const now = Date.now();
       const duration = Math.floor((now - startTime) / 1000);
       
-      // Salva apenas se tiver pelo menos 2 segundos de atividade
-      if (duration >= 2) {
+      if (duration >= 1) {
         const newLog: Omit<JornadaLog, 'id' | 'user_id'> = { 
           start_time: new Date(startTime).toISOString(), 
           end_time: new Date(now).toISOString(), 
           duration_seconds: duration,
           type: mode === 'DRIVING' ? 'Direção' : 'Descanso',
-          date: getLocalDateStr() // Garante data local
+          date: getLocalDateStr()
         };
+        // O salvamento agora é aguardado e atualiza o App.tsx imediatamente
         await onSaveLog(newLog);
       }
     }
 
-    // Altera o modo e o tempo inicial
     if (newMode === 'IDLE') {
       setStartTime(null);
       setMode('IDLE');
@@ -137,9 +131,8 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 pb-12 animate-fade-in">
-      {/* Painel Central do Cronômetro */}
+      {/* Painel Central */}
       <div className={`rounded-[3rem] p-8 md:p-12 text-center text-white shadow-2xl transition-all duration-500 relative overflow-hidden flex flex-col items-center justify-center min-h-[500px] ${mode === 'DRIVING' ? 'bg-primary-900' : mode === 'RESTING' ? 'bg-emerald-900' : 'bg-slate-900'}`}>
-        
         <div className="absolute top-10 left-1/2 -translate-x-1/2 z-10">
           <div className={`px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-[0.2em] border-2 animate-pulse flex items-center gap-2 ${mode === 'DRIVING' ? 'bg-blue-500/20 border-blue-400/50 text-blue-100' : mode === 'RESTING' ? 'bg-emerald-500/20 border-emerald-400/50 text-emerald-100' : 'bg-white/5 border-white/10 text-slate-400'}`}>
             {mode === 'DRIVING' ? <Play size={12} fill="currentColor" /> : mode === 'RESTING' ? <Coffee size={12}/> : <Timer size={12}/>}
@@ -228,21 +221,21 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
               >
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
-                    <p className={`text-[10px] font-black uppercase ${log.is_live ? 'text-amber-600' : log.type === 'Direção' ? 'text-primary-600' : 'text-emerald-600'}`}>
-                      {log.is_live ? 'AGORA: ' : ''}{log.type}
+                    <p className={`text-[10px] font-black uppercase ${log.is_live ? 'text-amber-600 font-black' : log.type === 'Direção' ? 'text-primary-600' : 'text-emerald-600'}`}>
+                      {log.is_live ? 'ATIVO AGORA: ' : ''}{log.type}
                     </p>
                     {log.is_live ? <Activity size={10} className="text-amber-500 animate-bounce" /> : <CheckCircle size={10} className="text-slate-300" />}
                   </div>
                   <p className="font-bold text-slate-700 text-sm">
                     {new Date(log.start_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} 
                     <span className="mx-2 opacity-30">→</span>
-                    {log.is_live ? 'Em curso' : new Date(log.end_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                    {log.is_live ? 'Contando...' : new Date(log.end_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                   </p>
                 </div>
                 <div className="flex items-center gap-4">
                   <p className="font-black text-slate-900 text-sm">{formatTime(log.duration_seconds)}</p>
                   {!log.is_live && (
-                    <button onClick={() => onDeleteLog(log.id)} className="text-slate-300 hover:text-rose-500 transition-colors">
+                    <button onClick={() => onDeleteLog(log.id)} className="text-slate-300 hover:text-rose-500 transition-colors p-2">
                       <Trash2 size={16}/>
                     </button>
                   )}
@@ -252,14 +245,14 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
           </div>
         </div>
 
-        {/* Informações Legais */}
+        {/* Guia Legal */}
         <div className="bg-amber-50 p-8 rounded-[2.5rem] border border-amber-100 h-fit">
            <h3 className="text-xl font-black text-amber-900 mb-6 flex items-center gap-3 uppercase tracking-tighter"><AlertCircle/> Guia Lei 13.103</h3>
            <ul className="space-y-4 text-amber-800 text-sm font-bold">
-              <li className="flex gap-3">✅ Máximo 5h 30min de direção contínua sem parada.</li>
-              <li className="flex gap-3">✅ Descanso obrigatório de 30 minutos após cada ciclo de direção.</li>
-              <li className="flex gap-3">✅ Jornada diária requer pelo menos 11 horas de repouso total.</li>
-              <li className="flex gap-3 mt-4 text-[10px] uppercase opacity-60">Seus dados são salvos localmente e na nuvem ao trocar os modos.</li>
+              <li className="flex gap-3">✅ Máximo 5h 30min de direção contínua.</li>
+              <li className="flex gap-3">✅ Descanso de 30 minutos após cada ciclo de direção.</li>
+              <li className="flex gap-3">✅ A cada 24 horas, o motorista deve ter 11 horas de descanso.</li>
+              <li className="flex gap-3 mt-4 text-[10px] uppercase opacity-60">Seus dados são preservados localmente para consulta offline.</li>
            </ul>
         </div>
       </div>

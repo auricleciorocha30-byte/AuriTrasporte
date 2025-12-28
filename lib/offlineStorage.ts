@@ -16,14 +16,12 @@ export interface SyncItem {
 export const initDB = async (): Promise<IDBPDatabase> => {
   return openDB(DB_NAME, DB_VERSION, {
     upgrade(db) {
-      // Tabelas de dados
       if (!db.objectStoreNames.contains('trips')) db.createObjectStore('trips', { keyPath: 'id' });
       if (!db.objectStoreNames.contains('expenses')) db.createObjectStore('expenses', { keyPath: 'id' });
       if (!db.objectStoreNames.contains('vehicles')) db.createObjectStore('vehicles', { keyPath: 'id' });
       if (!db.objectStoreNames.contains('maintenance')) db.createObjectStore('maintenance', { keyPath: 'id' });
       if (!db.objectStoreNames.contains('jornada_logs')) db.createObjectStore('jornada_logs', { keyPath: 'id' });
       
-      // Fila de Sincronização
       if (!db.objectStoreNames.contains('sync_queue')) {
         db.createObjectStore('sync_queue', { keyPath: 'id' });
       }
@@ -31,20 +29,30 @@ export const initDB = async (): Promise<IDBPDatabase> => {
   });
 };
 
+const generateId = () => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return Date.now().toString(36) + Math.random().toString(36).substring(2);
+};
+
 export const offlineStorage = {
   async save(table: string, data: any, action: 'insert' | 'update' | 'delete' = 'insert') {
     const db = await initDB();
-    const id = data.id || crypto.randomUUID();
-    const finalData = { ...data, id, sync_status: 'pending' };
+    const id = data.id || generateId();
+    const finalData = { 
+      ...data, 
+      id, 
+      sync_status: 'pending',
+      created_at: data.created_at || new Date().toISOString()
+    };
 
-    // Salva na tabela correspondente
     if (action === 'delete') {
       await db.delete(table as any, id);
     } else {
       await db.put(table as any, finalData);
     }
 
-    // Adiciona na fila de sincronização
     await db.put('sync_queue', {
       id,
       table,
