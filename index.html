@@ -4,13 +4,16 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#0c4a6e" />
+    <meta name="theme-color" content="#4f46e5" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="AuriLog" />
     
+    <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/2312/2312487.png">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2312/2312487.png">
     <link rel="manifest" href="./manifest.json">
-    <title>AuriLog - Creative Logistics</title>
+    
+    <title>AuriLog - Gestão de Cargas</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <script>
@@ -45,7 +48,6 @@
       .glass { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.3); }
       ::-webkit-scrollbar { width: 0px; }
       
-      /* Prevenir scroll elástico no iOS que quebra o layout */
       html, body {
         position: fixed;
         overflow: hidden;

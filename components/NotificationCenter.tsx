@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { X, Bell, AlertTriangle, Clock, Calendar, Gauge, CreditCard, CheckCircle2, ChevronRight } from 'lucide-react';
+import { X, Bell, AlertTriangle, Clock, Calendar, Gauge, CreditCard, CheckCircle2, ChevronRight, Trash2 } from 'lucide-react';
 
 interface Notification {
   id: string;
@@ -15,9 +15,10 @@ interface NotificationCenterProps {
   notifications: Notification[];
   onClose: () => void;
   onAction: (category: any) => void;
+  onDismiss: (id: string) => void;
 }
 
-export const NotificationCenter: React.FC<NotificationCenterProps> = ({ notifications, onClose, onAction }) => {
+export const NotificationCenter: React.FC<NotificationCenterProps> = ({ notifications, onClose, onAction, onDismiss }) => {
   return (
     <div className="fixed inset-0 z-[110] flex justify-end animate-fade-in">
       <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm" onClick={onClose} />
@@ -67,7 +68,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ notifica
                     {n.category === 'TRIP' && <Calendar size={24} />}
                   </div>
                   
-                  <div className="flex-1">
+                  <div className="flex-1 pr-8">
                     <div className="flex justify-between items-start mb-1">
                       <span className={`text-[9px] font-black uppercase tracking-widest ${
                         n.type === 'URGENT' ? 'text-rose-500' : 
@@ -82,8 +83,15 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ notifica
                   </div>
                 </div>
                 
-                <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <ChevronRight size={20} className="text-slate-300" />
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); onDismiss(n.id); }}
+                    className="p-2 bg-white shadow-md rounded-full text-slate-300 hover:text-rose-500 transition-all"
+                    title="Descartar alerta"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                  <ChevronRight size={20} className="text-slate-300 hidden md:block" />
                 </div>
               </div>
             ))

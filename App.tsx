@@ -41,6 +41,7 @@ const App: React.FC = () => {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [maintenance, setMaintenance] = useState<MaintenanceItem[]>([]);
   const [jornadaLogs, setJornadaLogs] = useState<JornadaLog[]>([]);
+  const [dismissedNotificationIds, setDismissedNotificationIds] = useState<string[]>([]);
 
   // Cronômetro da Jornada
   useEffect(() => {
@@ -92,7 +93,7 @@ const App: React.FC = () => {
     };
   }, []);
 
-  // Lógica de Sincronização com Supabase (Nuvem)
+  // Lógica de Sincronização Resiliente
   const syncData = useCallback(async () => {
     if (!navigator.onLine || syncing || !session?.user) return;
     setSyncing(true);
@@ -107,7 +108,6 @@ const App: React.FC = () => {
         let error = null;
         if (item.action === 'insert' || item.action === 'update') {
           const { sync_status, updated_at, ...cleanPayload } = item.data;
-          // Garante que o user_id seja o atual da sessão para evitar erros de RLS
           cleanPayload.user_id = session.user.id;
           const { error: syncError } = await supabase.from(item.table).upsert([cleanPayload]);
           error = syncError;
@@ -119,14 +119,13 @@ const App: React.FC = () => {
         if (!error) {
           await offlineStorage.markAsSynced(item.id);
         } else {
-          console.error(`Falha ao sincronizar ${item.table}:`, error.message);
-          // Se for erro de permissão ou esquema, removemos para não travar a fila
+          console.error(`Falha no sync de ${item.table}:`, error.message);
+          // Se for erro de política ou esquema, removemos para não travar a fila infinita
           if (error.code === '42P10' || error.code === '23505' || error.message.includes('policy')) {
              await offlineStorage.markAsSynced(item.id);
           }
         }
       }
-      // Após o sync, recarregamos para manter consistência
       await fetchData(true); 
     } catch (err) {
       console.error("Erro crítico na sincronização:", err);
@@ -147,7 +146,6 @@ const App: React.FC = () => {
           supabase.from('jornada_logs').select('*').order('created_at', { ascending: false })
         ]);
 
-        // Só sobrescreve se houver dados ou se for o primeiro carregamento limpo
         if (tripsRes.data) { await offlineStorage.bulkSave('trips', tripsRes.data); }
         if (expRes.data) { await offlineStorage.bulkSave('expenses', expRes.data); }
         if (vehRes.data) { await offlineStorage.bulkSave('vehicles', vehRes.data); }
@@ -155,7 +153,6 @@ const App: React.FC = () => {
         if (jornRes.data) { await offlineStorage.bulkSave('jornada_logs', jornRes.data); }
       }
 
-      // Carrega do IndexedDB (sempre, para suportar modo offline)
       const [lTrips, lExp, lVeh, lMain, lJorn] = await Promise.all([
         offlineStorage.getAll('trips'),
         offlineStorage.getAll('expenses'),
@@ -174,7 +171,7 @@ const App: React.FC = () => {
     }
   };
 
-  // Notificações Ativas
+  // Notificações Inteligentes
   const activeNotifications = useMemo(() => {
     const list: any[] = [];
     const now = new Date();
@@ -217,8 +214,8 @@ const App: React.FC = () => {
       }
     });
 
-    return list;
-  }, [trips, expenses, maintenance, vehicles]);
+    return list.filter(n => !dismissedNotificationIds.includes(n.id));
+  }, [trips, expenses, maintenance, vehicles, dismissedNotificationIds]);
 
   // Inicialização do Auth
   useEffect(() => {
@@ -236,15 +233,14 @@ const App: React.FC = () => {
     initAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      // CORREÇÃO: Atualiza o estado mesmo se for null (Logout)
       setSession(session);
       if (!session) {
-        // Limpa dados em memória ao sair
         setTrips([]);
         setExpenses([]);
         setVehicles([]);
         setMaintenance([]);
         setJornadaLogs([]);
+        setDismissedNotificationIds([]);
       }
     });
 
@@ -258,7 +254,6 @@ const App: React.FC = () => {
     }
   }, [session, loading, isOnline]);
 
-  // Função Global de Ação (Salvar/Editar/Deletar)
   const handleAction = async (table: string, data: any, action: 'insert' | 'update' | 'delete' = 'insert') => {
     setIsSaving(true);
     try {
@@ -280,12 +275,11 @@ const App: React.FC = () => {
       else if (table === 'vehicles') setVehicles(updateState);
       else if (table === 'maintenance') setMaintenance(updateState);
       
-      // Tenta sincronizar imediatamente se estiver online
       if (isOnline && session?.user) {
         syncData(); 
       }
     } catch (err: any) {
-      console.error(`Erro ao processar ação em ${table}:`, err);
+      console.error(`Erro em ${table}:`, err);
     } finally {
       setIsSaving(false);
     }
@@ -336,7 +330,6 @@ const App: React.FC = () => {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    // A limpeza acontece no listener onAuthStateChange
   };
 
   const formatTime = (s: number) => {
@@ -519,7 +512,14 @@ const App: React.FC = () => {
         </div>
       </main>
 
-      {isNotificationOpen && <NotificationCenter notifications={activeNotifications} onClose={() => setIsNotificationOpen(false)} onAction={(cat) => { switch(cat) { case 'MAINTENANCE': setCurrentView(AppView.MAINTENANCE); break; case 'FINANCE': setCurrentView(AppView.EXPENSES); break; case 'TRIP': setCurrentView(AppView.TRIPS); break; } setIsNotificationOpen(false); }} />}
+      {isNotificationOpen && (
+        <NotificationCenter 
+          notifications={activeNotifications} 
+          onClose={() => setIsNotificationOpen(false)} 
+          onAction={(cat) => { switch(cat) { case 'MAINTENANCE': setCurrentView(AppView.MAINTENANCE); break; case 'FINANCE': setCurrentView(AppView.EXPENSES); break; case 'TRIP': setCurrentView(AppView.TRIPS); break; } setIsNotificationOpen(false); }} 
+          onDismiss={(id) => setDismissedNotificationIds(prev => [...prev, id])}
+        />
+      )}
     </div>
   );
 };

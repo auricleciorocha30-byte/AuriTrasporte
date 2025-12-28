@@ -2,23 +2,36 @@
 {
   "name": "AuriLog Logistics",
   "short_name": "AuriLog",
-  "start_url": ".",
+  "description": "Gestão inteligente de transporte de cargas e jornada para motoristas profissionais.",
+  "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#020617",
   "theme_color": "#4f46e5",
-  "description": "Gestão profissional de fretes e jornada.",
+  "orientation": "portrait",
+  "categories": ["business", "productivity", "logistics"],
   "icons": [
     {
       "src": "https://cdn-icons-png.flaticon.com/512/2312/2312487.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "https://cdn-icons-png.flaticon.com/512/2312/2312487.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any"
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Nova Viagem",
+      "url": "/?view=TRIPS",
+      "icons": [{ "src": "https://cdn-icons-png.flaticon.com/512/2312/2312487.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Dashboard",
+      "url": "/?view=DASHBOARD"
     }
   ]
 }
