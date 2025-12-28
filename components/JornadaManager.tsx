@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Timer, Coffee, Play, Square, History, AlertCircle, BellRing, Trash2, Clock, CheckCircle, Activity, Loader2 } from 'lucide-center';
+import { Timer, Coffee, Play, Square, History, AlertCircle, BellRing, Trash2, Clock, CheckCircle, Activity, Loader2 } from 'lucide-react';
 import { JornadaLog } from '../types';
 
 const LIMIT_DRIVING = 19800; // 5h 30min em segundos
@@ -40,19 +40,16 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
     return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Histórico com injeção de sessão ativa e ordenação garantida
   const historyItems = useMemo(() => {
     const todayStr = getLocalDateStr();
     
-    // Filtrar logs que tenham a data de hoje ou que foram criados hoje (fallback)
     const sortedLogs = [...logs]
       .filter(l => {
-        const logDate = l.date || l.start_time?.split('T')[0];
+        const logDate = l.date || (l.start_time ? l.start_time.split('T')[0] : '');
         return logDate === todayStr;
       })
       .sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime());
     
-    // Injetar a sessão AO VIVO no topo se existir
     if (mode !== 'IDLE' && startTime) {
       const activeLog: any = {
         id: 'active-session-live',
@@ -136,7 +133,6 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 pb-12 animate-fade-in">
-      {/* Painel Central */}
       <div className={`rounded-[3rem] p-8 md:p-12 text-center text-white shadow-2xl transition-all duration-500 relative overflow-hidden flex flex-col items-center justify-center min-h-[500px] ${mode === 'DRIVING' ? 'bg-primary-900' : mode === 'RESTING' ? 'bg-emerald-900' : 'bg-slate-900'}`}>
         <div className="absolute top-10 left-1/2 -translate-x-1/2 z-10">
           <div className={`px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-[0.2em] border-2 animate-pulse flex items-center gap-2 ${mode === 'DRIVING' ? 'bg-blue-500/20 border-blue-400/50 text-blue-100' : mode === 'RESTING' ? 'bg-emerald-500/20 border-emerald-400/50 text-emerald-100' : 'bg-white/5 border-white/10 text-slate-400'}`}>
