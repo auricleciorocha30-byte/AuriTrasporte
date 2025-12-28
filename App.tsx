@@ -42,6 +42,7 @@ const App: React.FC = () => {
   const [maintenance, setMaintenance] = useState<MaintenanceItem[]>([]);
   const [jornadaLogs, setJornadaLogs] = useState<JornadaLog[]>([]);
 
+  // Cronômetro da Jornada
   useEffect(() => {
     let interval: any;
     if (jornadaMode !== 'IDLE' && jornadaStartTime) {
@@ -57,6 +58,7 @@ const App: React.FC = () => {
     return () => clearInterval(interval);
   }, [jornadaMode, jornadaStartTime]);
 
+  // Persistência local da jornada ativa
   useEffect(() => {
     const savedMode = localStorage.getItem('aurilog_jornada_mode');
     const savedStartTime = localStorage.getItem('aurilog_jornada_start_time');
@@ -78,6 +80,7 @@ const App: React.FC = () => {
     }
   }, [jornadaMode, jornadaStartTime]);
 
+  // Monitor de Conexão
   useEffect(() => {
     const handleOnline = () => { setIsOnline(true); syncData(); };
     const handleOffline = () => setIsOnline(false);
@@ -89,6 +92,7 @@ const App: React.FC = () => {
     };
   }, []);
 
+  // Lógica de Sincronização com Supabase (Nuvem)
   const syncData = useCallback(async () => {
     if (!navigator.onLine || syncing || !session?.user) return;
     setSyncing(true);
@@ -103,10 +107,12 @@ const App: React.FC = () => {
         let error = null;
         if (item.action === 'insert' || item.action === 'update') {
           const { sync_status, updated_at, ...cleanPayload } = item.data;
+          // Garante que o user_id seja o atual da sessão para evitar erros de RLS
+          cleanPayload.user_id = session.user.id;
           const { error: syncError } = await supabase.from(item.table).upsert([cleanPayload]);
           error = syncError;
         } else if (item.action === 'delete') {
-          const { error: syncError } = await supabase.from(item.table).delete().eq('id', item.data.id);
+          const { error: syncError } = await supabase.from(item.table).delete().eq('id', item.data.id).eq('user_id', session.user.id);
           error = syncError;
         }
         
@@ -114,12 +120,14 @@ const App: React.FC = () => {
           await offlineStorage.markAsSynced(item.id);
         } else {
           console.error(`Falha ao sincronizar ${item.table}:`, error.message);
-          if (error.message.includes('column') || error.message.includes('policy') || error.message.includes('not found')) {
+          // Se for erro de permissão ou esquema, removemos para não travar a fila
+          if (error.code === '42P10' || error.code === '23505' || error.message.includes('policy')) {
              await offlineStorage.markAsSynced(item.id);
           }
         }
       }
-      await fetchData(); 
+      // Após o sync, recarregamos para manter consistência
+      await fetchData(true); 
     } catch (err) {
       console.error("Erro crítico na sincronização:", err);
     } finally {
@@ -127,10 +135,10 @@ const App: React.FC = () => {
     }
   }, [syncing, session]);
 
-  const fetchData = async () => {
+  // Carregamento de Dados (Local e Remoto)
+  const fetchData = async (forceCloud = false) => {
     try {
-      // Se estiver online, tenta puxar do Supabase primeiro e salvar no IndexedDB
-      if (navigator.onLine && session?.user) {
+      if (navigator.onLine && session?.user && (forceCloud || trips.length === 0)) {
         const [tripsRes, expRes, vehRes, mainRes, jornRes] = await Promise.all([
           supabase.from('trips').select('*').order('date', { ascending: false }),
           supabase.from('expenses').select('*').order('date', { ascending: false }),
@@ -139,14 +147,15 @@ const App: React.FC = () => {
           supabase.from('jornada_logs').select('*').order('created_at', { ascending: false })
         ]);
 
-        if (tripsRes.data) { await offlineStorage.clearTable('trips'); await offlineStorage.bulkSave('trips', tripsRes.data); }
-        if (expRes.data) { await offlineStorage.clearTable('expenses'); await offlineStorage.bulkSave('expenses', expRes.data); }
-        if (vehRes.data) { await offlineStorage.clearTable('vehicles'); await offlineStorage.bulkSave('vehicles', vehRes.data); }
-        if (mainRes.data) { await offlineStorage.clearTable('maintenance'); await offlineStorage.bulkSave('maintenance', mainRes.data); }
-        if (jornRes.data) { await offlineStorage.clearTable('jornada_logs'); await offlineStorage.bulkSave('jornada_logs', jornRes.data); }
+        // Só sobrescreve se houver dados ou se for o primeiro carregamento limpo
+        if (tripsRes.data) { await offlineStorage.bulkSave('trips', tripsRes.data); }
+        if (expRes.data) { await offlineStorage.bulkSave('expenses', expRes.data); }
+        if (vehRes.data) { await offlineStorage.bulkSave('vehicles', vehRes.data); }
+        if (mainRes.data) { await offlineStorage.bulkSave('maintenance', mainRes.data); }
+        if (jornRes.data) { await offlineStorage.bulkSave('jornada_logs', jornRes.data); }
       }
 
-      // SEMPRE carrega do IndexedDB para garantir que os dados apareçam offline
+      // Carrega do IndexedDB (sempre, para suportar modo offline)
       const [lTrips, lExp, lVeh, lMain, lJorn] = await Promise.all([
         offlineStorage.getAll('trips'),
         offlineStorage.getAll('expenses'),
@@ -165,6 +174,7 @@ const App: React.FC = () => {
     }
   };
 
+  // Notificações Ativas
   const activeNotifications = useMemo(() => {
     const list: any[] = [];
     const now = new Date();
@@ -210,16 +220,14 @@ const App: React.FC = () => {
     return list;
   }, [trips, expenses, maintenance, vehicles]);
 
+  // Inicialização do Auth
   useEffect(() => {
     const initAuth = async () => {
       try {
-        // Tenta pegar sessão cacheada do Supabase (funciona offline se já logado antes)
         const { data: { session: currentSession } } = await supabase.auth.getSession();
-        if (currentSession) {
-          setSession(currentSession);
-        }
+        setSession(currentSession);
       } catch (e) {
-        console.log("Auth offline mode active");
+        console.log("Falha ao recuperar sessão");
       } finally {
         setLoading(false);
       }
@@ -228,8 +236,15 @@ const App: React.FC = () => {
     initAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) {
-        setSession(session);
+      // CORREÇÃO: Atualiza o estado mesmo se for null (Logout)
+      setSession(session);
+      if (!session) {
+        // Limpa dados em memória ao sair
+        setTrips([]);
+        setExpenses([]);
+        setVehicles([]);
+        setMaintenance([]);
+        setJornadaLogs([]);
       }
     });
 
@@ -237,20 +252,16 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    // Carrega os dados sempre que a sessão for confirmada OU se já estivermos carregados (para suporte offline)
-    if (!loading) {
+    if (!loading && session?.user) {
       fetchData();
-      if (session?.user && navigator.onLine) {
-        syncData();
-      }
+      if (isOnline) syncData();
     }
-  }, [session, loading]);
+  }, [session, loading, isOnline]);
 
+  // Função Global de Ação (Salvar/Editar/Deletar)
   const handleAction = async (table: string, data: any, action: 'insert' | 'update' | 'delete' = 'insert') => {
     setIsSaving(true);
     try {
-      // Em modo offline, permitimos ações mesmo sem session.user.id se já tivermos dados
-      // Mas o ideal é que o session.user esteja disponível no localStorage
       const userId = session?.user?.id || 'offline-user';
       const payload = { ...data, user_id: userId };
       
@@ -269,7 +280,8 @@ const App: React.FC = () => {
       else if (table === 'vehicles') setVehicles(updateState);
       else if (table === 'maintenance') setMaintenance(updateState);
       
-      if (navigator.onLine && session?.user) {
+      // Tenta sincronizar imediatamente se estiver online
+      if (isOnline && session?.user) {
         syncData(); 
       }
     } catch (err: any) {
@@ -285,8 +297,7 @@ const App: React.FC = () => {
       await offlineStorage.clearTable('jornada_logs');
       setJornadaLogs([]);
       if (navigator.onLine && session?.user) {
-        const { error } = await supabase.from('jornada_logs').delete().eq('user_id', session.user.id);
-        if (error) throw error;
+        await supabase.from('jornada_logs').delete().eq('user_id', session.user.id);
       }
     } catch (err) {
       console.error("Erro ao limpar histórico:", err);
@@ -307,7 +318,7 @@ const App: React.FC = () => {
           redirectTo: window.location.origin,
         });
         if (error) throw error;
-        setSuccessMsg("E-mail de recuperação enviado! Verifique sua caixa de entrada.");
+        setSuccessMsg("E-mail de recuperação enviado!");
       } else if (isSignUp) {
         const { error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
@@ -323,6 +334,11 @@ const App: React.FC = () => {
     }
   };
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    // A limpeza acontece no listener onAuthStateChange
+  };
+
   const formatTime = (s: number) => {
     const hrs = Math.floor(s / 3600);
     const mins = Math.floor((s % 3600) / 60);
@@ -332,14 +348,13 @@ const App: React.FC = () => {
 
   if (loading) return <div className="h-screen flex items-center justify-center bg-slate-950"><Loader2 className="animate-spin text-primary-500" size={48} /></div>;
 
-  // Se não tem sessão e não estamos tentando carregar dados offlines prévios, mostra login
-  if (!session && trips.length === 0 && vehicles.length === 0) return (
+  if (!session) return (
     <div className="min-h-screen w-full flex items-center justify-center bg-slate-900 p-4">
       <div className="w-full max-w-md bg-white rounded-[3rem] shadow-2xl p-10 animate-fade-in border border-white/10">
         <div className="flex flex-col items-center mb-10">
           <div className="bg-primary-600 p-4 rounded-[1.5rem] shadow-lg mb-4 text-white"><Truck size={40} /></div>
           <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase leading-none text-center">AuriLog</h1>
-          <p className="text-slate-400 font-bold text-xs mt-2 uppercase tracking-widest">
+          <p className="text-slate-400 font-bold text-xs mt-2 uppercase tracking-widest text-center">
             {isPasswordRecovery ? 'Recuperar Senha' : isSignUp ? 'Criar nova conta' : 'Gestão Profissional de Fretes'}
           </p>
         </div>
@@ -356,7 +371,7 @@ const App: React.FC = () => {
               <input required type="password" placeholder="••••••••" className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:ring-2 focus:ring-primary-500 transition-all" value={password} onChange={e => setPassword(e.target.value)} />
               {!isSignUp && (
                 <div className="flex justify-end mt-1">
-                  <button type="button" onClick={() => { setIsPasswordRecovery(true); setError(''); setSuccessMsg(''); }} className="text-[10px] font-black uppercase text-primary-600 hover:underline">Esqueceu a senha?</button>
+                  <button type="button" onClick={() => setIsPasswordRecovery(true)} className="text-[10px] font-black uppercase text-primary-600 hover:underline">Esqueceu a senha?</button>
                 </div>
               )}
             </div>
@@ -366,7 +381,7 @@ const App: React.FC = () => {
           {successMsg && <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-2xl text-emerald-600 text-xs font-bold">{successMsg}</div>}
 
           <button disabled={authLoading} type="submit" className="w-full py-5 bg-primary-600 text-white rounded-2xl font-black text-lg shadow-xl hover:bg-primary-700 transition-all flex items-center justify-center gap-3">
-            {authLoading ? <Loader2 className="animate-spin" /> : isPasswordRecovery ? <Send size={20} /> : isSignUp ? <UserPlus size={20} /> : <LogIn size={20} />}
+            {authLoading ? <Loader2 className="animate-spin" /> : <LogIn size={20} />}
             {isPasswordRecovery ? 'Enviar E-mail' : isSignUp ? 'Cadastrar agora' : 'Entrar no Sistema'}
           </button>
         </form>
@@ -402,7 +417,7 @@ const App: React.FC = () => {
           <MenuBtn icon={Calculator} label="Frete ANTT" active={currentView === AppView.CALCULATOR} onClick={() => {setCurrentView(AppView.CALCULATOR); setIsMobileMenuOpen(false);}} />
           <MenuBtn icon={Timer} label="Jornada" active={currentView === AppView.JORNADA} onClick={() => {setCurrentView(AppView.JORNADA); setIsMobileMenuOpen(false);}} />
         </nav>
-        <button onClick={() => supabase.auth.signOut()} className="absolute bottom-6 left-4 right-4 flex items-center gap-3 px-4 py-3 text-rose-400 font-bold hover:bg-white/5 rounded-xl transition-colors"><LogOut size={18} /> Sair</button>
+        <button onClick={handleLogout} className="absolute bottom-6 left-4 right-4 flex items-center gap-3 px-4 py-3 text-rose-400 font-bold hover:bg-white/5 rounded-xl transition-colors"><LogOut size={18} /> Sair</button>
       </aside>
 
       <main className="flex-1 flex flex-col overflow-hidden">
