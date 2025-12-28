@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Timer, Coffee, Play, Square, History, AlertCircle, BellRing, Trash2, Clock, CheckCircle, Activity } from 'lucide-react';
+import { Timer, Coffee, Play, Square, History, AlertCircle, BellRing, Trash2, Clock, CheckCircle, Activity, Loader2 } from 'lucide-react';
 import { JornadaLog } from '../types';
 
 const LIMIT_DRIVING = 19800; // 5h 30min em segundos
@@ -15,19 +15,23 @@ interface JornadaManagerProps {
   onSaveLog: (log: Omit<JornadaLog, 'id' | 'user_id'>) => Promise<void>;
   onDeleteLog: (id: string) => Promise<void>;
   addGlobalNotification: (title: string, msg: string, type?: 'warning' | 'info') => void;
+  isSaving?: boolean;
 }
 
-export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime, logs, setMode, setStartTime, onSaveLog, onDeleteLog, addGlobalNotification }) => {
+export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime, logs, setMode, setStartTime, onSaveLog, onDeleteLog, addGlobalNotification, isSaving }) => {
   const [currentTime, setCurrentTime] = useState(0);
   const [alert, setAlert] = useState<string | null>(null);
   
   const drivingAlertFired = useRef(false);
   const restAlertFired = useRef(false);
 
-  // Função utilitária para pegar a data local em formato YYYY-MM-DD
+  // Função utilitária para pegar a data local normalizada para YYYY-MM-DD
   const getLocalDateStr = () => {
     const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
 
   const formatTime = (s: number) => {
@@ -40,9 +44,10 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
   // Filtra logs de hoje e injeta a sessão ATIVA (Live) se houver
   const historyItems = useMemo(() => {
     const todayStr = getLocalDateStr();
+    // Filtramos os logs que batem com a data de hoje (YYYY-MM-DD)
     const filtered = logs.filter(l => l.date === todayStr);
     
-    // Se houver uma jornada ativa, cria um log "virtual" para exibição
+    // Se houver uma jornada ativa, cria um log "virtual" para exibição no topo
     if (mode !== 'IDLE' && startTime) {
       const activeLog: any = {
         id: 'active-session',
@@ -58,7 +63,7 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
     return filtered;
   }, [logs, mode, startTime, currentTime]);
 
-  // Efeito do cronômetro
+  // Efeito do cronômetro baseado na diferença absoluta de tempo
   useEffect(() => {
     let interval: any;
     if (mode !== 'IDLE' && startTime) {
@@ -76,7 +81,7 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
     return () => clearInterval(interval);
   }, [mode, startTime]);
 
-  // Alertas
+  // Gestão de Alertas de Tempo
   useEffect(() => {
     if (mode === 'DRIVING' && currentTime >= LIMIT_DRIVING) {
       const msg = "⚠️ LIMITE DE 5h30 ATINGIDO!";
@@ -99,23 +104,25 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
   }, [currentTime, mode]);
 
   const handleAction = async (newMode: 'IDLE' | 'DRIVING' | 'RESTING') => {
-    // Salvar o que estava rodando
+    // Se está finalizando uma ação anterior, salva o log
     if (mode !== 'IDLE' && startTime) {
       const now = Date.now();
       const duration = Math.floor((now - startTime) / 1000);
       
-      if (duration >= 1) {
+      // Salva apenas se tiver pelo menos 2 segundos de atividade
+      if (duration >= 2) {
         const newLog: Omit<JornadaLog, 'id' | 'user_id'> = { 
           start_time: new Date(startTime).toISOString(), 
           end_time: new Date(now).toISOString(), 
           duration_seconds: duration,
           type: mode === 'DRIVING' ? 'Direção' : 'Descanso',
-          date: getLocalDateStr()
+          date: getLocalDateStr() // Garante data local
         };
         await onSaveLog(newLog);
       }
     }
 
+    // Altera o modo e o tempo inicial
     if (newMode === 'IDLE') {
       setStartTime(null);
       setMode('IDLE');
@@ -136,7 +143,7 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
         <div className="absolute top-10 left-1/2 -translate-x-1/2 z-10">
           <div className={`px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-[0.2em] border-2 animate-pulse flex items-center gap-2 ${mode === 'DRIVING' ? 'bg-blue-500/20 border-blue-400/50 text-blue-100' : mode === 'RESTING' ? 'bg-emerald-500/20 border-emerald-400/50 text-emerald-100' : 'bg-white/5 border-white/10 text-slate-400'}`}>
             {mode === 'DRIVING' ? <Play size={12} fill="currentColor" /> : mode === 'RESTING' ? <Coffee size={12}/> : <Timer size={12}/>}
-            {mode === 'DRIVING' ? 'Status: Ao Volante' : mode === 'RESTING' ? 'Status: Em Descanso' : 'Aguardando Início'}
+            {mode === 'DRIVING' ? 'Ao Volante' : mode === 'RESTING' ? 'Em Descanso' : 'Jornada Parada'}
           </div>
         </div>
 
@@ -165,22 +172,26 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
 
         <div className="flex flex-col md:flex-row items-center justify-center gap-4 w-full px-4 mt-8">
           {mode !== 'DRIVING' ? (
-            <button onClick={() => handleAction('DRIVING')} className="w-full md:w-64 py-5 bg-primary-600 hover:bg-primary-700 rounded-[2rem] font-black text-xl flex items-center justify-center gap-3 shadow-lg transition-all active:scale-95">
-              <Play size={24}/> Iniciar Direção
+            <button disabled={isSaving} onClick={() => handleAction('DRIVING')} className="w-full md:w-64 py-5 bg-primary-600 hover:bg-primary-700 rounded-[2rem] font-black text-xl flex items-center justify-center gap-3 shadow-lg transition-all active:scale-95 disabled:opacity-50">
+              {isSaving ? <Loader2 className="animate-spin" /> : <Play size={24}/>} 
+              {isSaving ? 'Salvando...' : 'Iniciar Direção'}
             </button>
           ) : (
-            <button onClick={() => handleAction('IDLE')} className="w-full md:w-64 py-5 bg-rose-500 hover:bg-rose-600 rounded-[2rem] font-black text-xl flex items-center justify-center gap-3 shadow-lg transition-all active:scale-95">
-              <Square size={24}/> Parar Direção
+            <button disabled={isSaving} onClick={() => handleAction('IDLE')} className="w-full md:w-64 py-5 bg-rose-500 hover:bg-rose-600 rounded-[2rem] font-black text-xl flex items-center justify-center gap-3 shadow-lg transition-all active:scale-95 disabled:opacity-50">
+              {isSaving ? <Loader2 className="animate-spin" /> : <Square size={24}/>} 
+              {isSaving ? 'Salvando...' : 'Parar Direção'}
             </button>
           )}
 
           {mode !== 'RESTING' ? (
-            <button onClick={() => handleAction('RESTING')} className="w-full md:w-64 py-5 bg-slate-800 hover:bg-slate-700 rounded-[2rem] font-black text-xl flex items-center justify-center gap-3 shadow-lg transition-all active:scale-95">
-              <Coffee size={24}/> Iniciar Descanso
+            <button disabled={isSaving} onClick={() => handleAction('RESTING')} className="w-full md:w-64 py-5 bg-slate-800 hover:bg-slate-700 rounded-[2rem] font-black text-xl flex items-center justify-center gap-3 shadow-lg transition-all active:scale-95 disabled:opacity-50">
+              {isSaving ? <Loader2 className="animate-spin" /> : <Coffee size={24}/>} 
+              {isSaving ? 'Salvando...' : 'Iniciar Descanso'}
             </button>
           ) : (
-            <button onClick={() => handleAction('IDLE')} className="w-full md:w-64 py-5 bg-emerald-600 hover:bg-emerald-700 rounded-[2rem] font-black text-xl flex items-center justify-center gap-3 shadow-lg transition-all active:scale-95">
-              <Square size={24}/> Parar Descanso
+            <button disabled={isSaving} onClick={() => handleAction('IDLE')} className="w-full md:w-64 py-5 bg-emerald-600 hover:bg-emerald-700 rounded-[2rem] font-black text-xl flex items-center justify-center gap-3 shadow-lg transition-all active:scale-95 disabled:opacity-50">
+              {isSaving ? <Loader2 className="animate-spin" /> : <Square size={24}/>} 
+              {isSaving ? 'Salvando...' : 'Parar Descanso'}
             </button>
           )}
         </div>
@@ -190,22 +201,26 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
         {/* Histórico Consolidado */}
         <div className="bg-white p-8 rounded-[2.5rem] border shadow-sm">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="text-xl font-black flex items-center gap-3 uppercase tracking-tighter"><History/> Histórico de Hoje</h3>
-            <span className="text-[10px] font-black text-slate-400 uppercase">{historyItems.length} Eventos</span>
+            <h3 className="text-xl font-black flex items-center gap-3 uppercase tracking-tighter">
+              <History/> Histórico de Hoje
+            </h3>
+            {isSaving && <Loader2 className="animate-spin text-primary-500" size={16} />}
+            {!isSaving && <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{historyItems.length} Eventos</span>}
           </div>
           
           <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
             {historyItems.length === 0 ? (
               <div className="text-center py-12">
                 <Clock className="mx-auto text-slate-100 mb-2" size={48} />
-                <p className="text-slate-400 text-sm font-bold">Inicie sua jornada para registrar.</p>
+                <p className="text-slate-400 text-sm font-bold">Nenhum evento registrado hoje.</p>
+                <p className="text-[10px] text-slate-300 uppercase mt-1">Inicie a jornada acima para começar</p>
               </div>
             ) : historyItems.map((log: any) => (
               <div 
                 key={log.id} 
                 className={`p-4 rounded-2xl flex justify-between items-center border transition-all ${
                   log.is_live 
-                    ? 'bg-amber-50 border-amber-200 ring-2 ring-amber-100 animate-pulse' 
+                    ? 'bg-amber-50 border-amber-200 ring-4 ring-amber-100/50 animate-pulse' 
                     : log.type === 'Direção' 
                       ? 'bg-blue-50 border-blue-100' 
                       : 'bg-emerald-50 border-emerald-100'
@@ -214,14 +229,14 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
                     <p className={`text-[10px] font-black uppercase ${log.is_live ? 'text-amber-600' : log.type === 'Direção' ? 'text-primary-600' : 'text-emerald-600'}`}>
-                      {log.is_live && 'ATIVO: '}{log.type}
+                      {log.is_live ? 'AGORA: ' : ''}{log.type}
                     </p>
                     {log.is_live ? <Activity size={10} className="text-amber-500 animate-bounce" /> : <CheckCircle size={10} className="text-slate-300" />}
                   </div>
                   <p className="font-bold text-slate-700 text-sm">
                     {new Date(log.start_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} 
-                    <span className="mx-2">→</span>
-                    {log.is_live ? 'Agora' : new Date(log.end_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                    <span className="mx-2 opacity-30">→</span>
+                    {log.is_live ? 'Em curso' : new Date(log.end_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                   </p>
                 </div>
                 <div className="flex items-center gap-4">
@@ -244,7 +259,7 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
               <li className="flex gap-3">✅ Máximo 5h 30min de direção contínua sem parada.</li>
               <li className="flex gap-3">✅ Descanso obrigatório de 30 minutos após cada ciclo de direção.</li>
               <li className="flex gap-3">✅ Jornada diária requer pelo menos 11 horas de repouso total.</li>
-              <li className="flex gap-3 mt-4 text-[10px] uppercase opacity-60">Seus dados são salvos automaticamente ao alternar os modos.</li>
+              <li className="flex gap-3 mt-4 text-[10px] uppercase opacity-60">Seus dados são salvos localmente e na nuvem ao trocar os modos.</li>
            </ul>
         </div>
       </div>

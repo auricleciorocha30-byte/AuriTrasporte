@@ -232,10 +232,14 @@ const App: React.FC = () => {
       if (!session?.user?.id) throw new Error("Usuário não autenticado");
       const payload = { ...data, user_id: session.user.id };
       await offlineStorage.save(table, payload, action);
+      
+      // ATUALIZAÇÃO IMEDIATA DO ESTADO LOCAL
+      await fetchData(); 
+      
+      // SINCRONIZAÇÃO EM SEGUNDO PLANO
       if (navigator.onLine) {
-        await syncData();
+        syncData(); 
       }
-      await fetchData();
     } catch (err: any) {
       console.error(`Erro ao salvar em ${table}:`, err);
     } finally {
@@ -377,6 +381,7 @@ const App: React.FC = () => {
               onSaveLog={(l) => handleAction('jornada_logs', l, 'insert')} 
               onDeleteLog={(id) => handleAction('jornada_logs', { id }, 'delete')} 
               addGlobalNotification={() => {}} 
+              isSaving={isSaving}
             />
           )}
           {currentView === AppView.STATIONS && <StationLocator />}
