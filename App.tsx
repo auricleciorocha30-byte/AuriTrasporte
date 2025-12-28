@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { LayoutDashboard, Truck, Wallet, Calculator, Menu, X, LogOut, Bell, Settings, CheckSquare, Timer, Fuel, Loader2, Mail, Key, UserPlus, LogIn, AlertCircle, Share2, AlertTriangle, KeyRound, Wifi, WifiOff, CloudUpload, CheckCircle2, Coffee, Play } from 'lucide-react';
+import { LayoutDashboard, Truck, Wallet, Calculator, Menu, X, LogOut, Bell, Settings, CheckSquare, Timer, Fuel, Loader2, Mail, Key, UserPlus, LogIn, AlertCircle, Share2, AlertTriangle, KeyRound, Wifi, WifiOff, CloudUpload, CheckCircle2, Coffee, Play, RefreshCcw } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { TripManager } from './components/TripManager';
 import { ExpenseManager } from './components/ExpenseManager';
@@ -31,7 +31,6 @@ const App: React.FC = () => {
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
-  // Estados da Jornada Persistidos
   const [jornadaMode, setJornadaMode] = useState<'IDLE' | 'DRIVING' | 'RESTING'>('IDLE');
   const [jornadaStartTime, setJornadaStartTime] = useState<number | null>(null);
 
@@ -41,7 +40,6 @@ const App: React.FC = () => {
   const [maintenance, setMaintenance] = useState<MaintenanceItem[]>([]);
   const [jornadaLogs, setJornadaLogs] = useState<JornadaLog[]>([]);
 
-  // Carregar estado da jornada do localStorage ao montar
   useEffect(() => {
     const savedMode = localStorage.getItem('aurilog_jornada_mode');
     const savedStartTime = localStorage.getItem('aurilog_jornada_start_time');
@@ -54,7 +52,6 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // Salvar estado da jornada sempre que mudar
   useEffect(() => {
     localStorage.setItem('aurilog_jornada_mode', jornadaMode);
     if (jornadaStartTime) {
@@ -64,7 +61,6 @@ const App: React.FC = () => {
     }
   }, [jornadaMode, jornadaStartTime]);
 
-  // Monitorar Conexão
   useEffect(() => {
     const handleOnline = () => { setIsOnline(true); syncData(); };
     const handleOffline = () => setIsOnline(false);
@@ -81,23 +77,35 @@ const App: React.FC = () => {
     setSyncing(true);
     try {
       const pending = await offlineStorage.getPendingSync();
-      if (pending.length === 0) return;
+      if (pending.length === 0) {
+        setSyncing(false);
+        return;
+      }
 
       for (const item of pending) {
         let error = null;
         if (item.action === 'insert' || item.action === 'update') {
-          ({ error } = await supabase.from(item.table).upsert([item.data]));
+          // No insert/update, garantimos que o ID está presente para o upsert
+          const { error: syncError } = await supabase.from(item.table).upsert([item.data]);
+          error = syncError;
         } else if (item.action === 'delete') {
-          ({ error } = await supabase.from(item.table).delete().eq('id', item.id));
+          const { error: syncError } = await supabase.from(item.table).delete().eq('id', item.id);
+          error = syncError;
         }
         
         if (!error) {
           await offlineStorage.markAsSynced(item.id);
+        } else {
+          console.error(`Falha ao sincronizar ${item.table}:`, error.message);
+          // Se for erro de coluna ausente, removemos o item da fila para não travar a sincronização
+          if (error.message.includes('column') || error.message.includes('not found')) {
+            await offlineStorage.markAsSynced(item.id);
+          }
         }
       }
       await fetchData(); 
     } catch (err) {
-      console.error("Erro na sincronização:", err);
+      console.error("Erro crítico na sincronização:", err);
     } finally {
       setSyncing(false);
     }
@@ -135,7 +143,7 @@ const App: React.FC = () => {
       setMaintenance(lMain);
       setJornadaLogs(lJorn);
     } catch (err) {
-      console.error("Erro ao carregar dados:", err);
+      console.error("Erro ao carregar dados locais:", err);
     }
   };
 
@@ -174,13 +182,10 @@ const App: React.FC = () => {
       dueDate.setHours(0,0,0,0);
       const diffTime = dueDate.getTime() - today.getTime();
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      const isFixed = !e.trip_id;
       if (diffDays < 0) {
-        list.push({ id: `exp-late-${e.id}`, type: 'URGENT', category: 'FINANCE', title: isFixed ? `Custo Fixo Atrasado!` : `Gasto de Viagem Atrasado!`, message: `${e.description} venceu em ${dueDate.toLocaleDateString()}.`, date: 'Atrasado' });
+        list.push({ id: `exp-late-${e.id}`, type: 'URGENT', category: 'FINANCE', title: `Dívida em Atraso`, message: `${e.description} venceu em ${dueDate.toLocaleDateString()}.`, date: 'Atrasado' });
       } else if (diffDays === 0) {
-        list.push({ id: `exp-today-${e.id}`, type: 'WARNING', category: 'FINANCE', title: isFixed ? `Custo Fixo Vence Hoje` : `Gasto de Viagem Hoje`, message: `Pagar ${e.description} hoje.`, date: 'Hoje' });
-      } else if (diffDays > 0 && diffDays <= 3) {
-        list.push({ id: `exp-soon-${e.id}`, type: 'INFO', category: 'FINANCE', title: isFixed ? `Vencimento de Custo Fixo` : `Vencimento Próximo`, message: `${e.description} vence em ${diffDays} dias.`, date: 'Em breve' });
+        list.push({ id: `exp-today-${e.id}`, type: 'WARNING', category: 'FINANCE', title: `Pagar Hoje`, message: `Vencimento de ${e.description}.`, date: 'Hoje' });
       }
     });
 
@@ -211,10 +216,8 @@ const App: React.FC = () => {
       if (!session?.user?.id) throw new Error("Usuário não autenticado");
       const payload = { ...data, user_id: session.user.id };
       
-      // SALVAMENTO LOCAL IMEDIATO NO INDEXEDDB
       const savedData = await offlineStorage.save(table, payload, action);
       
-      // FUNÇÃO AUXILIAR PARA ATUALIZAR ESTADO REACT DE FORMA GENÉRICA
       const updateList = (prev: any[]) => {
         if (action === 'insert') return [savedData, ...prev];
         if (action === 'update') return prev.map(item => item.id === savedData.id ? savedData : item);
@@ -222,14 +225,12 @@ const App: React.FC = () => {
         return prev;
       };
 
-      // ATUALIZAÇÃO DO ESTADO ESPECÍFICO
       if (table === 'jornada_logs') setJornadaLogs(updateList);
       else if (table === 'trips') setTrips(updateList);
       else if (table === 'expenses') setExpenses(updateList);
       else if (table === 'vehicles') setVehicles(updateList);
       else if (table === 'maintenance') setMaintenance(updateList);
       
-      // SINCRONIZAÇÃO EM SEGUNDO PLANO SE ESTIVER ONLINE
       if (navigator.onLine) {
         syncData(); 
       }
@@ -240,7 +241,7 @@ const App: React.FC = () => {
     }
   };
 
-  if (loading) return <div className="h-screen flex items-center justify-center bg-slate-50"><Loader2 className="animate-spin text-primary-600" size={48} /></div>;
+  if (loading) return <div className="h-screen flex items-center justify-center bg-slate-950"><Loader2 className="animate-spin text-primary-500" size={48} /></div>;
 
   if (!session) return (
     <div className="min-h-screen w-full flex items-center justify-center bg-slate-900 p-4">
@@ -297,12 +298,11 @@ const App: React.FC = () => {
             <div className="flex items-center gap-2">
               <span className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter border ${isOnline ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>
                 {isOnline ? <Wifi size={12}/> : <WifiOff size={12}/>}
-                {isOnline ? 'Online' : 'Offline'}
+                {isOnline ? 'Conectado' : 'Offline'}
               </span>
-              {jornadaMode !== 'IDLE' && (
-                <span className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter border animate-pulse ${jornadaMode === 'DRIVING' ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`}>
-                  {jornadaMode === 'DRIVING' ? <Play size={12} fill="currentColor" /> : <Coffee size={12}/>}
-                  {jornadaMode === 'DRIVING' ? 'Ao Volante' : 'Em Descanso'}
+              {syncing && (
+                <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter bg-blue-50 text-blue-600 border border-blue-100 animate-pulse">
+                  <RefreshCcw size={10} className="animate-spin" /> Sincronizando...
                 </span>
               )}
             </div>

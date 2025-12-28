@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Expense, ExpenseCategory, Trip, Vehicle } from '../types';
-import { Trash2, ChevronDown, ReceiptText, Banknote, Loader2, Edit2, CheckCircle2, X, ShieldCheck, Wallet, Check, Layers } from 'lucide-react';
+import { Trash2, ChevronDown, ReceiptText, Banknote, Loader2, Edit2, CheckCircle2, X, ShieldCheck, Wallet, Check, Layers, AlertCircle } from 'lucide-react';
 
 interface ExpenseManagerProps {
   expenses: Expense[];
@@ -45,7 +45,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
     trip_id: '',
     vehicle_id: '',
     description: '',
-    amount: 0,
+    amount: '',
     is_paid: true,
     installments_total: 1,
     installment_number: 1
@@ -61,7 +61,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
       trip_id: '', 
       vehicle_id: '', 
       description: '',
-      amount: 0,
+      amount: '',
       is_paid: true,
       installments_total: 1,
       installment_number: 1
@@ -88,22 +88,31 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.description || formData.amount <= 0) return alert("Preencha descrição e valor corretamente.");
+    const cleanAmount = parseFloat(formData.amount);
+    if (!formData.description || isNaN(cleanAmount) || cleanAmount <= 0) {
+      alert("Preencha descrição e valor corretamente.");
+      return;
+    }
 
-    // PAYLOAD LIMPO: Garantimos que os campos correspondam exatamente ao esperado pelo Supabase
-    const payload = {
+    // Criamos um objeto de payload SEGURO. 
+    // Se colunas específicas não existem no Supabase, o salvamento pode falhar.
+    // Aqui garantimos que apenas os campos base sejam obrigatórios.
+    const payload: any = {
       description: formData.description.toString(),
-      amount: Number(formData.amount),
+      amount: cleanAmount,
       category: formData.category,
       date: formData.date,
       due_date: formData.due_date || formData.date,
+      is_paid: Boolean(formData.is_paid),
       trip_id: (modalType === 'TRIP' && formData.trip_id) ? formData.trip_id : null,
       vehicle_id: formData.vehicle_id ? formData.vehicle_id : null,
-      is_paid: Boolean(formData.is_paid),
-      // Adicionando suporte a parcelamento se as colunas existirem
-      installments_total: Number(formData.installments_total || 1),
-      installment_number: Number(formData.installment_number || 1)
     };
+
+    // Campos opcionais de parcelamento (enviamos apenas se forem maiores que 1)
+    if (formData.installments_total > 1) {
+      payload.installments_total = Number(formData.installments_total);
+      payload.installment_number = Number(formData.installment_number);
+    }
 
     try {
       if (editingExpenseId && onUpdateExpense) {
@@ -112,9 +121,9 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
         await onAddExpense(payload);
       }
       resetForm();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Erro ao salvar despesa:", err);
-      alert("Erro ao salvar no banco. Verifique se as colunas de parcelamento foram criadas corretamente.");
+      alert("Erro ao sincronizar com a nuvem. Verifique sua conexão ou se a tabela no banco possui os campos necessários.");
     }
   };
 
@@ -134,32 +143,31 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
     <div className="space-y-8 pb-32 animate-fade-in max-w-7xl mx-auto">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 px-4">
         <div>
-          <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase leading-none">Financeiro</h2>
-          <p className="text-slate-400 font-bold text-sm uppercase tracking-widest mt-2">Gestão de Lucro e Despesas</p>
+          <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase leading-none">Controle Financeiro</h2>
+          <p className="text-slate-400 font-bold text-sm uppercase tracking-widest mt-2">Gestão de Fluxo de Caixa</p>
         </div>
         <div className="flex gap-4 w-full md:w-auto">
           <button 
-            onClick={() => { 
-              resetForm(); 
-              setModalType('TRIP'); 
-              setFormData(prev => ({ ...prev, category: ExpenseCategory.FUEL, is_paid: true }));
-            }} 
+            onClick={() => { resetForm(); setModalType('TRIP'); setFormData(prev => ({ ...prev, category: ExpenseCategory.FUEL, is_paid: true })); }} 
             className="flex-1 md:flex-none flex items-center justify-center gap-2 px-8 py-5 bg-white border-2 border-slate-100 rounded-[2rem] font-black text-xs uppercase text-slate-600 hover:border-primary-500 hover:text-primary-600 transition-all shadow-sm active:scale-95"
           >
-            <ReceiptText size={20} /> Custo Viagem
+            <ReceiptText size={20} /> Gasto de Viagem
           </button>
           <button 
-            onClick={() => { 
-              resetForm(); 
-              setModalType('FIXED'); 
-              setFormData(prev => ({ ...prev, category: ExpenseCategory.FINANCING, is_paid: false }));
-            }} 
+            onClick={() => { resetForm(); setModalType('FIXED'); setFormData(prev => ({ ...prev, category: ExpenseCategory.FINANCING, is_paid: false })); }} 
             className="flex-1 md:flex-none flex items-center justify-center gap-2 px-8 py-5 bg-slate-900 text-white rounded-[2rem] font-black text-xs uppercase shadow-2xl hover:bg-black active:scale-95 transition-all"
           >
-            <Banknote size={20} /> Custo Fixo
+            <Banknote size={20} /> Gasto Fixo
           </button>
         </div>
       </div>
+
+      {expenses.length === 0 && !isSaving && (
+        <div className="mx-4 py-20 bg-white rounded-[3.5rem] border-2 border-dashed flex flex-col items-center justify-center text-slate-400">
+           <AlertCircle size={48} className="mb-4 opacity-20" />
+           <p className="font-black uppercase text-xs tracking-widest">Nenhuma despesa registrada ainda.</p>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 px-4">
         {expenses.map((expense) => {
@@ -177,9 +185,6 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
                 <div className="text-right">
                   <div className="text-[10px] font-black uppercase text-slate-400 mb-1">Valor</div>
                   <div className="text-3xl font-black text-rose-500">R$ {expense.amount.toLocaleString()}</div>
-                  {expense.installments_total && expense.installments_total > 1 && (
-                    <div className="text-[10px] font-black text-slate-400 uppercase mt-1">Parcela {expense.installment_number}/{expense.installments_total}</div>
-                  )}
                 </div>
               </div>
 
@@ -218,7 +223,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
 
               <div className="absolute top-6 right-6 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button onClick={() => handleEdit(expense)} className="p-3 bg-white shadow-md rounded-full text-slate-400 hover:text-primary-600 transition-all"><Edit2 size={16} /></button>
-                <button onClick={() => onDeleteExpense(expense.id)} className="p-3 bg-white shadow-md rounded-full text-slate-400 hover:text-rose-600"><Trash2 size={16} /></button>
+                <button onClick={() => { if(confirm("Deseja excluir?")) onDeleteExpense(expense.id) }} className="p-3 bg-white shadow-md rounded-full text-slate-400 hover:text-rose-600"><Trash2 size={16} /></button>
               </div>
             </div>
           );
@@ -247,7 +252,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
               <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <label className="text-[11px] font-black uppercase text-slate-400 ml-1">Valor Total (R$)</label>
-                  <input required type="number" step="0.01" className="w-full p-5 bg-slate-50 rounded-3xl border-2 border-transparent focus:border-primary-500 font-black text-3xl text-rose-500 outline-none" value={formData.amount || ''} onChange={e => setFormData({...formData, amount: Number(e.target.value)})} />
+                  <input required type="number" step="0.01" className="w-full p-5 bg-slate-50 rounded-3xl border-2 border-transparent focus:border-primary-500 font-black text-3xl text-rose-500 outline-none" value={formData.amount} onChange={e => setFormData({...formData, amount: e.target.value})} />
                 </div>
                 <div className="space-y-2">
                   <label className="text-[11px] font-black uppercase text-slate-400 ml-1">Categoria</label>
