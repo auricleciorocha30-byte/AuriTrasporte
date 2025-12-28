@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Timer, Coffee, Play, Square, History, AlertCircle, BellRing, Trash2, Clock, CheckCircle, Activity, Loader2, CalendarDays, ArrowRight } from 'lucide-react';
+import { Timer, Coffee, Play, Square, History, AlertCircle, BellRing, Trash2, Clock, CheckCircle, Activity, Loader2, CalendarDays, ArrowRight, Eraser } from 'lucide-react';
 import { JornadaLog } from '../types';
 
 const LIMIT_DRIVING = 19800; // 5h 30min em segundos
@@ -14,11 +14,12 @@ interface JornadaManagerProps {
   setStartTime: (time: number | null) => void;
   onSaveLog: (log: Omit<JornadaLog, 'id' | 'user_id'>) => Promise<void>;
   onDeleteLog: (id: string) => Promise<void>;
+  onClearHistory: () => Promise<void>;
   addGlobalNotification: (title: string, msg: string, type?: 'warning' | 'info') => void;
   isSaving?: boolean;
 }
 
-export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime, logs, setMode, setStartTime, onSaveLog, onDeleteLog, addGlobalNotification, isSaving }) => {
+export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime, logs, setMode, setStartTime, onSaveLog, onDeleteLog, onClearHistory, addGlobalNotification, isSaving }) => {
   const [currentTime, setCurrentTime] = useState(0);
   const [alert, setAlert] = useState<string | null>(null);
   
@@ -116,6 +117,12 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
     }
   };
 
+  const confirmClearHistory = async () => {
+    if (window.confirm("Deseja apagar TODO o seu histórico de jornada? Esta ação removerá todos os registros permanentemente.")) {
+      await onClearHistory();
+    }
+  };
+
   return (
     <div className="max-w-5xl mx-auto space-y-6 pb-20 animate-fade-in">
       {/* Painel de Controle Principal Compactado */}
@@ -185,7 +192,7 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 px-4">
         {/* Histórico Detalhado */}
         <div className="lg:col-span-8 bg-white p-8 rounded-[3rem] border shadow-sm">
-          <div className="flex justify-between items-center mb-8">
+          <div className="flex justify-between items-start mb-8">
             <div>
               <h3 className="text-xl font-black flex items-center gap-3 uppercase tracking-tighter">
                 <History className="text-primary-600" size={20}/> Histórico de Hoje
@@ -194,9 +201,20 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
                 <CalendarDays size={12}/> {getLocalDateStr().split('-').reverse().join('/')}
               </p>
             </div>
-            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 px-3 py-1 rounded-lg">
-              {savedLogs.length} seções
-            </span>
+            <div className="flex flex-col items-end gap-2">
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 px-3 py-1 rounded-lg">
+                {savedLogs.length} seções
+              </span>
+              {savedLogs.length > 0 && (
+                <button 
+                  onClick={confirmClearHistory}
+                  disabled={isSaving}
+                  className="flex items-center gap-1.5 text-[9px] font-black uppercase text-rose-500 hover:text-rose-600 transition-colors p-1"
+                >
+                  <Eraser size={12}/> Limpar Tudo
+                </button>
+              )}
+            </div>
           </div>
           
           <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">

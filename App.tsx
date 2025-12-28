@@ -241,6 +241,27 @@ const App: React.FC = () => {
     }
   };
 
+  const handleClearJornadaHistory = async () => {
+    setIsSaving(true);
+    try {
+      if (!session?.user?.id) return;
+      
+      // 1. Limpar Local
+      await offlineStorage.clearTable('jornada_logs');
+      setJornadaLogs([]);
+      
+      // 2. Limpar Remoto (se online)
+      if (navigator.onLine) {
+        const { error } = await supabase.from('jornada_logs').delete().eq('user_id', session.user.id);
+        if (error) throw error;
+      }
+    } catch (err) {
+      console.error("Erro ao limpar histórico:", err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -415,6 +436,7 @@ const App: React.FC = () => {
               setMode={setJornadaMode} setStartTime={setJornadaStartTime} 
               onSaveLog={(l) => handleAction('jornada_logs', l, 'insert')} 
               onDeleteLog={(id) => handleAction('jornada_logs', { id }, 'delete')} 
+              onClearHistory={handleClearJornadaHistory}
               addGlobalNotification={() => {}} 
               isSaving={isSaving}
             />
