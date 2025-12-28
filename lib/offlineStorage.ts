@@ -40,23 +40,37 @@ export const offlineStorage = {
   async save(table: string, data: any, action: 'insert' | 'update' | 'delete' = 'insert') {
     const db = await initDB();
     const id = data.id || generateId();
-    const finalData = { 
-      ...data, 
-      id, 
-      sync_status: 'pending',
-      created_at: data.created_at || new Date().toISOString()
-    };
+    
+    let finalData: any;
 
     if (action === 'delete') {
       await db.delete(table as any, id);
+      finalData = { id };
+    } else if (action === 'update') {
+      const existing = await db.get(table as any, id);
+      finalData = { 
+        ...(existing || {}), 
+        ...data, 
+        id,
+        sync_status: 'pending',
+        updated_at: new Date().toISOString()
+      };
+      await db.put(table as any, finalData);
     } else {
+      finalData = { 
+        ...data, 
+        id, 
+        sync_status: 'pending',
+        created_at: data.created_at || new Date().toISOString()
+      };
       await db.put(table as any, finalData);
     }
 
+    // Registrar na fila de sincronização
     await db.put('sync_queue', {
-      id,
+      id: generateId(), // ID único para a entrada na fila de sincronização
       table,
-      data: action === 'delete' ? { id } : finalData,
+      data: finalData,
       status: 'pending',
       action,
       timestamp: Date.now()

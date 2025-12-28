@@ -211,27 +211,30 @@ const App: React.FC = () => {
       if (!session?.user?.id) throw new Error("Usuário não autenticado");
       const payload = { ...data, user_id: session.user.id };
       
-      // SALVAMENTO LOCAL IMEDIATO
+      // SALVAMENTO LOCAL IMEDIATO NO INDEXEDDB
       const savedData = await offlineStorage.save(table, payload, action);
       
-      // ATUALIZAÇÃO DO ESTADO REACT EM MEMÓRIA (INSTANTÂNEA)
-      if (table === 'jornada_logs') {
-        if (action === 'insert') setJornadaLogs(prev => [savedData, ...prev]);
-        else if (action === 'delete') setJornadaLogs(prev => prev.filter(x => x.id !== data.id));
-      } else if (table === 'trips') {
-        if (action === 'insert') setTrips(prev => [savedData, ...prev]);
-        else if (action === 'delete') setTrips(prev => prev.filter(x => x.id !== data.id));
-      } else if (table === 'expenses') {
-        if (action === 'insert') setExpenses(prev => [savedData, ...prev]);
-        else if (action === 'delete') setExpenses(prev => prev.filter(x => x.id !== data.id));
-      }
+      // FUNÇÃO AUXILIAR PARA ATUALIZAR ESTADO REACT DE FORMA GENÉRICA
+      const updateList = (prev: any[]) => {
+        if (action === 'insert') return [savedData, ...prev];
+        if (action === 'update') return prev.map(item => item.id === savedData.id ? savedData : item);
+        if (action === 'delete') return prev.filter(item => item.id !== data.id);
+        return prev;
+      };
+
+      // ATUALIZAÇÃO DO ESTADO ESPECÍFICO
+      if (table === 'jornada_logs') setJornadaLogs(updateList);
+      else if (table === 'trips') setTrips(updateList);
+      else if (table === 'expenses') setExpenses(updateList);
+      else if (table === 'vehicles') setVehicles(updateList);
+      else if (table === 'maintenance') setMaintenance(updateList);
       
-      // SINCRONIZAÇÃO EM SEGUNDO PLANO
+      // SINCRONIZAÇÃO EM SEGUNDO PLANO SE ESTIVER ONLINE
       if (navigator.onLine) {
         syncData(); 
       }
     } catch (err: any) {
-      console.error(`Erro ao salvar em ${table}:`, err);
+      console.error(`Erro ao processar ação em ${table}:`, err);
     } finally {
       setIsSaving(false);
     }
