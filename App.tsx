@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { LayoutDashboard, Truck, Wallet, Calculator, Menu, X, LogOut, Bell, Settings, CheckSquare, Timer, Fuel, Loader2, Mail, Key, UserPlus, LogIn, AlertCircle, Share2, AlertTriangle, KeyRound, Wifi, WifiOff, CloudUpload, CheckCircle2 } from 'lucide-react';
+import { LayoutDashboard, Truck, Wallet, Calculator, Menu, X, LogOut, Bell, Settings, CheckSquare, Timer, Fuel, Loader2, Mail, Key, UserPlus, LogIn, AlertCircle, Share2, AlertTriangle, KeyRound, Wifi, WifiOff, CloudUpload, CheckCircle2, Coffee, Play } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { TripManager } from './components/TripManager';
 import { ExpenseManager } from './components/ExpenseManager';
@@ -49,7 +49,7 @@ const App: React.FC = () => {
     if (savedMode && (savedMode === 'DRIVING' || savedMode === 'RESTING' || savedMode === 'IDLE')) {
       setJornadaMode(savedMode as any);
     }
-    if (savedStartTime) {
+    if (savedStartTime && savedStartTime !== 'null') {
       setJornadaStartTime(Number(savedStartTime));
     }
   }, []);
@@ -313,8 +313,9 @@ const App: React.FC = () => {
                 </span>
               )}
               {jornadaMode !== 'IDLE' && (
-                <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter bg-amber-50 text-amber-600 border border-amber-100">
-                  <Timer size={12} className="animate-spin-slow" /> Jornada Ativa
+                <span className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter border animate-pulse ${jornadaMode === 'DRIVING' ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`}>
+                  {jornadaMode === 'DRIVING' ? <Play size={12} fill="currentColor" /> : <Coffee size={12}/>}
+                  {jornadaMode === 'DRIVING' ? 'Ao Volante' : 'Em Descanso'}
                 </span>
               )}
             </div>
