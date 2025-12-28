@@ -25,6 +25,7 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
   const drivingAlertFired = useRef(false);
   const restAlertFired = useRef(false);
 
+  // Função robusta para pegar a data local em formato YYYY-MM-DD
   const getLocalDateStr = () => {
     const d = new Date();
     const year = d.getFullYear();
@@ -43,13 +44,16 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
   const historyItems = useMemo(() => {
     const todayStr = getLocalDateStr();
     
+    // Filtro aprimorado para garantir que registros locais e do banco apareçam
     const sortedLogs = [...logs]
       .filter(l => {
+        // Tenta pegar a data do campo 'date' ou do início do 'start_time'
         const logDate = l.date || (l.start_time ? l.start_time.split('T')[0] : '');
         return logDate === todayStr;
       })
       .sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime());
     
+    // Injeção da sessão ativa (que ainda não foi salva no banco)
     if (mode !== 'IDLE' && startTime) {
       const activeLog: any = {
         id: 'active-session-live',
@@ -103,6 +107,7 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
   }, [currentTime, mode]);
 
   const handleAction = async (newMode: 'IDLE' | 'DRIVING' | 'RESTING') => {
+    // Se está parando uma atividade, salva o log
     if (mode !== 'IDLE' && startTime) {
       const now = Date.now();
       const duration = Math.floor((now - startTime) / 1000);
