@@ -31,6 +31,7 @@ const App: React.FC = () => {
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
+  // Estados da Jornada Persistidos
   const [jornadaMode, setJornadaMode] = useState<'IDLE' | 'DRIVING' | 'RESTING'>('IDLE');
   const [jornadaStartTime, setJornadaStartTime] = useState<number | null>(null);
 
@@ -39,6 +40,29 @@ const App: React.FC = () => {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [maintenance, setMaintenance] = useState<MaintenanceItem[]>([]);
   const [jornadaLogs, setJornadaLogs] = useState<JornadaLog[]>([]);
+
+  // Carregar estado da jornada do localStorage ao montar
+  useEffect(() => {
+    const savedMode = localStorage.getItem('aurilog_jornada_mode');
+    const savedStartTime = localStorage.getItem('aurilog_jornada_start_time');
+    
+    if (savedMode && (savedMode === 'DRIVING' || savedMode === 'RESTING' || savedMode === 'IDLE')) {
+      setJornadaMode(savedMode as any);
+    }
+    if (savedStartTime) {
+      setJornadaStartTime(Number(savedStartTime));
+    }
+  }, []);
+
+  // Salvar estado da jornada sempre que mudar
+  useEffect(() => {
+    localStorage.setItem('aurilog_jornada_mode', jornadaMode);
+    if (jornadaStartTime) {
+      localStorage.setItem('aurilog_jornada_start_time', jornadaStartTime.toString());
+    } else {
+      localStorage.removeItem('aurilog_jornada_start_time');
+    }
+  }, [jornadaMode, jornadaStartTime]);
 
   // Monitorar Conexão
   useEffect(() => {
@@ -71,7 +95,7 @@ const App: React.FC = () => {
           await offlineStorage.markAsSynced(item.id);
         }
       }
-      await fetchData(); // Atualiza tudo após sync
+      await fetchData(); 
     } catch (err) {
       console.error("Erro na sincronização:", err);
     } finally {
@@ -81,7 +105,6 @@ const App: React.FC = () => {
 
   const fetchData = async () => {
     try {
-      // Se estiver online, tenta baixar do Supabase e atualizar o cache local
       if (navigator.onLine && session?.user) {
         const [tripsRes, expRes, vehRes, mainRes, jornRes] = await Promise.all([
           supabase.from('trips').select('*').order('date', { ascending: false }),
@@ -98,7 +121,6 @@ const App: React.FC = () => {
         if (jornRes.data) { await offlineStorage.clearTable('jornada_logs'); await offlineStorage.bulkSave('jornada_logs', jornRes.data); }
       }
 
-      // Carrega do Banco Local (IndexedDB) - Sempre rápido e funciona offline
       const [lTrips, lExp, lVeh, lMain, lJorn] = await Promise.all([
         offlineStorage.getAll('trips'),
         offlineStorage.getAll('expenses'),
@@ -142,7 +164,7 @@ const App: React.FC = () => {
       if (diffDays === 0) {
         list.push({ id: `trip-today-${t.id}`, type: 'WARNING', category: 'TRIP', title: `Viagem Começa Hoje!`, message: `Rota: ${t.origin.split(' - ')[0]} -> ${t.destination.split(' - ')[0]}.`, date: 'Hoje' });
       } else if (diffDays > 0 && diffDays <= 2) {
-        list.push({ id: `trip-soon-${t.id}`, type: 'INFO', category: 'TRIP', title: `Viagem em ${diffDays} ${diffDays === 1 ? 'dia' : 'dias'}`, message: `Início programado para ${t.destination.split(' - ')[0]}.`, date: 'Em breve' });
+        list.push({ id: `trip-soon-${t.id}`, type: 'INFO', category: 'TRIP', title: `Viagem em ${diffDays} dias`, message: `Início programado para ${t.destination.split(' - ')[0]}.`, date: 'Em breve' });
       }
     });
 
@@ -176,7 +198,6 @@ const App: React.FC = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Added handleResetPassword to resolve "Cannot find name 'handleResetPassword'" error
   const handleResetPassword = async () => {
     if (!email) {
       setError("Por favor, informe seu e-mail para recuperar a senha.");
@@ -210,15 +231,10 @@ const App: React.FC = () => {
     try {
       if (!session?.user?.id) throw new Error("Usuário não autenticado");
       const payload = { ...data, user_id: session.user.id };
-      
-      // Salva localmente primeiro (funciona offline)
       await offlineStorage.save(table, payload, action);
-      
-      // Tenta sincronizar imediatamente se estiver online
       if (navigator.onLine) {
         await syncData();
       }
-      
       await fetchData();
     } catch (err: any) {
       console.error(`Erro ao salvar em ${table}:`, err);
@@ -266,7 +282,10 @@ const App: React.FC = () => {
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden">
       <aside className={`fixed md:relative z-40 w-64 h-full bg-slate-900 text-slate-300 p-4 transition-transform duration-300 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
-        <div className="flex items-center gap-2 mb-10 px-2"><Truck className="text-primary-500" size={28} /><span className="text-xl font-bold text-white tracking-tighter uppercase">AuriLog</span></div>
+        <div className="flex items-center gap-2 mb-10 px-2">
+          <Truck className="text-primary-500" size={28} />
+          <span className="text-xl font-bold text-white tracking-tighter uppercase">AuriLog</span>
+        </div>
         <nav className="space-y-1">
           <MenuBtn icon={LayoutDashboard} label="Dashboard" active={currentView === AppView.DASHBOARD} onClick={() => {setCurrentView(AppView.DASHBOARD); setIsMobileMenuOpen(false);}} />
           <MenuBtn icon={Truck} label="Viagens" active={currentView === AppView.TRIPS} onClick={() => {setCurrentView(AppView.TRIPS); setIsMobileMenuOpen(false);}} />
@@ -291,6 +310,11 @@ const App: React.FC = () => {
               {syncing && (
                 <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter bg-blue-50 text-blue-600 border border-blue-100 animate-pulse">
                   <CloudUpload size={12}/> Sincronizando...
+                </span>
+              )}
+              {jornadaMode !== 'IDLE' && (
+                <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter bg-amber-50 text-amber-600 border border-amber-100">
+                  <Timer size={12} className="animate-spin-slow" /> Jornada Ativa
                 </span>
               )}
             </div>

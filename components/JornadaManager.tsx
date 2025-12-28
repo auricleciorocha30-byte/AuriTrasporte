@@ -24,15 +24,17 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
   const drivingAlertFired = useRef(false);
   const restAlertFired = useRef(false);
 
+  // Efeito principal do cronômetro: Calcula tempo real baseado no startTime persistido
   useEffect(() => {
     let interval: any;
     if (mode !== 'IDLE' && startTime) {
       const updateTime = () => {
-        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        const now = Date.now();
+        const elapsed = Math.floor((now - startTime) / 1000);
         setCurrentTime(elapsed > 0 ? elapsed : 0);
       };
       
-      updateTime();
+      updateTime(); // Atualiza instantaneamente ao carregar
       interval = setInterval(updateTime, 1000);
     } else {
       setCurrentTime(0);
@@ -42,6 +44,7 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
     return () => clearInterval(interval);
   }, [mode, startTime]);
 
+  // Efeito de Alertas e Notificações
   useEffect(() => {
     if (mode === 'DRIVING' && currentTime >= LIMIT_DRIVING) {
       const msg = "⚠️ LIMITE DE 5h30 ATINGIDO! Pare imediatamente.";
@@ -71,35 +74,34 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
   };
 
   const handleAction = async (newMode: 'IDLE' | 'DRIVING' | 'RESTING') => {
-    // Se estava rodando algo, salvar o log antes de trocar ou parar
+    // Se estava rodando algo, salvar o log obrigatoriamente antes de trocar ou parar
     if (mode !== 'IDLE' && startTime) {
       const now = Date.now();
       const duration = Math.floor((now - startTime) / 1000);
       
-      const newLog: Omit<JornadaLog, 'id' | 'user_id'> = { 
-        start_time: new Date(startTime).toISOString(), 
-        end_time: new Date(now).toISOString(), 
-        duration_seconds: duration,
-        type: mode === 'DRIVING' ? 'Direção' : 'Descanso',
-        date: new Date().toISOString().split('T')[0]
-      };
-      
-      await onSaveLog(newLog);
+      // Só registra se tiver pelo menos 5 segundos para evitar ruído
+      if (duration > 5) {
+        const newLog: Omit<JornadaLog, 'id' | 'user_id'> = { 
+          start_time: new Date(startTime).toISOString(), 
+          end_time: new Date(now).toISOString(), 
+          duration_seconds: duration,
+          type: mode === 'DRIVING' ? 'Direção' : 'Descanso',
+          date: new Date().toISOString().split('T')[0]
+        };
+        await onSaveLog(newLog);
+      }
     }
 
     if (newMode === 'IDLE') {
       setStartTime(null);
-      localStorage.removeItem('aurilog_jornada_mode');
-      localStorage.removeItem('aurilog_jornada_start_time');
+      setMode('IDLE');
     } else {
       const now = Date.now();
       setStartTime(now);
-      localStorage.setItem('aurilog_jornada_mode', newMode);
-      localStorage.setItem('aurilog_jornada_start_time', now.toString());
+      setMode(newMode);
       drivingAlertFired.current = false;
       restAlertFired.current = false;
     }
-    setMode(newMode);
   };
 
   return (
@@ -116,7 +118,7 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
         )}
 
         <div className="relative mb-6">
-           <Timer size={48} className={`${mode === 'IDLE' ? 'text-slate-500' : 'text-primary-400'} animate-pulse`} />
+           <Timer size={48} className={`${mode === 'IDLE' ? 'text-slate-500' : 'text-primary-400'} ${mode !== 'IDLE' ? 'animate-pulse' : ''}`} />
         </div>
         
         <h2 className="text-2xl font-black mb-2 uppercase tracking-tighter opacity-80">
@@ -153,7 +155,7 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 px-2">
         <div className="bg-white p-8 rounded-[2.5rem] border shadow-sm">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="text-xl font-black flex items-center gap-3 uppercase tracking-tighter"><History/> Histórico Sincronizado</h3>
+            <h3 className="text-xl font-black flex items-center gap-3 uppercase tracking-tighter"><History/> Histórico de Hoje</h3>
           </div>
           <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
             {logs.length === 0 ? (
