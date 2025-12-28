@@ -1,51 +1,46 @@
 
 import React, { useState, useMemo } from 'react';
 import { ANTTParams } from '../types';
-import { Calculator, AlertCircle, Info, Check, X, ChevronDown, DollarSign, Utensils, Construction } from 'lucide-react';
+import { Calculator, ChevronDown, Info } from 'lucide-react';
 import { calculateANTT, ANTT_CARGO_TYPES } from '../services/anttService';
 
 export const FreightCalculator: React.FC = () => {
-  const [params, setParams] = useState<ANTTParams & { mealCost?: number, extraCosts?: number }>({
-    distance: 400,
-    axles: 5,
+  const [params, setParams] = useState<ANTTParams>({
+    distance: 1,
+    axles: 2,
     cargoType: 'geral',
     isComposition: false,
     isHighPerformance: false,
     returnEmpty: false,
-    tollCost: 0,
-    mealCost: 0,
-    extraCosts: 0
   });
 
   const [showResults, setShowResults] = useState(false);
 
   const results = useMemo(() => {
     return calculateANTT(params.distance, params.axles, params.cargoType, {
-      toll: params.tollCost,
-      daily: params.mealCost,
-      other: params.extraCosts,
-      returnEmpty: params.returnEmpty
+      returnEmpty: params.returnEmpty,
+      isComposition: params.isComposition,
+      isHighPerformance: params.isHighPerformance
     });
   }, [params]);
 
   const handleCalculate = (e: React.FormEvent) => {
     e.preventDefault();
-    if (params.distance > 0 && params.cargoType !== '') {
-      setShowResults(true);
-    } else {
-      alert("Selecione o tipo de carga e informe a distância.");
-    }
+    setShowResults(true);
   };
 
-  const Toggle = ({ label, value, onChange }: { label: string, value: boolean, onChange: (v: boolean) => void }) => (
-    <div className="flex justify-between items-center py-2 border-b border-slate-100 last:border-0">
-      <span className="text-[11px] font-bold text-slate-500 uppercase">{label}?</span>
+  const ToggleRow = ({ label, description, value, onChange }: { label: string, description?: string, value: boolean, onChange: (v: boolean) => void }) => (
+    <div className="flex justify-between items-center py-4 border-b border-slate-50 last:border-0">
+      <div>
+        <span className="text-sm font-semibold text-slate-500">{label}</span>
+        {description && <p className="text-[10px] text-slate-400 mt-0.5">{description}</p>}
+      </div>
       <button 
         type="button"
         onClick={() => onChange(!value)}
-        className={`w-14 h-7 rounded-md flex items-center px-1 transition-colors ${value ? 'bg-[#50c878]' : 'bg-[#f06464]'}`}
+        className={`relative w-12 h-6 rounded-md transition-colors ${value ? 'bg-[#50c878]' : 'bg-[#f06464]'}`}
       >
-        <div className={`w-8 h-5 bg-white rounded flex items-center justify-center text-[10px] font-black text-slate-800 transition-transform ${value ? 'translate-x-4' : 'translate-x-0'}`}>
+        <div className={`absolute top-0.5 left-0.5 right-0.5 bottom-0.5 bg-white rounded-sm flex items-center justify-center text-[10px] font-bold text-slate-600 shadow-sm transition-all ${value ? 'translate-x-0 ml-4' : 'translate-x-0 mr-4'}`}>
           {value ? 'Sim' : 'Não'}
         </div>
       </button>
@@ -53,133 +48,91 @@ export const FreightCalculator: React.FC = () => {
   );
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 animate-fade-in pb-10">
-      <div className="text-center py-6">
-        <h2 className="text-2xl font-black text-[#2d50a0] uppercase tracking-tight">Cálculo de Frete (Res. 6.067/25)</h2>
-      </div>
+    <div className="max-w-4xl mx-auto space-y-6 animate-fade-in pb-20">
+      <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm p-8 md:p-12">
+        <form onSubmit={handleCalculate} className="space-y-6">
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-slate-400">Tipo de Carga</label>
+            <div className="relative">
+              <select 
+                className="w-full p-3 bg-white border border-slate-200 rounded-lg font-medium text-slate-700 outline-none focus:ring-1 focus:ring-primary-500 appearance-none pr-10"
+                value={params.cargoType}
+                onChange={e => setParams({...params, cargoType: e.target.value})}
+              >
+                {ANTT_CARGO_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+              </select>
+              <ChevronDown size={18} className="absolute right-3 top-3.5 text-slate-400 pointer-events-none" />
+            </div>
+          </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 px-4">
-        {/* Lado Esquerdo: Formulário */}
-        <div className="lg:col-span-7 bg-white rounded-[2rem] border border-slate-200 shadow-sm p-8 space-y-6">
-          <form onSubmit={handleCalculate} className="space-y-6">
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
-              <label className="text-[11px] font-black uppercase text-slate-400 ml-1">Tipo de Carga</label>
-              <div className="relative">
-                <select 
-                  className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:bg-white appearance-none pr-10"
-                  value={params.cargoType}
-                  onChange={e => setParams({...params, cargoType: e.target.value})}
-                >
-                  <option value="">Selecione</option>
-                  {ANTT_CARGO_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
-                </select>
-                <ChevronDown size={20} className="absolute right-4 top-4 text-slate-400 pointer-events-none" />
-              </div>
+              <label className="text-xs font-semibold text-slate-400">Número de Eixos*</label>
+              <select 
+                className="w-full p-3 bg-white border border-slate-200 rounded-lg font-medium text-slate-700 outline-none"
+                value={params.axles}
+                onChange={e => setParams({...params, axles: Number(e.target.value)})}
+              >
+                {[2, 3, 4, 5, 6, 7, 9].map(n => <option key={n} value={n}>{n}</option>)}
+              </select>
             </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-[11px] font-black uppercase text-slate-400 ml-1">Número de Eixos</label>
-                <select 
-                  className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none"
-                  value={params.axles}
-                  onChange={e => setParams({...params, axles: Number(e.target.value)})}
-                >
-                  {[2, 3, 4, 5, 6, 7, 9].map(n => <option key={n} value={n}>{n} Eixos</option>)}
-                </select>
-              </div>
-              <div className="space-y-1">
-                <label className="text-[11px] font-black uppercase text-slate-400 ml-1">Distância (Km)</label>
-                <input 
-                  required
-                  type="number" 
-                  className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-black text-xl outline-none"
-                  value={params.distance || ''}
-                  onChange={e => setParams({...params, distance: Number(e.target.value)})}
-                />
-              </div>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-400">Distância</label>
+              <input 
+                required
+                type="number" 
+                className="w-full p-3 bg-white border border-slate-200 rounded-lg font-medium text-slate-700 outline-none"
+                value={params.distance}
+                onChange={e => setParams({...params, distance: Number(e.target.value)})}
+              />
             </div>
+          </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-1">
-                <label className="text-[11px] font-black uppercase text-slate-400 ml-1 flex items-center gap-1"><Construction size={12}/> Pedágio (R$)</label>
-                <input type="number" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none" value={params.tollCost || ''} onChange={e => setParams({...params, tollCost: Number(e.target.value)})} />
-              </div>
-              <div className="space-y-1">
-                <label className="text-[11px] font-black uppercase text-slate-400 ml-1 flex items-center gap-1"><Utensils size={12}/> Diárias/Ref. (R$)</label>
-                <input type="number" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none" value={params.mealCost || ''} onChange={e => setParams({...params, mealCost: Number(e.target.value)})} />
-              </div>
-              <div className="space-y-1">
-                <label className="text-[11px] font-black uppercase text-slate-400 ml-1 flex items-center gap-1"><DollarSign size={12}/> Outros (R$)</label>
-                <input type="number" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none" value={params.extraCosts || ''} onChange={e => setParams({...params, extraCosts: Number(e.target.value)})} />
-              </div>
-            </div>
+          <div className="space-y-1">
+            <ToggleRow 
+              label="É composição veicular?" 
+              description="(veículo automotor + implemento ou caminhão simples)" 
+              value={params.isComposition || false} 
+              onChange={v => setParams({...params, isComposition: v})} 
+            />
+            <ToggleRow 
+              label="É Alto Desempenho?" 
+              value={params.isHighPerformance || false} 
+              onChange={v => setParams({...params, isHighPerformance: v})} 
+            />
+            <ToggleRow 
+              label="Retorno Vazio?" 
+              value={params.returnEmpty} 
+              onChange={v => setParams({...params, returnEmpty: v})} 
+            />
+          </div>
 
-            <div className="bg-slate-50 p-6 rounded-[1.5rem] border border-slate-100 space-y-1">
-              <Toggle label="Alto Desempenho (Refeição apenas)" value={params.isHighPerformance} onChange={v => setParams({...params, isHighPerformance: v})} />
-              <Toggle label="Retorno Vazio Obrigatório" value={params.returnEmpty} onChange={v => setParams({...params, returnEmpty: v})} />
-            </div>
-
+          <div className="flex justify-end pt-4">
             <button 
               type="submit"
-              className="w-full py-5 bg-[#2d50a0] text-white rounded-2xl font-black text-lg shadow-xl hover:brightness-110 active:scale-95 transition-all"
+              className="bg-[#48C0C8] text-white px-10 py-3 rounded-md font-bold text-sm hover:brightness-105 active:scale-95 transition-all"
             >
-              Calcular Frete Final
+              Calcular
             </button>
-          </form>
-        </div>
-
-        {/* Lado Direito: Resultados Visuais */}
-        <div className="lg:col-span-5 bg-white rounded-[2rem] border border-slate-200 shadow-sm p-8 flex flex-col justify-between">
-          <div className="text-center space-y-4">
-            <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest leading-tight">
-              VALOR FINAL A SER PAGO AO TRANSPORTADOR
-            </h3>
-
-            {showResults ? (
-              <div className="py-6 animate-fade-in space-y-6">
-                <div>
-                  <h2 className="text-5xl font-black text-[#2d50a0]">
-                    R$ {results.total.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </h2>
-                  <p className="text-[11px] font-black text-slate-400 uppercase mt-2">Frete Total Negociado</p>
-                </div>
-
-                <div className="bg-slate-50 rounded-2xl p-6 text-left space-y-3">
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="font-bold text-slate-500 uppercase">Piso Mínimo ANTT:</span>
-                    <span className="font-black text-slate-900">R$ {results.pisoMinimo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                  </div>
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="font-bold text-slate-500 uppercase">Pedágios/Adicionais:</span>
-                    <span className="font-black text-emerald-600">+ R$ {results.adicionais.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                  </div>
-                  <div className="h-px bg-slate-200 my-2"></div>
-                  <div className="text-[10px] text-slate-400 leading-tight">
-                    CCD: {results.ccd.toFixed(4)} | CC: {results.cc.toFixed(2)}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="py-20 flex flex-col items-center gap-4 opacity-10">
-                <Calculator size={80} />
-                <p className="font-black uppercase text-xs tracking-widest">Aguardando Parâmetros</p>
-              </div>
-            )}
           </div>
+        </form>
 
-          <div className="mt-8 pt-8 border-t border-slate-100">
-            <h4 className="text-[10px] font-black uppercase text-slate-900 mb-4">Notas Legais:</h4>
-            <div className="space-y-4 text-[10px] text-slate-500 font-medium leading-relaxed overflow-y-auto max-h-60 pr-2 custom-scrollbar">
-              <p>1. Se o número de eixos não estiver na tabela, utiliza-se o imediatamente inferior (ou superior se for o primeiro).</p>
-              <p>2. Devem ser negociados valores dos incisos I, III e IV (despesas extras, tributos e taxas).</p>
-              <p>3. Diárias que envolvem refeição e pernoite são acrescidas aos custos fixos definidos na resolução.</p>
-              <p>4. No alto desempenho, incide apenas o custo com refeições.</p>
-              <p>5. O pedágio é OBRIGATÓRIO e deve ser pago antecipadamente pelo embarcador (Lei 10.209/01).</p>
-              <p>6. O retorno vazio é obrigatório para contêineres e frotas específicas (Art. 5º Res. 5.867).</p>
+        {showResults && (
+          <div className="mt-10 pt-10 border-t border-slate-100 animate-fade-in text-slate-500 text-sm space-y-2">
+            <p className="font-medium">Informações de cálculo conforme parâmetros informados:</p>
+            <p>Operação de Transporte: <span className="font-bold text-slate-700">{results.tabela}</span></p>
+            <p>Distância: <span className="font-bold text-slate-700">{params.distance} Km</span></p>
+            <p>Coeficiente de custo de deslocamento (CCD): <span className="font-bold text-slate-700">{results.ccd.toFixed(4).replace('.', ',')}</span></p>
+            <p>Coeficiente de custo de carga e descarga (CC): <span className="font-bold text-slate-700">{results.cc.toFixed(2).replace('.', ',')}</span></p>
+            <p>Valor de ida = (Distância x CCD)+CC: <span className="font-bold text-slate-700">{results.valorIda.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></p>
+            <p>Valor do retorno vazio (caso exista) = 0,92 x Distância x CCD: <span className="font-bold text-slate-700">{results.valorRetornoVazio.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></p>
+            
+            <div className="mt-6 p-4 bg-slate-50 rounded-xl">
+               <p className="text-xs font-black uppercase text-slate-400 mb-1">Total do Frete Piso Mínimo</p>
+               <p className="text-3xl font-black text-[#2d50a0]">R$ {results.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
