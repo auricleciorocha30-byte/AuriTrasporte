@@ -42,7 +42,7 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
     return new Date(isoString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
-  // Memoizar apenas logs salvos para não re-renderizar a lista inteira a cada segundo
+  // Memoizar apenas logs salvos
   const savedLogs = useMemo(() => {
     const todayStr = getLocalDateStr();
     return [...logs]
@@ -88,7 +88,6 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
   }, [currentTime, mode]);
 
   const handleAction = async (newMode: 'IDLE' | 'DRIVING' | 'RESTING') => {
-    // 1. Fechar a seção anterior se existir
     if (mode !== 'IDLE' && startTime) {
       const now = Date.now();
       const duration = Math.floor((now - startTime) / 1000);
@@ -105,7 +104,6 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
       }
     }
 
-    // 2. Iniciar nova seção ou parar
     if (newMode === 'IDLE') {
       setStartTime(null);
       setMode('IDLE');
@@ -119,66 +117,64 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8 pb-20 animate-fade-in">
-      {/* Painel de Controle Principal */}
-      <div className={`rounded-[4rem] p-10 md:p-16 text-center text-white shadow-2xl transition-all duration-700 relative overflow-hidden flex flex-col items-center justify-center min-h-[550px] ${mode === 'DRIVING' ? 'bg-primary-950' : mode === 'RESTING' ? 'bg-emerald-950' : 'bg-slate-900'}`}>
+    <div className="max-w-5xl mx-auto space-y-6 pb-20 animate-fade-in">
+      {/* Painel de Controle Principal Compactado */}
+      <div className={`rounded-[3rem] p-8 md:p-12 text-center text-white shadow-2xl transition-all duration-700 relative overflow-hidden flex flex-col items-center justify-center min-h-[380px] ${mode === 'DRIVING' ? 'bg-primary-950' : mode === 'RESTING' ? 'bg-emerald-950' : 'bg-slate-900'}`}>
         
         {/* Camada de Decoração de Fundo */}
         <div className="absolute inset-0 opacity-10 pointer-events-none">
-           <div className={`absolute -top-24 -left-24 w-96 h-96 rounded-full blur-[120px] ${mode === 'DRIVING' ? 'bg-blue-400' : mode === 'RESTING' ? 'bg-emerald-400' : 'bg-slate-400'}`}></div>
-           <div className={`absolute -bottom-24 -right-24 w-96 h-96 rounded-full blur-[120px] ${mode === 'DRIVING' ? 'bg-indigo-400' : mode === 'RESTING' ? 'bg-teal-400' : 'bg-slate-400'}`}></div>
+           <div className={`absolute -top-24 -left-24 w-64 h-64 rounded-full blur-[100px] ${mode === 'DRIVING' ? 'bg-blue-400' : mode === 'RESTING' ? 'bg-emerald-400' : 'bg-slate-400'}`}></div>
+           <div className={`absolute -bottom-24 -right-24 w-64 h-64 rounded-full blur-[100px] ${mode === 'DRIVING' ? 'bg-indigo-400' : mode === 'RESTING' ? 'bg-teal-400' : 'bg-slate-400'}`}></div>
         </div>
 
-        <div className="relative z-10 flex flex-col items-center">
-          <div className={`px-8 py-3 rounded-full text-[11px] font-black uppercase tracking-[0.25em] border-2 flex items-center gap-3 mb-12 ${mode === 'DRIVING' ? 'bg-primary-500/20 border-primary-500/50 text-primary-300' : mode === 'RESTING' ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300' : 'bg-white/5 border-white/10 text-slate-500'}`}>
-            <Activity size={16} className={mode !== 'IDLE' ? 'animate-spin' : ''} />
-            {mode === 'DRIVING' ? 'Operação em Curso: Direção' : mode === 'RESTING' ? 'Operação em Curso: Descanso' : 'Aguardando Início de Jornada'}
+        <div className="relative z-10 flex flex-col items-center w-full">
+          <div className={`px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-[0.2em] border flex items-center gap-2 mb-8 ${mode === 'DRIVING' ? 'bg-primary-500/20 border-primary-500/50 text-primary-300' : mode === 'RESTING' ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300' : 'bg-white/5 border-white/10 text-slate-500'}`}>
+            <Activity size={14} className={mode !== 'IDLE' ? 'animate-spin' : ''} />
+            {mode === 'DRIVING' ? 'Direção em Curso' : mode === 'RESTING' ? 'Descanso em Curso' : 'Jornada em Espera'}
           </div>
 
-          {mode !== 'IDLE' && startTime && (
-            <div className="mb-6 flex items-center gap-2 text-white/40 font-bold uppercase text-[10px] tracking-widest">
-              <Clock size={12}/> Iniciado às {new Date(startTime).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
-            </div>
-          )}
-
-          <div className="text-8xl md:text-[10rem] font-black font-mono tracking-tighter select-none tabular-nums leading-none mb-12 flex items-baseline gap-2">
+          <div className="text-6xl md:text-8xl font-black font-mono tracking-tighter select-none tabular-nums leading-none mb-6 flex items-baseline gap-2">
             {formatTime(currentTime)}
           </div>
 
-          {alert && (
-            <div className="mb-12 bg-white/10 backdrop-blur-xl border border-white/20 px-8 py-4 rounded-[2rem] flex items-center gap-4 text-white animate-bounce shadow-2xl">
-              <div className={`p-2 rounded-full ${mode === 'DRIVING' ? 'bg-rose-500' : 'bg-emerald-500'}`}>
-                 <BellRing size={24} />
-              </div>
-              <p className="font-black text-sm uppercase tracking-tight">{alert}</p>
+          {mode !== 'IDLE' && startTime && (
+            <div className="mb-8 flex items-center gap-2 text-white/40 font-bold uppercase text-[9px] tracking-widest bg-white/5 px-4 py-1.5 rounded-full border border-white/5">
+              <Clock size={10}/> Iniciado às {new Date(startTime).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-4xl px-4">
+          {alert && (
+            <div className="mb-8 bg-rose-500/20 backdrop-blur-md border border-rose-500/30 px-6 py-3 rounded-2xl flex items-center gap-3 text-white animate-pulse shadow-lg">
+              <BellRing size={20} className="text-rose-400" />
+              <p className="font-black text-xs uppercase tracking-tight">{alert}</p>
+            </div>
+          )}
+
+          <div className="grid grid-cols-3 gap-3 w-full max-w-2xl px-2">
             <button 
               disabled={isSaving || mode === 'DRIVING'} 
               onClick={() => handleAction('DRIVING')} 
-              className={`py-6 rounded-[2.5rem] font-black text-xl flex items-center justify-center gap-4 shadow-xl transition-all active:scale-95 ${mode === 'DRIVING' ? 'bg-primary-800/40 text-primary-400 border-2 border-primary-500/20 cursor-not-allowed' : 'bg-primary-600 hover:bg-primary-500 text-white'}`}
+              className={`py-4 rounded-2xl font-black text-xs uppercase tracking-widest flex flex-col items-center justify-center gap-2 shadow-xl transition-all active:scale-95 ${mode === 'DRIVING' ? 'bg-primary-800/40 text-primary-400 border border-primary-500/20 cursor-not-allowed' : 'bg-primary-600 hover:bg-primary-500 text-white'}`}
             >
-              {mode === 'DRIVING' ? <CheckCircle size={28}/> : <Play size={28}/>} 
+              {mode === 'DRIVING' ? <CheckCircle size={20}/> : <Play size={20}/>} 
               Direção
             </button>
 
             <button 
               disabled={isSaving || mode === 'RESTING'} 
               onClick={() => handleAction('RESTING')} 
-              className={`py-6 rounded-[2.5rem] font-black text-xl flex items-center justify-center gap-4 shadow-xl transition-all active:scale-95 ${mode === 'RESTING' ? 'bg-emerald-800/40 text-emerald-400 border-2 border-emerald-500/20 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-500 text-white'}`}
+              className={`py-4 rounded-2xl font-black text-xs uppercase tracking-widest flex flex-col items-center justify-center gap-2 shadow-xl transition-all active:scale-95 ${mode === 'RESTING' ? 'bg-emerald-800/40 text-emerald-400 border border-emerald-500/20 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-500 text-white'}`}
             >
-              {mode === 'RESTING' ? <CheckCircle size={28}/> : <Coffee size={28}/>} 
+              {mode === 'RESTING' ? <CheckCircle size={20}/> : <Coffee size={20}/>} 
               Descanso
             </button>
             
             <button 
               disabled={isSaving || mode === 'IDLE'} 
               onClick={() => handleAction('IDLE')} 
-              className={`py-6 rounded-[2.5rem] font-black text-xl flex items-center justify-center gap-4 shadow-xl transition-all active:scale-95 ${mode === 'IDLE' ? 'bg-slate-800 text-slate-700 cursor-not-allowed opacity-20' : 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-900/40'}`}
+              className={`py-4 rounded-2xl font-black text-xs uppercase tracking-widest flex flex-col items-center justify-center gap-2 shadow-xl transition-all active:scale-95 ${mode === 'IDLE' ? 'bg-slate-800 text-slate-700 cursor-not-allowed opacity-20' : 'bg-rose-600 hover:bg-rose-500 text-white'}`}
             >
-              {isSaving ? <Loader2 className="animate-spin" size={28} /> : <Square size={28}/>} 
+              {isSaving ? <Loader2 className="animate-spin" size={20} /> : <Square size={20}/>} 
               Finalizar
             </button>
           </div>
@@ -186,64 +182,62 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
       </div>
 
       {/* Histórico e Resumo */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 px-4">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 px-4">
         {/* Histórico Detalhado */}
-        <div className="lg:col-span-8 bg-white p-10 rounded-[3.5rem] border shadow-sm">
-          <div className="flex justify-between items-center mb-10">
+        <div className="lg:col-span-8 bg-white p-8 rounded-[3rem] border shadow-sm">
+          <div className="flex justify-between items-center mb-8">
             <div>
-              <h3 className="text-2xl font-black flex items-center gap-4 uppercase tracking-tighter">
-                <History className="text-primary-600"/> Histórico de Hoje
+              <h3 className="text-xl font-black flex items-center gap-3 uppercase tracking-tighter">
+                <History className="text-primary-600" size={20}/> Histórico de Hoje
               </h3>
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1 flex items-center gap-2">
                 <CalendarDays size={12}/> {getLocalDateStr().split('-').reverse().join('/')}
               </p>
             </div>
-            <div className="text-right">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{savedLogs.length} seções registradas</span>
-            </div>
+            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 px-3 py-1 rounded-lg">
+              {savedLogs.length} seções
+            </span>
           </div>
           
-          <div className="space-y-6 max-h-[600px] overflow-y-auto pr-4 custom-scrollbar">
+          <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
             {savedLogs.length === 0 ? (
-              <div className="text-center py-20 bg-slate-50 rounded-[3rem] border-2 border-dashed border-slate-100">
-                <Clock className="mx-auto text-slate-200 mb-4" size={64} />
-                <p className="text-slate-400 text-sm font-bold uppercase tracking-widest">Nenhuma seção finalizada hoje.</p>
+              <div className="text-center py-16 bg-slate-50 rounded-[2.5rem] border-2 border-dashed border-slate-100">
+                <Clock className="mx-auto text-slate-200 mb-3" size={48} />
+                <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Nenhuma seção finalizada hoje.</p>
               </div>
             ) : savedLogs.map((log) => (
               <div 
                 key={log.id} 
-                className={`group p-6 rounded-[2rem] flex justify-between items-center border-2 transition-all hover:border-slate-300 ${
-                  log.type === 'Direção' ? 'bg-blue-50/30 border-blue-50' : 'bg-emerald-50/30 border-emerald-50'
+                className={`group p-5 rounded-3xl flex justify-between items-center border transition-all hover:border-slate-300 ${
+                  log.type === 'Direção' ? 'bg-blue-50/20 border-blue-50' : 'bg-emerald-50/20 border-emerald-50'
                 }`}
               >
-                <div className="flex gap-6 items-center">
-                  <div className={`p-4 rounded-2xl ${log.type === 'Direção' ? 'bg-primary-100 text-primary-600' : 'bg-emerald-100 text-emerald-600'}`}>
-                    {log.type === 'Direção' ? <Activity size={24}/> : <Coffee size={24}/>}
+                <div className="flex gap-4 items-center">
+                  <div className={`p-3 rounded-xl ${log.type === 'Direção' ? 'bg-primary-100 text-primary-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                    {log.type === 'Direção' ? <Activity size={20}/> : <Coffee size={20}/>}
                   </div>
                   <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <p className={`text-[11px] font-black uppercase tracking-widest ${log.type === 'Direção' ? 'text-primary-600' : 'text-emerald-600'}`}>
-                        {log.type}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3 text-lg font-black text-slate-800">
+                    <p className={`text-[9px] font-black uppercase tracking-widest mb-1 ${log.type === 'Direção' ? 'text-primary-600' : 'text-emerald-600'}`}>
+                      {log.type}
+                    </p>
+                    <div className="flex items-center gap-2 text-sm font-black text-slate-800">
                       <span>{formatClockTime(log.start_time)}</span>
-                      <ArrowRight size={14} className="text-slate-300" />
+                      <ArrowRight size={12} className="text-slate-300" />
                       <span>{log.end_time ? formatClockTime(log.end_time) : '---'}</span>
                     </div>
                   </div>
                 </div>
                 
-                <div className="flex items-center gap-8">
+                <div className="flex items-center gap-6">
                   <div className="text-right">
-                    <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Duração</p>
-                    <p className="font-black text-slate-900 text-xl">{formatTime(log.duration_seconds)}</p>
+                    <p className="text-[9px] font-black text-slate-400 uppercase mb-0.5">Duração</p>
+                    <p className="font-black text-slate-900 text-sm">{formatTime(log.duration_seconds)}</p>
                   </div>
                   <button 
                     onClick={() => { if(confirm("Remover este registro?")) onDeleteLog(log.id) }} 
-                    className="p-3 bg-white shadow-sm rounded-full text-slate-200 hover:text-rose-500 hover:bg-rose-50 transition-all opacity-0 group-hover:opacity-100"
+                    className="p-2 text-slate-200 hover:text-rose-500 transition-all opacity-0 group-hover:opacity-100"
                   >
-                    <Trash2 size={20}/>
+                    <Trash2 size={18}/>
                   </button>
                 </div>
               </div>
@@ -253,29 +247,29 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
 
         {/* Card Informativo Legal */}
         <div className="lg:col-span-4 space-y-6">
-          <div className="bg-slate-900 p-10 rounded-[3.5rem] text-white">
-             <h3 className="text-xl font-black mb-8 flex items-center gap-3 uppercase tracking-tighter">
-               <AlertCircle className="text-amber-500"/> Regras de Ouro
+          <div className="bg-slate-900 p-8 rounded-[3rem] text-white">
+             <h3 className="text-lg font-black mb-6 flex items-center gap-3 uppercase tracking-tighter">
+               <AlertCircle className="text-amber-500" size={18}/> Lei do Motorista
              </h3>
-             <div className="space-y-6">
-                <div className="flex gap-4">
-                   <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-xs font-black shrink-0">1</div>
-                   <p className="text-slate-400 text-sm font-bold">Direção contínua não deve exceder <span className="text-white">5h 30min</span>.</p>
+             <div className="space-y-5">
+                <div className="flex gap-3">
+                   <div className="w-6 h-6 rounded-full bg-white/5 flex items-center justify-center text-[10px] font-black shrink-0">1</div>
+                   <p className="text-slate-400 text-xs font-bold leading-tight">Direção contínua máx: <span className="text-white">5h 30min</span>.</p>
                 </div>
-                <div className="flex gap-4">
-                   <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-xs font-black shrink-0">2</div>
-                   <p className="text-slate-400 text-sm font-bold">Descanso obrigatório de <span className="text-white">30 minutos</span> após limite.</p>
+                <div className="flex gap-3">
+                   <div className="w-6 h-6 rounded-full bg-white/5 flex items-center justify-center text-[10px] font-black shrink-0">2</div>
+                   <p className="text-slate-400 text-xs font-bold leading-tight">Descanso obrigatório: <span className="text-white">30 min</span>.</p>
                 </div>
-                <div className="flex gap-4">
-                   <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-xs font-black shrink-0">3</div>
-                   <p className="text-slate-400 text-sm font-bold">Total de <span className="text-white">11 horas</span> de descanso por dia.</p>
+                <div className="flex gap-3">
+                   <div className="w-6 h-6 rounded-full bg-white/5 flex items-center justify-center text-[10px] font-black shrink-0">3</div>
+                   <p className="text-slate-400 text-xs font-bold leading-tight">Descanso diário total: <span className="text-white">11 horas</span>.</p>
                 </div>
              </div>
              
-             <div className="mt-12 p-6 bg-white/5 rounded-3xl border border-white/5">
-                <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3">Dica de Operação</p>
-                <p className="text-xs text-slate-400 font-medium leading-relaxed">
-                  O AuriLog registra automaticamente o início e o fim quando você altera o status ou finaliza a jornada. Registros de 1 segundo são ignorados.
+             <div className="mt-8 p-5 bg-white/5 rounded-2xl border border-white/5">
+                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Funcionamento</p>
+                <p className="text-[10px] text-slate-400 font-medium leading-relaxed italic">
+                  O registro de início/fim é salvo automaticamente ao trocar de status.
                 </p>
              </div>
           </div>
