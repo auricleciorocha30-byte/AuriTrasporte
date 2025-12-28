@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Expense, ExpenseCategory, Trip, Vehicle } from '../types';
-import { Trash2, ChevronDown, ReceiptText, Banknote, Loader2, Edit2, CheckCircle2, X, ShieldCheck, Wallet, Check } from 'lucide-react';
+import { Trash2, ChevronDown, ReceiptText, Banknote, Loader2, Edit2, CheckCircle2, X, ShieldCheck, Wallet, Check, Layers } from 'lucide-react';
 
 interface ExpenseManagerProps {
   expenses: Expense[];
@@ -46,7 +46,9 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
     vehicle_id: '',
     description: '',
     amount: 0,
-    is_paid: true
+    is_paid: true,
+    installments_total: 1,
+    installment_number: 1
   });
 
   const resetForm = () => {
@@ -60,7 +62,9 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
       vehicle_id: '', 
       description: '',
       amount: 0,
-      is_paid: true
+      is_paid: true,
+      installments_total: 1,
+      installment_number: 1
     });
   };
 
@@ -76,7 +80,9 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
       due_date: expense.due_date || expense.date,
       trip_id: expense.trip_id || '',
       vehicle_id: expense.vehicle_id || '',
-      is_paid: expense.is_paid ?? true
+      is_paid: expense.is_paid ?? true,
+      installments_total: expense.installments_total || 1,
+      installment_number: expense.installment_number || 1
     });
   };
 
@@ -84,7 +90,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
     e.preventDefault();
     if (!formData.description || formData.amount <= 0) return alert("Preencha descrição e valor corretamente.");
 
-    // PAYLOAD LIMPO: Apenas colunas que existem garantidamente na tabela 'expenses'
+    // PAYLOAD LIMPO: Garantimos que os campos correspondam exatamente ao esperado pelo Supabase
     const payload = {
       description: formData.description.toString(),
       amount: Number(formData.amount),
@@ -93,7 +99,10 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
       due_date: formData.due_date || formData.date,
       trip_id: (modalType === 'TRIP' && formData.trip_id) ? formData.trip_id : null,
       vehicle_id: formData.vehicle_id ? formData.vehicle_id : null,
-      is_paid: Boolean(formData.is_paid)
+      is_paid: Boolean(formData.is_paid),
+      // Adicionando suporte a parcelamento se as colunas existirem
+      installments_total: Number(formData.installments_total || 1),
+      installment_number: Number(formData.installment_number || 1)
     };
 
     try {
@@ -105,6 +114,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
       resetForm();
     } catch (err) {
       console.error("Erro ao salvar despesa:", err);
+      alert("Erro ao salvar no banco. Verifique se as colunas de parcelamento foram criadas corretamente.");
     }
   };
 
@@ -167,6 +177,9 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
                 <div className="text-right">
                   <div className="text-[10px] font-black uppercase text-slate-400 mb-1">Valor</div>
                   <div className="text-3xl font-black text-rose-500">R$ {expense.amount.toLocaleString()}</div>
+                  {expense.installments_total && expense.installments_total > 1 && (
+                    <div className="text-[10px] font-black text-slate-400 uppercase mt-1">Parcela {expense.installment_number}/{expense.installments_total}</div>
+                  )}
                 </div>
               </div>
 
@@ -228,12 +241,12 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
             <form onSubmit={handleSubmit} className="space-y-6 pb-12">
               <div className="space-y-2">
                 <label className="text-[11px] font-black uppercase text-slate-400 ml-1">Descrição do Gasto</label>
-                <input required type="text" placeholder={modalType === 'FIXED' ? "Ex: Mensalidade Rastreador" : "Ex: Abastecimento Posto Graal"} className="w-full p-5 bg-slate-50 rounded-3xl border-2 border-transparent focus:border-primary-500 font-bold outline-none text-lg transition-all" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
+                <input required type="text" placeholder={modalType === 'FIXED' ? "Ex: Financiamento Cavalo" : "Ex: Abastecimento Diesel"} className="w-full p-5 bg-slate-50 rounded-3xl border-2 border-transparent focus:border-primary-500 font-bold outline-none text-lg transition-all" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
               </div>
 
               <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <label className="text-[11px] font-black uppercase text-slate-400 ml-1">Valor (R$)</label>
+                  <label className="text-[11px] font-black uppercase text-slate-400 ml-1">Valor Total (R$)</label>
                   <input required type="number" step="0.01" className="w-full p-5 bg-slate-50 rounded-3xl border-2 border-transparent focus:border-primary-500 font-black text-3xl text-rose-500 outline-none" value={formData.amount || ''} onChange={e => setFormData({...formData, amount: Number(e.target.value)})} />
                 </div>
                 <div className="space-y-2">
@@ -244,6 +257,17 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
                     </select>
                     <ChevronDown className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={20} />
                   </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-6 p-6 bg-slate-50 rounded-[2.5rem] border border-slate-100">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1 flex items-center gap-1"><Layers size={14}/> N. de Parcelas</label>
+                  <input type="number" className="w-full p-4 bg-white rounded-2xl border border-slate-200 font-black text-xl outline-none" value={formData.installments_total} onChange={e => setFormData({...formData, installments_total: Number(e.target.value)})} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Parcela Atual</label>
+                  <input type="number" className="w-full p-4 bg-white rounded-2xl border border-slate-200 font-black text-xl outline-none" value={formData.installment_number} onChange={e => setFormData({...formData, installment_number: Number(e.target.value)})} />
                 </div>
               </div>
 
@@ -276,8 +300,13 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
               )}
 
               <div className="space-y-2">
-                <label className="text-[11px] font-black uppercase text-slate-400 ml-1">Data de Vencimento / Pagamento</label>
+                <label className="text-[11px] font-black uppercase text-slate-400 ml-1">Data de Vencimento</label>
                 <input required type="date" value={formData.due_date} className="w-full p-5 bg-primary-50 border-2 border-primary-100 rounded-3xl font-black outline-none" onChange={e => setFormData({...formData, due_date: e.target.value})} />
+              </div>
+
+              <div className="flex items-center gap-4 p-5 bg-emerald-50 rounded-3xl border border-emerald-100">
+                <input type="checkbox" className="w-6 h-6 rounded-lg text-emerald-600" checked={formData.is_paid} onChange={e => setFormData({...formData, is_paid: e.target.checked})} />
+                <label className="text-sm font-black text-emerald-700 uppercase">Já foi pago?</label>
               </div>
 
               <button disabled={isSaving} type="submit" className="w-full py-7 bg-primary-600 text-white rounded-[2.5rem] font-black text-xl shadow-2xl flex items-center justify-center gap-4 active:scale-95 transition-all">

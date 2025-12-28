@@ -63,21 +63,16 @@ export interface Trip {
 }
 
 export enum ExpenseCategory {
-  // Custos de Viagem (Variáveis)
   FUEL = 'Combustível',
   TOLL = 'Pedágio',
   MAINTENANCE = 'Manutenção',
   FOOD = 'Alimentação',
   LODGING = 'Hospedagem',
   TIRE_REPAIR = 'Borracharia',
-  
-  // Custos Fixos
   FINANCING = 'Financiamento',
   INSURANCE = 'Seguro',
   TRACKER = 'Rastreador',
   SUBSCRIPTION = 'Assinatura',
-  
-  // Geral
   OTHER = 'Outros'
 }
 
@@ -92,16 +87,8 @@ export interface Expense {
   due_date?: string;
   user_id?: string;
   is_paid?: boolean;
-}
-
-export interface JornadaLog {
-  id: string;
-  user_id: string;
-  start_time: string;
-  end_time: string;
-  type: 'Direção' | 'Descanso';
-  duration_seconds: number;
-  date: string;
+  installments_total?: number;
+  installment_number?: number;
 }
 
 export interface FinancialSummary {
@@ -112,6 +99,8 @@ export interface FinancialSummary {
   netProfit: number;
   tripCount: number;
   profitMargin: number;
+  pendingToPay: number;
+  totalDistance: number;
 }
 
 export interface ANTTParams {
@@ -123,4 +112,15 @@ export interface ANTTParams {
   returnEmpty: boolean;
   tollCost?: number;
   otherCosts?: number;
+}
+
+// Added JornadaLog interface to fix missing export error required by App.tsx and JornadaManager.tsx
+export interface JornadaLog {
+  id: string;
+  user_id?: string;
+  start_time: string;
+  end_time?: string;
+  duration_seconds: number;
+  type: string;
+  date: string;
 }
