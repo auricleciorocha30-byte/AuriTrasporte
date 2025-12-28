@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { LayoutDashboard, Truck, Wallet, Calculator, Menu, X, LogOut, Bell, Settings, CheckSquare, Timer, Fuel, Loader2, Mail, Key, UserPlus, LogIn, AlertCircle, Share2, AlertTriangle, KeyRound, Wifi, WifiOff, CloudUpload, CheckCircle2, Coffee, Play, RefreshCcw } from 'lucide-react';
+import { LayoutDashboard, Truck, Wallet, Calculator, Menu, X, LogOut, Bell, Settings, CheckSquare, Timer, Fuel, Loader2, Mail, Key, UserPlus, LogIn, AlertCircle, Share2, AlertTriangle, KeyRound, Wifi, WifiOff, CloudUpload, CheckCircle2, Coffee, Play, RefreshCcw, Undo2, Send } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { TripManager } from './components/TripManager';
 import { ExpenseManager } from './components/ExpenseManager';
@@ -28,6 +28,7 @@ const App: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
@@ -85,18 +86,11 @@ const App: React.FC = () => {
       for (const item of pending) {
         let error = null;
         if (item.action === 'insert' || item.action === 'update') {
-          // LIMPANDO O PAYLOAD: Removemos campos que só existem no IndexedDB
           const { sync_status, updated_at, ...cleanPayload } = item.data;
-          
-          const { error: syncError } = await supabase
-            .from(item.table)
-            .upsert([cleanPayload]);
+          const { error: syncError } = await supabase.from(item.table).upsert([cleanPayload]);
           error = syncError;
         } else if (item.action === 'delete') {
-          const { error: syncError } = await supabase
-            .from(item.table)
-            .delete()
-            .eq('id', item.id);
+          const { error: syncError } = await supabase.from(item.table).delete().eq('id', item.id);
           error = syncError;
         }
         
@@ -104,7 +98,6 @@ const App: React.FC = () => {
           await offlineStorage.markAsSynced(item.id);
         } else {
           console.error(`Falha ao sincronizar ${item.table}:`, error.message);
-          // Se o erro for de falta de permissão ou coluna, não adianta tentar de novo infinitamente
           if (error.message.includes('column') || error.message.includes('policy')) {
              await offlineStorage.markAsSynced(item.id);
           }
@@ -248,6 +241,34 @@ const App: React.FC = () => {
     }
   };
 
+  const handleAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setSuccessMsg('');
+    setAuthLoading(true);
+
+    try {
+      if (isPasswordRecovery) {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: window.location.origin,
+        });
+        if (error) throw error;
+        setSuccessMsg("E-mail de recuperação enviado! Verifique sua caixa de entrada.");
+      } else if (isSignUp) {
+        const { error } = await supabase.auth.signUp({ email, password });
+        if (error) throw error;
+        setSuccessMsg("Cadastro realizado! Verifique seu e-mail.");
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
   if (loading) return <div className="h-screen flex items-center justify-center bg-slate-950"><Loader2 className="animate-spin text-primary-500" size={48} /></div>;
 
   if (!session) return (
@@ -256,25 +277,49 @@ const App: React.FC = () => {
         <div className="flex flex-col items-center mb-10">
           <div className="bg-primary-600 p-4 rounded-[1.5rem] shadow-lg mb-4 text-white"><Truck size={40} /></div>
           <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase leading-none text-center">AuriLog</h1>
-          <p className="text-slate-400 font-bold text-xs mt-2 uppercase tracking-widest">{isSignUp ? 'Criar nova conta' : 'Gestão Profissional de Fretes'}</p>
+          <p className="text-slate-400 font-bold text-xs mt-2 uppercase tracking-widest">
+            {isPasswordRecovery ? 'Recuperar Senha' : isSignUp ? 'Criar nova conta' : 'Gestão Profissional de Fretes'}
+          </p>
         </div>
-        <form onSubmit={async (e) => { e.preventDefault(); setError(''); setSuccessMsg(''); setAuthLoading(true); try { if (isSignUp) { const { error } = await supabase.auth.signUp({ email, password }); if (error) throw error; setSuccessMsg("Cadastro realizado! Verifique seu e-mail."); } else { const { error } = await supabase.auth.signInWithPassword({ email, password }); if (error) throw error; } } catch (err: any) { setError(err.message); } finally { setAuthLoading(false); } }} className="space-y-5">
+
+        <form onSubmit={handleAuth} className="space-y-5">
           <div className="space-y-1.5">
             <label className="text-[10px] font-black uppercase text-slate-400 ml-1">E-mail</label>
             <input required type="email" placeholder="seu@email.com" className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:ring-2 focus:ring-primary-500 transition-all" value={email} onChange={e => setEmail(e.target.value)} />
           </div>
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Senha</label>
-            <input required={!isSignUp} type="password" placeholder="••••••••" className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:ring-2 focus:ring-primary-500 transition-all" value={password} onChange={e => setPassword(e.target.value)} />
-          </div>
+
+          {!isPasswordRecovery && (
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Senha</label>
+              <input required type="password" placeholder="••••••••" className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:ring-2 focus:ring-primary-500 transition-all" value={password} onChange={e => setPassword(e.target.value)} />
+              {!isSignUp && (
+                <div className="flex justify-end mt-1">
+                  <button type="button" onClick={() => { setIsPasswordRecovery(true); setError(''); setSuccessMsg(''); }} className="text-[10px] font-black uppercase text-primary-600 hover:underline">Esqueceu a senha?</button>
+                </div>
+              )}
+            </div>
+          )}
+
           {error && <div className="bg-rose-50 border border-rose-100 p-4 rounded-2xl text-rose-600 text-xs font-bold animate-pulse">{error}</div>}
           {successMsg && <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-2xl text-emerald-600 text-xs font-bold">{successMsg}</div>}
+
           <button disabled={authLoading} type="submit" className="w-full py-5 bg-primary-600 text-white rounded-2xl font-black text-lg shadow-xl hover:bg-primary-700 transition-all flex items-center justify-center gap-3">
-            {authLoading ? <Loader2 className="animate-spin" /> : isSignUp ? <UserPlus size={20} /> : <LogIn size={20} />}
-            {isSignUp ? 'Cadastrar agora' : 'Entrar no Sistema'}
+            {authLoading ? <Loader2 className="animate-spin" /> : isPasswordRecovery ? <Send size={20} /> : isSignUp ? <UserPlus size={20} /> : <LogIn size={20} />}
+            {isPasswordRecovery ? 'Enviar E-mail' : isSignUp ? 'Cadastrar agora' : 'Entrar no Sistema'}
           </button>
         </form>
-        <button onClick={() => { setIsSignUp(!isSignUp); setError(''); setSuccessMsg(''); }} className="mt-8 w-full text-primary-600 font-black text-sm uppercase hover:underline">{isSignUp ? 'Já tem conta? Entre' : 'Não tem conta? Cadastre-se'}</button>
+
+        <div className="mt-8 flex flex-col gap-4">
+          {!isPasswordRecovery ? (
+            <button onClick={() => { setIsSignUp(!isSignUp); setError(''); setSuccessMsg(''); }} className="w-full text-primary-600 font-black text-sm uppercase hover:underline">
+              {isSignUp ? 'Já tem conta? Entre' : 'Não tem conta? Cadastre-se'}
+            </button>
+          ) : (
+            <button onClick={() => { setIsPasswordRecovery(false); setError(''); setSuccessMsg(''); }} className="w-full text-slate-500 font-black text-sm uppercase hover:underline flex items-center justify-center gap-2">
+              <Undo2 size={16}/> Voltar para o Login
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
