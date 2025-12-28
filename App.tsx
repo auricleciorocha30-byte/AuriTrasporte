@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { LayoutDashboard, Truck, Wallet, Calculator, Menu, X, LogOut, Bell, Settings, CheckSquare, Timer, Fuel, Loader2, Mail, Key, UserPlus, LogIn, AlertCircle, Share2, AlertTriangle, KeyRound, Wifi, WifiOff, CloudUpload, CheckCircle2, Coffee, Play, RefreshCcw, Undo2, Send } from 'lucide-react';
+import { LayoutDashboard, Truck, Wallet, Calculator, Menu, X, LogOut, Bell, Settings, CheckSquare, Timer, Fuel, Loader2, Mail, Key, UserPlus, LogIn, AlertCircle, Share2, AlertTriangle, KeyRound, Wifi, WifiOff, CloudUpload, CheckCircle2, Coffee, Play, RefreshCcw, Undo2, Send, Clock } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { TripManager } from './components/TripManager';
 import { ExpenseManager } from './components/ExpenseManager';
@@ -32,14 +32,32 @@ const App: React.FC = () => {
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
+  // Estados de Jornada (Globais para persistência visual)
   const [jornadaMode, setJornadaMode] = useState<'IDLE' | 'DRIVING' | 'RESTING'>('IDLE');
   const [jornadaStartTime, setJornadaStartTime] = useState<number | null>(null);
+  const [jornadaElapsed, setJornadaElapsed] = useState(0);
 
   const [trips, setTrips] = useState<Trip[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [maintenance, setMaintenance] = useState<MaintenanceItem[]>([]);
   const [jornadaLogs, setJornadaLogs] = useState<JornadaLog[]>([]);
+
+  // Lógica do Cronômetro Global
+  useEffect(() => {
+    let interval: any;
+    if (jornadaMode !== 'IDLE' && jornadaStartTime) {
+      const update = () => {
+        const elapsed = Math.floor((Date.now() - jornadaStartTime) / 1000);
+        setJornadaElapsed(elapsed > 0 ? elapsed : 0);
+      };
+      update();
+      interval = setInterval(update, 1000);
+    } else {
+      setJornadaElapsed(0);
+    }
+    return () => clearInterval(interval);
+  }, [jornadaMode, jornadaStartTime]);
 
   useEffect(() => {
     const savedMode = localStorage.getItem('aurilog_jornada_mode');
@@ -245,12 +263,8 @@ const App: React.FC = () => {
     setIsSaving(true);
     try {
       if (!session?.user?.id) return;
-      
-      // 1. Limpar Local
       await offlineStorage.clearTable('jornada_logs');
       setJornadaLogs([]);
-      
-      // 2. Limpar Remoto (se online)
       if (navigator.onLine) {
         const { error } = await supabase.from('jornada_logs').delete().eq('user_id', session.user.id);
         if (error) throw error;
@@ -288,6 +302,13 @@ const App: React.FC = () => {
     } finally {
       setAuthLoading(false);
     }
+  };
+
+  const formatTime = (s: number) => {
+    const hrs = Math.floor(s / 3600);
+    const mins = Math.floor((s % 3600) / 60);
+    const secs = s % 60;
+    return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
   if (loading) return <div className="h-screen flex items-center justify-center bg-slate-950"><Loader2 className="animate-spin text-primary-500" size={48} /></div>;
@@ -380,10 +401,24 @@ const App: React.FC = () => {
               )}
             </div>
           </div>
-          <button onClick={() => setIsNotificationOpen(true)} className="relative p-3 text-slate-500 hover:bg-slate-50 rounded-full">
-            <Bell size={24} />
-            {activeNotifications.length > 0 && <span className="absolute top-2 right-2 bg-rose-500 text-white text-[8px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-white">{activeNotifications.length}</span>}
-          </button>
+          
+          <div className="flex items-center gap-2">
+            {/* Widget de Jornada Ativa Centralizado */}
+            {jornadaMode !== 'IDLE' && (
+              <div 
+                onClick={() => setCurrentView(AppView.JORNADA)}
+                className={`flex items-center gap-3 px-4 py-2 rounded-full border cursor-pointer transition-all hover:scale-105 active:scale-95 shadow-sm ${jornadaMode === 'DRIVING' ? 'bg-primary-50 border-primary-200 text-primary-600' : 'bg-emerald-50 border-emerald-200 text-emerald-600'}`}
+              >
+                {jornadaMode === 'DRIVING' ? <Truck size={16} className="animate-bounce" /> : <Coffee size={16} className="animate-pulse" />}
+                <span className="text-[11px] font-black tabular-nums">{formatTime(jornadaElapsed)}</span>
+              </div>
+            )}
+
+            <button onClick={() => setIsNotificationOpen(true)} className="relative p-3 text-slate-500 hover:bg-slate-50 rounded-full">
+              <Bell size={24} />
+              {activeNotifications.length > 0 && <span className="absolute top-2 right-2 bg-rose-500 text-white text-[8px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-white">{activeNotifications.length}</span>}
+            </button>
+          </div>
         </header>
 
         <div className="flex-1 overflow-y-auto p-4 md:p-8">
@@ -432,8 +467,12 @@ const App: React.FC = () => {
           {currentView === AppView.CALCULATOR && <FreightCalculator />}
           {currentView === AppView.JORNADA && (
             <JornadaManager 
-              mode={jornadaMode} startTime={jornadaStartTime} logs={jornadaLogs} 
-              setMode={setJornadaMode} setStartTime={setJornadaStartTime} 
+              mode={jornadaMode} 
+              startTime={jornadaStartTime} 
+              currentTime={jornadaElapsed}
+              logs={jornadaLogs} 
+              setMode={setJornadaMode} 
+              setStartTime={setJornadaStartTime} 
               onSaveLog={(l) => handleAction('jornada_logs', l, 'insert')} 
               onDeleteLog={(id) => handleAction('jornada_logs', { id }, 'delete')} 
               onClearHistory={handleClearJornadaHistory}

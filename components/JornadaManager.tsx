@@ -9,6 +9,7 @@ const LIMIT_REST = 1800;    // 30min em segundos
 interface JornadaManagerProps {
   mode: 'IDLE' | 'DRIVING' | 'RESTING';
   startTime: number | null;
+  currentTime: number; // Recebido do App.tsx global
   logs: JornadaLog[];
   setMode: (mode: 'IDLE' | 'DRIVING' | 'RESTING') => void;
   setStartTime: (time: number | null) => void;
@@ -19,8 +20,7 @@ interface JornadaManagerProps {
   isSaving?: boolean;
 }
 
-export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime, logs, setMode, setStartTime, onSaveLog, onDeleteLog, onClearHistory, addGlobalNotification, isSaving }) => {
-  const [currentTime, setCurrentTime] = useState(0);
+export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime, currentTime, logs, setMode, setStartTime, onSaveLog, onDeleteLog, onClearHistory, addGlobalNotification, isSaving }) => {
   const [alert, setAlert] = useState<string | null>(null);
   
   const drivingAlertFired = useRef(false);
@@ -50,22 +50,6 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
       .filter(l => (l.date || l.start_time?.split('T')[0]) === todayStr)
       .sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime());
   }, [logs]);
-
-  useEffect(() => {
-    let interval: any;
-    if (mode !== 'IDLE' && startTime) {
-      const updateTime = () => {
-        const now = Date.now();
-        const elapsed = Math.floor((now - startTime) / 1000);
-        setCurrentTime(elapsed > 0 ? elapsed : 0);
-      };
-      updateTime();
-      interval = setInterval(updateTime, 1000);
-    } else {
-      setCurrentTime(0);
-    }
-    return () => clearInterval(interval);
-  }, [mode, startTime]);
 
   useEffect(() => {
     if (mode === 'DRIVING' && currentTime >= LIMIT_DRIVING) {
@@ -140,7 +124,8 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
             {mode === 'DRIVING' ? 'Direção em Curso' : mode === 'RESTING' ? 'Descanso em Curso' : 'Jornada em Espera'}
           </div>
 
-          <div className="text-6xl md:text-8xl font-black font-mono tracking-tighter select-none tabular-nums leading-none mb-6 flex items-baseline gap-2">
+          {/* Cronômetro com cores temáticas e brilho */}
+          <div className={`text-6xl md:text-8xl font-black font-mono tracking-tighter select-none tabular-nums leading-none mb-6 flex items-baseline gap-2 transition-colors duration-500 drop-shadow-[0_0_15px_rgba(255,255,255,0.1)] ${mode === 'DRIVING' ? 'text-primary-400' : mode === 'RESTING' ? 'text-emerald-400' : 'text-slate-200'}`}>
             {formatTime(currentTime)}
           </div>
 
@@ -161,18 +146,18 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
             <button 
               disabled={isSaving || mode === 'DRIVING'} 
               onClick={() => handleAction('DRIVING')} 
-              className={`py-4 rounded-2xl font-black text-xs uppercase tracking-widest flex flex-col items-center justify-center gap-2 shadow-xl transition-all active:scale-95 ${mode === 'DRIVING' ? 'bg-primary-800/40 text-primary-400 border border-primary-500/20 cursor-not-allowed' : 'bg-primary-600 hover:bg-primary-500 text-white'}`}
+              className={`py-4 rounded-2xl font-black text-xs uppercase tracking-widest flex flex-col items-center justify-center gap-2 shadow-xl transition-all active:scale-95 ${mode === 'DRIVING' ? 'bg-primary-800 text-primary-200 border border-primary-500/50 cursor-not-allowed' : 'bg-primary-600 hover:bg-primary-500 text-white'}`}
             >
-              {mode === 'DRIVING' ? <CheckCircle size={20}/> : <Play size={20}/>} 
+              {mode === 'DRIVING' ? <Activity size={20} className="animate-spin"/> : <Play size={20}/>} 
               Direção
             </button>
 
             <button 
               disabled={isSaving || mode === 'RESTING'} 
               onClick={() => handleAction('RESTING')} 
-              className={`py-4 rounded-2xl font-black text-xs uppercase tracking-widest flex flex-col items-center justify-center gap-2 shadow-xl transition-all active:scale-95 ${mode === 'RESTING' ? 'bg-emerald-800/40 text-emerald-400 border border-emerald-500/20 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-500 text-white'}`}
+              className={`py-4 rounded-2xl font-black text-xs uppercase tracking-widest flex flex-col items-center justify-center gap-2 shadow-xl transition-all active:scale-95 ${mode === 'RESTING' ? 'bg-emerald-800 text-emerald-200 border border-emerald-500/50 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-500 text-white'}`}
             >
-              {mode === 'RESTING' ? <CheckCircle size={20}/> : <Coffee size={20}/>} 
+              {mode === 'RESTING' ? <Coffee size={20} className="animate-pulse"/> : <Coffee size={20}/>} 
               Descanso
             </button>
             
@@ -287,7 +272,7 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
              <div className="mt-8 p-5 bg-white/5 rounded-2xl border border-white/5">
                 <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Funcionamento</p>
                 <p className="text-[10px] text-slate-400 font-medium leading-relaxed italic">
-                  O registro de início/fim é salvo automaticamente ao trocar de status.
+                  O cronômetro global permite que você monitore o tempo de qualquer tela do app.
                 </p>
              </div>
           </div>
