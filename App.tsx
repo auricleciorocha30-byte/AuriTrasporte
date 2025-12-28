@@ -106,7 +106,6 @@ const App: React.FC = () => {
           const { error: syncError } = await supabase.from(item.table).upsert([cleanPayload]);
           error = syncError;
         } else if (item.action === 'delete') {
-          // CORREÇÃO: Usar o ID do dado do registro (item.data.id) e não o ID da fila de sync (item.id)
           const { error: syncError } = await supabase.from(item.table).delete().eq('id', item.data.id);
           error = syncError;
         }
@@ -130,6 +129,7 @@ const App: React.FC = () => {
 
   const fetchData = async () => {
     try {
+      // Se estiver online, tenta puxar do Supabase primeiro e salvar no IndexedDB
       if (navigator.onLine && session?.user) {
         const [tripsRes, expRes, vehRes, mainRes, jornRes] = await Promise.all([
           supabase.from('trips').select('*').order('date', { ascending: false }),
@@ -146,6 +146,7 @@ const App: React.FC = () => {
         if (jornRes.data) { await offlineStorage.clearTable('jornada_logs'); await offlineStorage.bulkSave('jornada_logs', jornRes.data); }
       }
 
+      // SEMPRE carrega do IndexedDB para garantir que os dados apareçam offline
       const [lTrips, lExp, lVeh, lMain, lJorn] = await Promise.all([
         offlineStorage.getAll('trips'),
         offlineStorage.getAll('expenses'),
@@ -160,7 +161,7 @@ const App: React.FC = () => {
       setMaintenance(lMain);
       setJornadaLogs(lJorn);
     } catch (err) {
-      console.error("Erro ao carregar dados locais:", err);
+      console.error("Erro ao carregar dados:", err);
     }
   };
 
@@ -210,32 +211,51 @@ const App: React.FC = () => {
   }, [trips, expenses, maintenance, vehicles]);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setLoading(false);
-    });
+    const initAuth = async () => {
+      try {
+        // Tenta pegar sessão cacheada do Supabase (funciona offline se já logado antes)
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        if (currentSession) {
+          setSession(currentSession);
+        }
+      } catch (e) {
+        console.log("Auth offline mode active");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initAuth();
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
+      if (session) {
+        setSession(session);
+      }
     });
+
     return () => subscription.unsubscribe();
   }, []);
 
   useEffect(() => {
-    if (session?.user) {
+    // Carrega os dados sempre que a sessão for confirmada OU se já estivermos carregados (para suporte offline)
+    if (!loading) {
       fetchData();
-      syncData();
+      if (session?.user && navigator.onLine) {
+        syncData();
+      }
     }
-  }, [session]);
+  }, [session, loading]);
 
   const handleAction = async (table: string, data: any, action: 'insert' | 'update' | 'delete' = 'insert') => {
     setIsSaving(true);
     try {
-      if (!session?.user?.id) throw new Error("Usuário não autenticado");
-      const payload = { ...data, user_id: session.user.id };
+      // Em modo offline, permitimos ações mesmo sem session.user.id se já tivermos dados
+      // Mas o ideal é que o session.user esteja disponível no localStorage
+      const userId = session?.user?.id || 'offline-user';
+      const payload = { ...data, user_id: userId };
       
       const savedData = await offlineStorage.save(table, payload, action);
       
-      // Imediatamente atualiza o estado local para uma experiência "zero lag"
       const updateState = (prev: any[]) => {
         if (action === 'insert') return [savedData, ...prev];
         if (action === 'update') return prev.map(item => item.id === savedData.id ? savedData : item);
@@ -249,7 +269,7 @@ const App: React.FC = () => {
       else if (table === 'vehicles') setVehicles(updateState);
       else if (table === 'maintenance') setMaintenance(updateState);
       
-      if (navigator.onLine) {
+      if (navigator.onLine && session?.user) {
         syncData(); 
       }
     } catch (err: any) {
@@ -262,10 +282,9 @@ const App: React.FC = () => {
   const handleClearJornadaHistory = async () => {
     setIsSaving(true);
     try {
-      if (!session?.user?.id) return;
       await offlineStorage.clearTable('jornada_logs');
       setJornadaLogs([]);
-      if (navigator.onLine) {
+      if (navigator.onLine && session?.user) {
         const { error } = await supabase.from('jornada_logs').delete().eq('user_id', session.user.id);
         if (error) throw error;
       }
@@ -313,7 +332,8 @@ const App: React.FC = () => {
 
   if (loading) return <div className="h-screen flex items-center justify-center bg-slate-950"><Loader2 className="animate-spin text-primary-500" size={48} /></div>;
 
-  if (!session) return (
+  // Se não tem sessão e não estamos tentando carregar dados offlines prévios, mostra login
+  if (!session && trips.length === 0 && vehicles.length === 0) return (
     <div className="min-h-screen w-full flex items-center justify-center bg-slate-900 p-4">
       <div className="w-full max-w-md bg-white rounded-[3rem] shadow-2xl p-10 animate-fade-in border border-white/10">
         <div className="flex flex-col items-center mb-10">
