@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Timer, Coffee, Play, Square, History, AlertCircle, BellRing, Trash2, Clock, CheckCircle, Activity, Loader2 } from 'lucide-react';
+import { Timer, Coffee, Play, Square, History, AlertCircle, BellRing, Trash2, Clock, CheckCircle, Activity, Loader2, CalendarDays, ArrowRight } from 'lucide-react';
 import { JornadaLog } from '../types';
 
 const LIMIT_DRIVING = 19800; // 5h 30min em segundos
@@ -25,13 +25,10 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
   const drivingAlertFired = useRef(false);
   const restAlertFired = useRef(false);
 
-  // Função robusta para pegar a data local em formato YYYY-MM-DD
+  // Função para pegar a data local em formato YYYY-MM-DD
   const getLocalDateStr = () => {
     const d = new Date();
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   };
 
   const formatTime = (s: number) => {
@@ -41,33 +38,17 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
     return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const historyItems = useMemo(() => {
+  const formatClockTime = (isoString: string) => {
+    return new Date(isoString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  // Memoizar apenas logs salvos para não re-renderizar a lista inteira a cada segundo
+  const savedLogs = useMemo(() => {
     const todayStr = getLocalDateStr();
-    
-    // Filtro aprimorado para garantir que registros locais e do banco apareçam
-    const sortedLogs = [...logs]
-      .filter(l => {
-        // Tenta pegar a data do campo 'date' ou do início do 'start_time'
-        const logDate = l.date || (l.start_time ? l.start_time.split('T')[0] : '');
-        return logDate === todayStr;
-      })
+    return [...logs]
+      .filter(l => (l.date || l.start_time?.split('T')[0]) === todayStr)
       .sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime());
-    
-    // Injeção da sessão ativa (que ainda não foi salva no banco)
-    if (mode !== 'IDLE' && startTime) {
-      const activeLog: any = {
-        id: 'active-session-live',
-        is_live: true,
-        type: mode === 'DRIVING' ? 'Direção' : 'Descanso',
-        start_time: new Date(startTime).toISOString(),
-        duration_seconds: currentTime,
-        date: todayStr
-      };
-      return [activeLog, ...sortedLogs];
-    }
-    
-    return sortedLogs;
-  }, [logs, mode, startTime, currentTime]);
+  }, [logs]);
 
   useEffect(() => {
     let interval: any;
@@ -107,7 +88,7 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
   }, [currentTime, mode]);
 
   const handleAction = async (newMode: 'IDLE' | 'DRIVING' | 'RESTING') => {
-    // Se está parando uma atividade, salva o log
+    // 1. Fechar a seção anterior se existir
     if (mode !== 'IDLE' && startTime) {
       const now = Date.now();
       const duration = Math.floor((now - startTime) / 1000);
@@ -124,6 +105,7 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
       }
     }
 
+    // 2. Iniciar nova seção ou parar
     if (newMode === 'IDLE') {
       setStartTime(null);
       setMode('IDLE');
@@ -137,131 +119,166 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 pb-12 animate-fade-in">
-      <div className={`rounded-[3rem] p-8 md:p-12 text-center text-white shadow-2xl transition-all duration-500 relative overflow-hidden flex flex-col items-center justify-center min-h-[500px] ${mode === 'DRIVING' ? 'bg-primary-900' : mode === 'RESTING' ? 'bg-emerald-900' : 'bg-slate-900'}`}>
-        <div className="absolute top-10 left-1/2 -translate-x-1/2 z-10">
-          <div className={`px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-[0.2em] border-2 animate-pulse flex items-center gap-2 ${mode === 'DRIVING' ? 'bg-blue-500/20 border-blue-400/50 text-blue-100' : mode === 'RESTING' ? 'bg-emerald-500/20 border-emerald-400/50 text-emerald-100' : 'bg-white/5 border-white/10 text-slate-400'}`}>
-            <Activity size={12} className={mode !== 'IDLE' ? 'animate-spin' : ''} />
-            {mode === 'DRIVING' ? 'Status: Ao Volante' : mode === 'RESTING' ? 'Status: Em Descanso' : 'Jornada Parada'}
-          </div>
-        </div>
-
-        {alert && (
-          <div className="w-full max-w-[320px] mb-8 bg-white p-4 rounded-2xl flex items-center gap-3 text-slate-900 animate-bounce shadow-2xl z-20 mx-auto border-2 border-primary-500/20 mt-12">
-            <div className={`p-2 rounded-full ${mode === 'DRIVING' ? 'bg-rose-100 text-rose-500' : 'bg-emerald-100 text-emerald-500'}`}>
-               <BellRing size={20} />
-            </div>
-            <p className="font-black text-[12px] leading-tight flex-1 text-left">{alert}</p>
-          </div>
-        )}
-
-        <div className={`relative mb-6 ${!alert ? 'mt-12' : ''}`}>
-           <Timer size={48} className={`${mode === 'IDLE' ? 'text-slate-500' : 'text-primary-400'} ${mode !== 'IDLE' ? 'animate-pulse' : ''}`} />
-        </div>
+    <div className="max-w-5xl mx-auto space-y-8 pb-20 animate-fade-in">
+      {/* Painel de Controle Principal */}
+      <div className={`rounded-[4rem] p-10 md:p-16 text-center text-white shadow-2xl transition-all duration-700 relative overflow-hidden flex flex-col items-center justify-center min-h-[550px] ${mode === 'DRIVING' ? 'bg-primary-950' : mode === 'RESTING' ? 'bg-emerald-950' : 'bg-slate-900'}`}>
         
-        <div className="text-7xl md:text-9xl font-black font-mono my-6 tracking-tighter select-none tabular-nums relative">
-          {formatTime(currentTime)}
-          {mode !== 'IDLE' && (
-             <span className="absolute -top-4 -right-8 flex h-3 w-3">
-               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary-400 opacity-75"></span>
-               <span className="relative inline-flex rounded-full h-3 w-3 bg-primary-50"></span>
-             </span>
-          )}
+        {/* Camada de Decoração de Fundo */}
+        <div className="absolute inset-0 opacity-10 pointer-events-none">
+           <div className={`absolute -top-24 -left-24 w-96 h-96 rounded-full blur-[120px] ${mode === 'DRIVING' ? 'bg-blue-400' : mode === 'RESTING' ? 'bg-emerald-400' : 'bg-slate-400'}`}></div>
+           <div className={`absolute -bottom-24 -right-24 w-96 h-96 rounded-full blur-[120px] ${mode === 'DRIVING' ? 'bg-indigo-400' : mode === 'RESTING' ? 'bg-teal-400' : 'bg-slate-400'}`}></div>
         </div>
 
-        <div className="flex flex-col md:flex-row items-center justify-center gap-4 w-full px-4 mt-8">
-          <button 
-            disabled={isSaving || mode === 'DRIVING'} 
-            onClick={() => handleAction('DRIVING')} 
-            className={`w-full md:w-64 py-5 rounded-[2rem] font-black text-xl flex items-center justify-center gap-3 shadow-lg transition-all active:scale-95 ${mode === 'DRIVING' ? 'bg-primary-500/20 text-primary-300 border border-primary-500/50' : 'bg-primary-600 hover:bg-primary-700 text-white'}`}
-          >
-            {isSaving ? <Loader2 className="animate-spin" /> : <Play size={24}/>} 
-            Iniciar Direção
-          </button>
+        <div className="relative z-10 flex flex-col items-center">
+          <div className={`px-8 py-3 rounded-full text-[11px] font-black uppercase tracking-[0.25em] border-2 flex items-center gap-3 mb-12 ${mode === 'DRIVING' ? 'bg-primary-500/20 border-primary-500/50 text-primary-300' : mode === 'RESTING' ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300' : 'bg-white/5 border-white/10 text-slate-500'}`}>
+            <Activity size={16} className={mode !== 'IDLE' ? 'animate-spin' : ''} />
+            {mode === 'DRIVING' ? 'Operação em Curso: Direção' : mode === 'RESTING' ? 'Operação em Curso: Descanso' : 'Aguardando Início de Jornada'}
+          </div>
 
-          <button 
-            disabled={isSaving || mode === 'RESTING'} 
-            onClick={() => handleAction('RESTING')} 
-            className={`w-full md:w-64 py-5 rounded-[2rem] font-black text-xl flex items-center justify-center gap-3 shadow-lg transition-all active:scale-95 ${mode === 'RESTING' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/50' : 'bg-slate-800 hover:bg-slate-700 text-white'}`}
-          >
-            {isSaving ? <Loader2 className="animate-spin" /> : <Coffee size={24}/>} 
-            Iniciar Descanso
-          </button>
-          
-          {mode !== 'IDLE' && (
-            <button 
-              disabled={isSaving} 
-              onClick={() => handleAction('IDLE')} 
-              className="w-full md:w-64 py-5 bg-rose-500 hover:bg-rose-600 text-white rounded-[2rem] font-black text-xl flex items-center justify-center gap-3 shadow-lg transition-all active:scale-95"
-            >
-              {isSaving ? <Loader2 className="animate-spin" /> : <Square size={24}/>} 
-              Parar Tudo
-            </button>
+          {mode !== 'IDLE' && startTime && (
+            <div className="mb-6 flex items-center gap-2 text-white/40 font-bold uppercase text-[10px] tracking-widest">
+              <Clock size={12}/> Iniciado às {new Date(startTime).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
+            </div>
           )}
+
+          <div className="text-8xl md:text-[10rem] font-black font-mono tracking-tighter select-none tabular-nums leading-none mb-12 flex items-baseline gap-2">
+            {formatTime(currentTime)}
+          </div>
+
+          {alert && (
+            <div className="mb-12 bg-white/10 backdrop-blur-xl border border-white/20 px-8 py-4 rounded-[2rem] flex items-center gap-4 text-white animate-bounce shadow-2xl">
+              <div className={`p-2 rounded-full ${mode === 'DRIVING' ? 'bg-rose-500' : 'bg-emerald-500'}`}>
+                 <BellRing size={24} />
+              </div>
+              <p className="font-black text-sm uppercase tracking-tight">{alert}</p>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-4xl px-4">
+            <button 
+              disabled={isSaving || mode === 'DRIVING'} 
+              onClick={() => handleAction('DRIVING')} 
+              className={`py-6 rounded-[2.5rem] font-black text-xl flex items-center justify-center gap-4 shadow-xl transition-all active:scale-95 ${mode === 'DRIVING' ? 'bg-primary-800/40 text-primary-400 border-2 border-primary-500/20 cursor-not-allowed' : 'bg-primary-600 hover:bg-primary-500 text-white'}`}
+            >
+              {mode === 'DRIVING' ? <CheckCircle size={28}/> : <Play size={28}/>} 
+              Direção
+            </button>
+
+            <button 
+              disabled={isSaving || mode === 'RESTING'} 
+              onClick={() => handleAction('RESTING')} 
+              className={`py-6 rounded-[2.5rem] font-black text-xl flex items-center justify-center gap-4 shadow-xl transition-all active:scale-95 ${mode === 'RESTING' ? 'bg-emerald-800/40 text-emerald-400 border-2 border-emerald-500/20 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-500 text-white'}`}
+            >
+              {mode === 'RESTING' ? <CheckCircle size={28}/> : <Coffee size={28}/>} 
+              Descanso
+            </button>
+            
+            <button 
+              disabled={isSaving || mode === 'IDLE'} 
+              onClick={() => handleAction('IDLE')} 
+              className={`py-6 rounded-[2.5rem] font-black text-xl flex items-center justify-center gap-4 shadow-xl transition-all active:scale-95 ${mode === 'IDLE' ? 'bg-slate-800 text-slate-700 cursor-not-allowed opacity-20' : 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-900/40'}`}
+            >
+              {isSaving ? <Loader2 className="animate-spin" size={28} /> : <Square size={28}/>} 
+              Finalizar
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 px-2">
-        <div className="bg-white p-8 rounded-[2.5rem] border shadow-sm">
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-xl font-black flex items-center gap-3 uppercase tracking-tighter">
-              <History/> Linha do Tempo: Hoje
-            </h3>
-            {isSaving && <Loader2 className="animate-spin text-primary-500" size={16} />}
-            {!isSaving && <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{historyItems.length} Registros</span>}
+      {/* Histórico e Resumo */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 px-4">
+        {/* Histórico Detalhado */}
+        <div className="lg:col-span-8 bg-white p-10 rounded-[3.5rem] border shadow-sm">
+          <div className="flex justify-between items-center mb-10">
+            <div>
+              <h3 className="text-2xl font-black flex items-center gap-4 uppercase tracking-tighter">
+                <History className="text-primary-600"/> Histórico de Hoje
+              </h3>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1 flex items-center gap-2">
+                <CalendarDays size={12}/> {getLocalDateStr().split('-').reverse().join('/')}
+              </p>
+            </div>
+            <div className="text-right">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{savedLogs.length} seções registradas</span>
+            </div>
           </div>
           
-          <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
-            {historyItems.length === 0 ? (
-              <div className="text-center py-12">
-                <Clock className="mx-auto text-slate-100 mb-2" size={48} />
-                <p className="text-slate-400 text-sm font-bold">Inicie sua jornada para registrar atividades.</p>
+          <div className="space-y-6 max-h-[600px] overflow-y-auto pr-4 custom-scrollbar">
+            {savedLogs.length === 0 ? (
+              <div className="text-center py-20 bg-slate-50 rounded-[3rem] border-2 border-dashed border-slate-100">
+                <Clock className="mx-auto text-slate-200 mb-4" size={64} />
+                <p className="text-slate-400 text-sm font-bold uppercase tracking-widest">Nenhuma seção finalizada hoje.</p>
               </div>
-            ) : historyItems.map((log: any) => (
+            ) : savedLogs.map((log) => (
               <div 
                 key={log.id} 
-                className={`p-4 rounded-2xl flex justify-between items-center border transition-all ${
-                  log.is_live 
-                    ? 'bg-amber-50 border-amber-200 ring-4 ring-amber-100/50' 
-                    : log.type === 'Direção' 
-                      ? 'bg-blue-50 border-blue-100' 
-                      : 'bg-emerald-50 border-emerald-100'
+                className={`group p-6 rounded-[2rem] flex justify-between items-center border-2 transition-all hover:border-slate-300 ${
+                  log.type === 'Direção' ? 'bg-blue-50/30 border-blue-50' : 'bg-emerald-50/30 border-emerald-50'
                 }`}
               >
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <p className={`text-[10px] font-black uppercase ${log.is_live ? 'text-amber-600' : log.type === 'Direção' ? 'text-primary-600' : 'text-emerald-600'}`}>
-                      {log.is_live ? 'EVENTO ATIVO: ' : ''}{log.type}
-                    </p>
-                    {log.is_live ? <Activity size={10} className="text-amber-500 animate-pulse" /> : <CheckCircle size={10} className="text-slate-300" />}
+                <div className="flex gap-6 items-center">
+                  <div className={`p-4 rounded-2xl ${log.type === 'Direção' ? 'bg-primary-100 text-primary-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                    {log.type === 'Direção' ? <Activity size={24}/> : <Coffee size={24}/>}
                   </div>
-                  <p className="font-bold text-slate-700 text-sm">
-                    {new Date(log.start_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} 
-                    <span className="mx-2 opacity-30">→</span>
-                    {log.is_live ? 'Agora' : new Date(log.end_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                  </p>
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <p className={`text-[11px] font-black uppercase tracking-widest ${log.type === 'Direção' ? 'text-primary-600' : 'text-emerald-600'}`}>
+                        {log.type}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3 text-lg font-black text-slate-800">
+                      <span>{formatClockTime(log.start_time)}</span>
+                      <ArrowRight size={14} className="text-slate-300" />
+                      <span>{log.end_time ? formatClockTime(log.end_time) : '---'}</span>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center gap-4">
-                  <p className="font-black text-slate-900 text-sm">{formatTime(log.duration_seconds)}</p>
-                  {!log.is_live && (
-                    <button onClick={() => onDeleteLog(log.id)} className="text-slate-300 hover:text-rose-500 transition-colors p-2">
-                      <Trash2 size={16}/>
-                    </button>
-                  )}
+                
+                <div className="flex items-center gap-8">
+                  <div className="text-right">
+                    <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Duração</p>
+                    <p className="font-black text-slate-900 text-xl">{formatTime(log.duration_seconds)}</p>
+                  </div>
+                  <button 
+                    onClick={() => { if(confirm("Remover este registro?")) onDeleteLog(log.id) }} 
+                    className="p-3 bg-white shadow-sm rounded-full text-slate-200 hover:text-rose-500 hover:bg-rose-50 transition-all opacity-0 group-hover:opacity-100"
+                  >
+                    <Trash2 size={20}/>
+                  </button>
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="bg-amber-50 p-8 rounded-[2.5rem] border border-amber-100 h-fit">
-           <h3 className="text-xl font-black text-amber-900 mb-6 flex items-center gap-3 uppercase tracking-tighter"><AlertCircle/> Resumo Legal</h3>
-           <ul className="space-y-4 text-amber-800 text-sm font-bold">
-              <li className="flex gap-3">🚚 Direção contínua máx: 5.5 horas.</li>
-              <li className="flex gap-3">☕ Descanso obrigatório: 30 minutos.</li>
-              <li className="flex gap-3">😴 Descanso diário: 11 horas totais.</li>
-              <li className="flex gap-3 mt-4 text-[10px] uppercase opacity-60">Seus registros são salvos automaticamente ao parar.</li>
-           </ul>
+        {/* Card Informativo Legal */}
+        <div className="lg:col-span-4 space-y-6">
+          <div className="bg-slate-900 p-10 rounded-[3.5rem] text-white">
+             <h3 className="text-xl font-black mb-8 flex items-center gap-3 uppercase tracking-tighter">
+               <AlertCircle className="text-amber-500"/> Regras de Ouro
+             </h3>
+             <div className="space-y-6">
+                <div className="flex gap-4">
+                   <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-xs font-black shrink-0">1</div>
+                   <p className="text-slate-400 text-sm font-bold">Direção contínua não deve exceder <span className="text-white">5h 30min</span>.</p>
+                </div>
+                <div className="flex gap-4">
+                   <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-xs font-black shrink-0">2</div>
+                   <p className="text-slate-400 text-sm font-bold">Descanso obrigatório de <span className="text-white">30 minutos</span> após limite.</p>
+                </div>
+                <div className="flex gap-4">
+                   <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-xs font-black shrink-0">3</div>
+                   <p className="text-slate-400 text-sm font-bold">Total de <span className="text-white">11 horas</span> de descanso por dia.</p>
+                </div>
+             </div>
+             
+             <div className="mt-12 p-6 bg-white/5 rounded-3xl border border-white/5">
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3">Dica de Operação</p>
+                <p className="text-xs text-slate-400 font-medium leading-relaxed">
+                  O AuriLog registra automaticamente o início e o fim quando você altera o status ou finaliza a jornada. Registros de 1 segundo são ignorados.
+                </p>
+             </div>
+          </div>
         </div>
       </div>
     </div>
