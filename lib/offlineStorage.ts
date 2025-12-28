@@ -29,7 +29,6 @@ export const initDB = async (): Promise<IDBPDatabase> => {
   });
 };
 
-// Gerador de UUID v4 real para compatibilidade total com o Supabase
 const generateUUID = () => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
@@ -49,7 +48,7 @@ export const offlineStorage = {
 
     if (action === 'delete') {
       await db.delete(table as any, id);
-      finalData = { id };
+      finalData = { id }; // Dados mínimos para deletar no remoto
     } else if (action === 'update') {
       const existing = await db.get(table as any, id);
       finalData = { 
@@ -72,9 +71,9 @@ export const offlineStorage = {
 
     // Registrar na fila de sincronização
     await db.put('sync_queue', {
-      id: generateUUID(),
+      id: generateUUID(), // ID único para a entrada na fila de sync
       table,
-      data: finalData,
+      data: finalData, // Contém o ID do registro real
       status: 'pending',
       action,
       timestamp: Date.now()

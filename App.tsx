@@ -32,7 +32,6 @@ const App: React.FC = () => {
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
-  // Estados de Jornada (Globais para persistência visual)
   const [jornadaMode, setJornadaMode] = useState<'IDLE' | 'DRIVING' | 'RESTING'>('IDLE');
   const [jornadaStartTime, setJornadaStartTime] = useState<number | null>(null);
   const [jornadaElapsed, setJornadaElapsed] = useState(0);
@@ -43,7 +42,6 @@ const App: React.FC = () => {
   const [maintenance, setMaintenance] = useState<MaintenanceItem[]>([]);
   const [jornadaLogs, setJornadaLogs] = useState<JornadaLog[]>([]);
 
-  // Lógica do Cronômetro Global
   useEffect(() => {
     let interval: any;
     if (jornadaMode !== 'IDLE' && jornadaStartTime) {
@@ -108,7 +106,8 @@ const App: React.FC = () => {
           const { error: syncError } = await supabase.from(item.table).upsert([cleanPayload]);
           error = syncError;
         } else if (item.action === 'delete') {
-          const { error: syncError } = await supabase.from(item.table).delete().eq('id', item.id);
+          // CORREÇÃO: Usar o ID do dado do registro (item.data.id) e não o ID da fila de sync (item.id)
+          const { error: syncError } = await supabase.from(item.table).delete().eq('id', item.data.id);
           error = syncError;
         }
         
@@ -116,7 +115,7 @@ const App: React.FC = () => {
           await offlineStorage.markAsSynced(item.id);
         } else {
           console.error(`Falha ao sincronizar ${item.table}:`, error.message);
-          if (error.message.includes('column') || error.message.includes('policy')) {
+          if (error.message.includes('column') || error.message.includes('policy') || error.message.includes('not found')) {
              await offlineStorage.markAsSynced(item.id);
           }
         }
@@ -236,18 +235,19 @@ const App: React.FC = () => {
       
       const savedData = await offlineStorage.save(table, payload, action);
       
-      const updateList = (prev: any[]) => {
+      // Imediatamente atualiza o estado local para uma experiência "zero lag"
+      const updateState = (prev: any[]) => {
         if (action === 'insert') return [savedData, ...prev];
         if (action === 'update') return prev.map(item => item.id === savedData.id ? savedData : item);
         if (action === 'delete') return prev.filter(item => item.id !== data.id);
         return prev;
       };
 
-      if (table === 'jornada_logs') setJornadaLogs(updateList);
-      else if (table === 'trips') setTrips(updateList);
-      else if (table === 'expenses') setExpenses(updateList);
-      else if (table === 'vehicles') setVehicles(updateList);
-      else if (table === 'maintenance') setMaintenance(updateList);
+      if (table === 'jornada_logs') setJornadaLogs(updateState);
+      else if (table === 'trips') setTrips(updateState);
+      else if (table === 'expenses') setExpenses(updateState);
+      else if (table === 'vehicles') setVehicles(updateState);
+      else if (table === 'maintenance') setMaintenance(updateState);
       
       if (navigator.onLine) {
         syncData(); 
@@ -403,7 +403,6 @@ const App: React.FC = () => {
           </div>
           
           <div className="flex items-center gap-2">
-            {/* Widget de Jornada Ativa Centralizado */}
             {jornadaMode !== 'IDLE' && (
               <div 
                 onClick={() => setCurrentView(AppView.JORNADA)}
