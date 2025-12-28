@@ -198,27 +198,6 @@ const App: React.FC = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const handleResetPassword = async () => {
-    if (!email) {
-      setError("Por favor, informe seu e-mail para recuperar a senha.");
-      return;
-    }
-    setAuthLoading(true);
-    setError('');
-    setSuccessMsg('');
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: window.location.origin,
-      });
-      if (error) throw error;
-      setSuccessMsg("Link de recuperação enviado para seu e-mail.");
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setAuthLoading(false);
-    }
-  };
-
   useEffect(() => {
     if (session?.user) {
       fetchData();
@@ -231,10 +210,21 @@ const App: React.FC = () => {
     try {
       if (!session?.user?.id) throw new Error("Usuário não autenticado");
       const payload = { ...data, user_id: session.user.id };
-      await offlineStorage.save(table, payload, action);
       
-      // ATUALIZAÇÃO IMEDIATA DO ESTADO LOCAL
-      await fetchData(); 
+      // SALVAMENTO LOCAL IMEDIATO
+      const savedData = await offlineStorage.save(table, payload, action);
+      
+      // ATUALIZAÇÃO DO ESTADO REACT EM MEMÓRIA (INSTANTÂNEA)
+      if (table === 'jornada_logs') {
+        if (action === 'insert') setJornadaLogs(prev => [savedData, ...prev]);
+        else if (action === 'delete') setJornadaLogs(prev => prev.filter(x => x.id !== data.id));
+      } else if (table === 'trips') {
+        if (action === 'insert') setTrips(prev => [savedData, ...prev]);
+        else if (action === 'delete') setTrips(prev => prev.filter(x => x.id !== data.id));
+      } else if (table === 'expenses') {
+        if (action === 'insert') setExpenses(prev => [savedData, ...prev]);
+        else if (action === 'delete') setExpenses(prev => prev.filter(x => x.id !== data.id));
+      }
       
       // SINCRONIZAÇÃO EM SEGUNDO PLANO
       if (navigator.onLine) {
@@ -265,11 +255,6 @@ const App: React.FC = () => {
           <div className="space-y-1.5">
             <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Senha</label>
             <input required={!isSignUp} type="password" placeholder="••••••••" className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:ring-2 focus:ring-primary-500 transition-all" value={password} onChange={e => setPassword(e.target.value)} />
-            {!isSignUp && (
-              <div className="flex justify-end pr-1">
-                <button type="button" onClick={handleResetPassword} className="text-[10px] font-black uppercase text-primary-600 hover:text-primary-700 transition-colors">Esqueceu a senha?</button>
-              </div>
-            )}
           </div>
           {error && <div className="bg-rose-50 border border-rose-100 p-4 rounded-2xl text-rose-600 text-xs font-bold animate-pulse">{error}</div>}
           {successMsg && <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-2xl text-emerald-600 text-xs font-bold">{successMsg}</div>}
@@ -311,11 +296,6 @@ const App: React.FC = () => {
                 {isOnline ? <Wifi size={12}/> : <WifiOff size={12}/>}
                 {isOnline ? 'Online' : 'Offline'}
               </span>
-              {syncing && (
-                <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter bg-blue-50 text-blue-600 border border-blue-100 animate-pulse">
-                  <CloudUpload size={12}/> Sincronizando...
-                </span>
-              )}
               {jornadaMode !== 'IDLE' && (
                 <span className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter border animate-pulse ${jornadaMode === 'DRIVING' ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`}>
                   {jornadaMode === 'DRIVING' ? <Play size={12} fill="currentColor" /> : <Coffee size={12}/>}

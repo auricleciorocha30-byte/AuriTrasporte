@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Timer, Coffee, Play, Square, History, AlertCircle, BellRing, Trash2, Clock, CheckCircle, Activity, Loader2 } from 'lucide-react';
+import { Timer, Coffee, Play, Square, History, AlertCircle, BellRing, Trash2, Clock, CheckCircle, Activity, Loader2 } from 'lucide-center';
 import { JornadaLog } from '../types';
 
 const LIMIT_DRIVING = 19800; // 5h 30min em segundos
@@ -27,7 +27,10 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
 
   const getLocalDateStr = () => {
     const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
 
   const formatTime = (s: number) => {
@@ -41,12 +44,15 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
   const historyItems = useMemo(() => {
     const todayStr = getLocalDateStr();
     
-    // 1. Filtrar logs do dia e ordenar por tempo de início (decrescente)
+    // Filtrar logs que tenham a data de hoje ou que foram criados hoje (fallback)
     const sortedLogs = [...logs]
-      .filter(l => l.date === todayStr)
+      .filter(l => {
+        const logDate = l.date || l.start_time?.split('T')[0];
+        return logDate === todayStr;
+      })
       .sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime());
     
-    // 2. Injetar a sessão AO VIVO no topo se existir
+    // Injetar a sessão AO VIVO no topo se existir
     if (mode !== 'IDLE' && startTime) {
       const activeLog: any = {
         id: 'active-session-live',
@@ -112,7 +118,6 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
           type: mode === 'DRIVING' ? 'Direção' : 'Descanso',
           date: getLocalDateStr()
         };
-        // O salvamento agora é aguardado e atualiza o App.tsx imediatamente
         await onSaveLog(newLog);
       }
     }
@@ -135,8 +140,8 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
       <div className={`rounded-[3rem] p-8 md:p-12 text-center text-white shadow-2xl transition-all duration-500 relative overflow-hidden flex flex-col items-center justify-center min-h-[500px] ${mode === 'DRIVING' ? 'bg-primary-900' : mode === 'RESTING' ? 'bg-emerald-900' : 'bg-slate-900'}`}>
         <div className="absolute top-10 left-1/2 -translate-x-1/2 z-10">
           <div className={`px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-[0.2em] border-2 animate-pulse flex items-center gap-2 ${mode === 'DRIVING' ? 'bg-blue-500/20 border-blue-400/50 text-blue-100' : mode === 'RESTING' ? 'bg-emerald-500/20 border-emerald-400/50 text-emerald-100' : 'bg-white/5 border-white/10 text-slate-400'}`}>
-            {mode === 'DRIVING' ? <Play size={12} fill="currentColor" /> : mode === 'RESTING' ? <Coffee size={12}/> : <Timer size={12}/>}
-            {mode === 'DRIVING' ? 'Ao Volante' : mode === 'RESTING' ? 'Em Descanso' : 'Jornada Parada'}
+            <Activity size={12} className={mode !== 'IDLE' ? 'animate-spin' : ''} />
+            {mode === 'DRIVING' ? 'Status: Ao Volante' : mode === 'RESTING' ? 'Status: Em Descanso' : 'Jornada Parada'}
           </div>
         </div>
 
@@ -158,62 +163,65 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
           {mode !== 'IDLE' && (
              <span className="absolute -top-4 -right-8 flex h-3 w-3">
                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary-400 opacity-75"></span>
-               <span className="relative inline-flex rounded-full h-3 w-3 bg-primary-500"></span>
+               <span className="relative inline-flex rounded-full h-3 w-3 bg-primary-50"></span>
              </span>
           )}
         </div>
 
         <div className="flex flex-col md:flex-row items-center justify-center gap-4 w-full px-4 mt-8">
-          {mode !== 'DRIVING' ? (
-            <button disabled={isSaving} onClick={() => handleAction('DRIVING')} className="w-full md:w-64 py-5 bg-primary-600 hover:bg-primary-700 rounded-[2rem] font-black text-xl flex items-center justify-center gap-3 shadow-lg transition-all active:scale-95 disabled:opacity-50">
-              {isSaving ? <Loader2 className="animate-spin" /> : <Play size={24}/>} 
-              {isSaving ? 'Salvando...' : 'Iniciar Direção'}
-            </button>
-          ) : (
-            <button disabled={isSaving} onClick={() => handleAction('IDLE')} className="w-full md:w-64 py-5 bg-rose-500 hover:bg-rose-600 rounded-[2rem] font-black text-xl flex items-center justify-center gap-3 shadow-lg transition-all active:scale-95 disabled:opacity-50">
-              {isSaving ? <Loader2 className="animate-spin" /> : <Square size={24}/>} 
-              {isSaving ? 'Salvando...' : 'Parar Direção'}
-            </button>
-          )}
+          <button 
+            disabled={isSaving || mode === 'DRIVING'} 
+            onClick={() => handleAction('DRIVING')} 
+            className={`w-full md:w-64 py-5 rounded-[2rem] font-black text-xl flex items-center justify-center gap-3 shadow-lg transition-all active:scale-95 ${mode === 'DRIVING' ? 'bg-primary-500/20 text-primary-300 border border-primary-500/50' : 'bg-primary-600 hover:bg-primary-700 text-white'}`}
+          >
+            {isSaving ? <Loader2 className="animate-spin" /> : <Play size={24}/>} 
+            Iniciar Direção
+          </button>
 
-          {mode !== 'RESTING' ? (
-            <button disabled={isSaving} onClick={() => handleAction('RESTING')} className="w-full md:w-64 py-5 bg-slate-800 hover:bg-slate-700 rounded-[2rem] font-black text-xl flex items-center justify-center gap-3 shadow-lg transition-all active:scale-95 disabled:opacity-50">
-              {isSaving ? <Loader2 className="animate-spin" /> : <Coffee size={24}/>} 
-              {isSaving ? 'Salvando...' : 'Iniciar Descanso'}
-            </button>
-          ) : (
-            <button disabled={isSaving} onClick={() => handleAction('IDLE')} className="w-full md:w-64 py-5 bg-emerald-600 hover:bg-emerald-700 rounded-[2rem] font-black text-xl flex items-center justify-center gap-3 shadow-lg transition-all active:scale-95 disabled:opacity-50">
+          <button 
+            disabled={isSaving || mode === 'RESTING'} 
+            onClick={() => handleAction('RESTING')} 
+            className={`w-full md:w-64 py-5 rounded-[2rem] font-black text-xl flex items-center justify-center gap-3 shadow-lg transition-all active:scale-95 ${mode === 'RESTING' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/50' : 'bg-slate-800 hover:bg-slate-700 text-white'}`}
+          >
+            {isSaving ? <Loader2 className="animate-spin" /> : <Coffee size={24}/>} 
+            Iniciar Descanso
+          </button>
+          
+          {mode !== 'IDLE' && (
+            <button 
+              disabled={isSaving} 
+              onClick={() => handleAction('IDLE')} 
+              className="w-full md:w-64 py-5 bg-rose-500 hover:bg-rose-600 text-white rounded-[2rem] font-black text-xl flex items-center justify-center gap-3 shadow-lg transition-all active:scale-95"
+            >
               {isSaving ? <Loader2 className="animate-spin" /> : <Square size={24}/>} 
-              {isSaving ? 'Salvando...' : 'Parar Descanso'}
+              Parar Tudo
             </button>
           )}
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 px-2">
-        {/* Histórico Consolidado */}
         <div className="bg-white p-8 rounded-[2.5rem] border shadow-sm">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-xl font-black flex items-center gap-3 uppercase tracking-tighter">
-              <History/> Histórico de Hoje
+              <History/> Linha do Tempo: Hoje
             </h3>
             {isSaving && <Loader2 className="animate-spin text-primary-500" size={16} />}
-            {!isSaving && <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{historyItems.length} Eventos</span>}
+            {!isSaving && <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{historyItems.length} Registros</span>}
           </div>
           
           <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
             {historyItems.length === 0 ? (
               <div className="text-center py-12">
                 <Clock className="mx-auto text-slate-100 mb-2" size={48} />
-                <p className="text-slate-400 text-sm font-bold">Nenhum evento registrado hoje.</p>
-                <p className="text-[10px] text-slate-300 uppercase mt-1">Inicie a jornada acima para começar</p>
+                <p className="text-slate-400 text-sm font-bold">Inicie sua jornada para registrar atividades.</p>
               </div>
             ) : historyItems.map((log: any) => (
               <div 
                 key={log.id} 
                 className={`p-4 rounded-2xl flex justify-between items-center border transition-all ${
                   log.is_live 
-                    ? 'bg-amber-50 border-amber-200 ring-4 ring-amber-100/50 animate-pulse' 
+                    ? 'bg-amber-50 border-amber-200 ring-4 ring-amber-100/50' 
                     : log.type === 'Direção' 
                       ? 'bg-blue-50 border-blue-100' 
                       : 'bg-emerald-50 border-emerald-100'
@@ -221,15 +229,15 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
               >
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
-                    <p className={`text-[10px] font-black uppercase ${log.is_live ? 'text-amber-600 font-black' : log.type === 'Direção' ? 'text-primary-600' : 'text-emerald-600'}`}>
-                      {log.is_live ? 'ATIVO AGORA: ' : ''}{log.type}
+                    <p className={`text-[10px] font-black uppercase ${log.is_live ? 'text-amber-600' : log.type === 'Direção' ? 'text-primary-600' : 'text-emerald-600'}`}>
+                      {log.is_live ? 'EVENTO ATIVO: ' : ''}{log.type}
                     </p>
-                    {log.is_live ? <Activity size={10} className="text-amber-500 animate-bounce" /> : <CheckCircle size={10} className="text-slate-300" />}
+                    {log.is_live ? <Activity size={10} className="text-amber-500 animate-pulse" /> : <CheckCircle size={10} className="text-slate-300" />}
                   </div>
                   <p className="font-bold text-slate-700 text-sm">
                     {new Date(log.start_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} 
                     <span className="mx-2 opacity-30">→</span>
-                    {log.is_live ? 'Contando...' : new Date(log.end_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                    {log.is_live ? 'Agora' : new Date(log.end_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                   </p>
                 </div>
                 <div className="flex items-center gap-4">
@@ -245,14 +253,13 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
           </div>
         </div>
 
-        {/* Guia Legal */}
         <div className="bg-amber-50 p-8 rounded-[2.5rem] border border-amber-100 h-fit">
-           <h3 className="text-xl font-black text-amber-900 mb-6 flex items-center gap-3 uppercase tracking-tighter"><AlertCircle/> Guia Lei 13.103</h3>
+           <h3 className="text-xl font-black text-amber-900 mb-6 flex items-center gap-3 uppercase tracking-tighter"><AlertCircle/> Resumo Legal</h3>
            <ul className="space-y-4 text-amber-800 text-sm font-bold">
-              <li className="flex gap-3">✅ Máximo 5h 30min de direção contínua.</li>
-              <li className="flex gap-3">✅ Descanso de 30 minutos após cada ciclo de direção.</li>
-              <li className="flex gap-3">✅ A cada 24 horas, o motorista deve ter 11 horas de descanso.</li>
-              <li className="flex gap-3 mt-4 text-[10px] uppercase opacity-60">Seus dados são preservados localmente para consulta offline.</li>
+              <li className="flex gap-3">🚚 Direção contínua máx: 5.5 horas.</li>
+              <li className="flex gap-3">☕ Descanso obrigatório: 30 minutos.</li>
+              <li className="flex gap-3">😴 Descanso diário: 11 horas totais.</li>
+              <li className="flex gap-3 mt-4 text-[10px] uppercase opacity-60">Seus registros são salvos automaticamente ao parar.</li>
            </ul>
         </div>
       </div>
