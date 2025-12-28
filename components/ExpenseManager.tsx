@@ -74,7 +74,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
     setModalType(isFixed ? 'FIXED' : 'TRIP');
     setFormData({
       description: expense.description,
-      amount: expense.amount,
+      amount: expense.amount.toString(),
       category: expense.category,
       date: expense.date,
       due_date: expense.due_date || expense.date,
@@ -95,24 +95,19 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
     }
 
     // Criamos um objeto de payload SEGURO. 
-    // Se colunas específicas não existem no Supabase, o salvamento pode falhar.
-    // Aqui garantimos que apenas os campos base sejam obrigatórios.
+    // Garantimos que trip_id e vehicle_id sejam strings UUID válidas ou nulas (não strings vazias).
     const payload: any = {
-      description: formData.description.toString(),
+      description: formData.description.trim(),
       amount: cleanAmount,
       category: formData.category,
       date: formData.date,
       due_date: formData.due_date || formData.date,
       is_paid: Boolean(formData.is_paid),
-      trip_id: (modalType === 'TRIP' && formData.trip_id) ? formData.trip_id : null,
-      vehicle_id: formData.vehicle_id ? formData.vehicle_id : null,
+      trip_id: (modalType === 'TRIP' && formData.trip_id && formData.trip_id !== '') ? formData.trip_id : null,
+      vehicle_id: (formData.vehicle_id && formData.vehicle_id !== '') ? formData.vehicle_id : null,
+      installments_total: Number(formData.installments_total || 1),
+      installment_number: Number(formData.installment_number || 1)
     };
-
-    // Campos opcionais de parcelamento (enviamos apenas se forem maiores que 1)
-    if (formData.installments_total > 1) {
-      payload.installments_total = Number(formData.installments_total);
-      payload.installment_number = Number(formData.installment_number);
-    }
 
     try {
       if (editingExpenseId && onUpdateExpense) {
@@ -123,7 +118,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
       resetForm();
     } catch (err: any) {
       console.error("Erro ao salvar despesa:", err);
-      alert("Erro ao sincronizar com a nuvem. Verifique sua conexão ou se a tabela no banco possui os campos necessários.");
+      alert("Erro ao salvar. Verifique se o Script SQL Master foi executado no Supabase.");
     }
   };
 
@@ -185,6 +180,9 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
                 <div className="text-right">
                   <div className="text-[10px] font-black uppercase text-slate-400 mb-1">Valor</div>
                   <div className="text-3xl font-black text-rose-500">R$ {expense.amount.toLocaleString()}</div>
+                  {expense.installments_total && expense.installments_total > 1 && (
+                    <div className="text-[10px] font-black text-slate-400 uppercase mt-1">Parcela {expense.installment_number}/{expense.installments_total}</div>
+                  )}
                 </div>
               </div>
 

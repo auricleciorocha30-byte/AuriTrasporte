@@ -73,7 +73,7 @@ const App: React.FC = () => {
   }, []);
 
   const syncData = useCallback(async () => {
-    if (!navigator.onLine || syncing) return;
+    if (!navigator.onLine || syncing || !session?.user) return;
     setSyncing(true);
     try {
       const pending = await offlineStorage.getPendingSync();
@@ -85,11 +85,18 @@ const App: React.FC = () => {
       for (const item of pending) {
         let error = null;
         if (item.action === 'insert' || item.action === 'update') {
-          // No insert/update, garantimos que o ID está presente para o upsert
-          const { error: syncError } = await supabase.from(item.table).upsert([item.data]);
+          // LIMPANDO O PAYLOAD: Removemos campos que só existem no IndexedDB
+          const { sync_status, updated_at, ...cleanPayload } = item.data;
+          
+          const { error: syncError } = await supabase
+            .from(item.table)
+            .upsert([cleanPayload]);
           error = syncError;
         } else if (item.action === 'delete') {
-          const { error: syncError } = await supabase.from(item.table).delete().eq('id', item.id);
+          const { error: syncError } = await supabase
+            .from(item.table)
+            .delete()
+            .eq('id', item.id);
           error = syncError;
         }
         
@@ -97,9 +104,9 @@ const App: React.FC = () => {
           await offlineStorage.markAsSynced(item.id);
         } else {
           console.error(`Falha ao sincronizar ${item.table}:`, error.message);
-          // Se for erro de coluna ausente, removemos o item da fila para não travar a sincronização
-          if (error.message.includes('column') || error.message.includes('not found')) {
-            await offlineStorage.markAsSynced(item.id);
+          // Se o erro for de falta de permissão ou coluna, não adianta tentar de novo infinitamente
+          if (error.message.includes('column') || error.message.includes('policy')) {
+             await offlineStorage.markAsSynced(item.id);
           }
         }
       }
@@ -109,7 +116,7 @@ const App: React.FC = () => {
     } finally {
       setSyncing(false);
     }
-  }, [syncing]);
+  }, [syncing, session]);
 
   const fetchData = async () => {
     try {
