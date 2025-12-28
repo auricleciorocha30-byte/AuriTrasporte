@@ -82,8 +82,8 @@ export const FreightCalculator: React.FC = () => {
                 required
                 type="number" 
                 className="w-full p-3 bg-white border border-slate-200 rounded-lg font-medium text-slate-700 outline-none"
-                value={params.distance}
-                onChange={e => setParams({...params, distance: Number(e.target.value)})}
+                value={params.distance || ''}
+                onChange={e => setParams({...params, distance: e.target.value === '' ? 0 : Number(e.target.value)})}
               />
             </div>
           </div>

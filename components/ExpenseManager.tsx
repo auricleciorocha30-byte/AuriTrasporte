@@ -94,8 +94,6 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
       return;
     }
 
-    // Criamos um objeto de payload SEGURO. 
-    // Garantimos que trip_id e vehicle_id sejam strings UUID válidas ou nulas (não strings vazias).
     const payload: any = {
       description: formData.description.trim(),
       amount: cleanAmount,
@@ -118,7 +116,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
       resetForm();
     } catch (err: any) {
       console.error("Erro ao salvar despesa:", err);
-      alert("Erro ao salvar. Verifique se o Script SQL Master foi executado no Supabase.");
+      alert("Erro ao salvar.");
     }
   };
 
@@ -156,13 +154,6 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
           </button>
         </div>
       </div>
-
-      {expenses.length === 0 && !isSaving && (
-        <div className="mx-4 py-20 bg-white rounded-[3.5rem] border-2 border-dashed flex flex-col items-center justify-center text-slate-400">
-           <AlertCircle size={48} className="mb-4 opacity-20" />
-           <p className="font-black uppercase text-xs tracking-widest">Nenhuma despesa registrada ainda.</p>
-        </div>
-      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 px-4">
         {expenses.map((expense) => {
@@ -250,7 +241,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
               <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <label className="text-[11px] font-black uppercase text-slate-400 ml-1">Valor Total (R$)</label>
-                  <input required type="number" step="0.01" className="w-full p-5 bg-slate-50 rounded-3xl border-2 border-transparent focus:border-primary-500 font-black text-3xl text-rose-500 outline-none" value={formData.amount} onChange={e => setFormData({...formData, amount: e.target.value})} />
+                  <input required type="number" step="0.01" className="w-full p-5 bg-slate-50 rounded-3xl border-2 border-transparent focus:border-primary-500 font-black text-3xl text-rose-500 outline-none" value={formData.amount || ''} onChange={e => setFormData({...formData, amount: e.target.value})} />
                 </div>
                 <div className="space-y-2">
                   <label className="text-[11px] font-black uppercase text-slate-400 ml-1">Categoria</label>
@@ -266,45 +257,12 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
               <div className="grid grid-cols-2 gap-6 p-6 bg-slate-50 rounded-[2.5rem] border border-slate-100">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase text-slate-400 ml-1 flex items-center gap-1"><Layers size={14}/> N. de Parcelas</label>
-                  <input type="number" className="w-full p-4 bg-white rounded-2xl border border-slate-200 font-black text-xl outline-none" value={formData.installments_total} onChange={e => setFormData({...formData, installments_total: Number(e.target.value)})} />
+                  <input type="number" className="w-full p-4 bg-white rounded-2xl border border-slate-200 font-black text-xl outline-none" value={formData.installments_total || ''} onChange={e => setFormData({...formData, installments_total: e.target.value === '' ? 0 : Number(e.target.value)})} />
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Parcela Atual</label>
-                  <input type="number" className="w-full p-4 bg-white rounded-2xl border border-slate-200 font-black text-xl outline-none" value={formData.installment_number} onChange={e => setFormData({...formData, installment_number: Number(e.target.value)})} />
+                  <input type="number" className="w-full p-4 bg-white rounded-2xl border border-slate-200 font-black text-xl outline-none" value={formData.installment_number || ''} onChange={e => setFormData({...formData, installment_number: e.target.value === '' ? 0 : Number(e.target.value)})} />
                 </div>
-              </div>
-
-              {modalType === 'TRIP' ? (
-                <div className="space-y-2">
-                  <label className="text-[11px] font-black uppercase text-slate-400 ml-1">Vincular à Viagem</label>
-                  <div className="relative">
-                    <select className="w-full p-5 bg-indigo-50/50 rounded-3xl border-2 border-transparent focus:border-indigo-500 font-bold appearance-none pr-12 outline-none" value={formData.trip_id} onChange={e => setFormData({...formData, trip_id: e.target.value})}>
-                      <option value="">Nenhuma viagem específica</option>
-                      {trips.map(t => (
-                        <option key={t.id} value={t.id}>{t.date} - {t.destination}</option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-6 top-1/2 -translate-y-1/2 text-indigo-400 pointer-events-none" size={20} />
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <label className="text-[11px] font-black uppercase text-slate-400 ml-1">Vincular ao Veículo (Opcional)</label>
-                  <div className="relative">
-                    <select className="w-full p-5 bg-slate-100/50 rounded-3xl border-2 border-transparent focus:border-slate-500 font-bold appearance-none pr-12 outline-none" value={formData.vehicle_id} onChange={e => setFormData({...formData, vehicle_id: e.target.value})}>
-                      <option value="">Geral (Frota)</option>
-                      {vehicles.map(v => (
-                        <option key={v.id} value={v.id}>{v.plate} - {v.model}</option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={20} />
-                  </div>
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <label className="text-[11px] font-black uppercase text-slate-400 ml-1">Data de Vencimento</label>
-                <input required type="date" value={formData.due_date} className="w-full p-5 bg-primary-50 border-2 border-primary-100 rounded-3xl font-black outline-none" onChange={e => setFormData({...formData, due_date: e.target.value})} />
               </div>
 
               <div className="flex items-center gap-4 p-5 bg-emerald-50 rounded-3xl border border-emerald-100">
@@ -317,22 +275,6 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
                 {isSaving ? 'Salvando...' : 'Confirmar Lançamento'}
               </button>
             </form>
-          </div>
-        </div>
-      )}
-
-      {confirmPaymentId && (
-        <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-2xl flex items-center justify-center p-6 z-[110] animate-fade-in">
-          <div className="bg-white rounded-[3.5rem] w-full max-sm p-12 shadow-2xl text-center">
-            <div className="bg-emerald-100 text-emerald-600 p-8 rounded-full w-28 h-28 flex items-center justify-center mx-auto mb-8">
-              <CheckCircle2 size={56} />
-            </div>
-            <h3 className="text-3xl font-black text-slate-900 uppercase tracking-tighter mb-4 leading-none">Confirmar Pagamento?</h3>
-            <p className="text-slate-500 font-bold text-sm mb-12">Esta ação marcará a despesa como liquidada no seu fluxo de caixa.</p>
-            <div className="grid grid-cols-2 gap-4">
-              <button onClick={() => setConfirmPaymentId(null)} className="py-5 bg-slate-100 text-slate-600 rounded-3xl font-black uppercase text-xs">Sair</button>
-              <button onClick={executePayment} className="py-5 bg-emerald-600 text-white rounded-3xl font-black uppercase text-xs shadow-2xl shadow-emerald-200">Sim, Pagar</button>
-            </div>
           </div>
         </div>
       )}

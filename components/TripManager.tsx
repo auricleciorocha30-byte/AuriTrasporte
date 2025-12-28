@@ -376,7 +376,7 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Distância KM</label>
-                  <input type="number" className="w-full p-5 bg-slate-50 rounded-2xl font-black text-2xl outline-none" value={formData.distance_km || ''} onChange={e => setFormData({...formData, distance_km: Number(e.target.value)})} />
+                  <input type="number" className="w-full p-5 bg-slate-50 rounded-2xl font-black text-2xl outline-none" value={formData.distance_km || ''} onChange={e => setFormData({...formData, distance_km: e.target.value === '' ? 0 : Number(e.target.value)})} />
                 </div>
               </div>
 
@@ -388,11 +388,11 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <p className="text-[10px] font-black uppercase text-slate-600">Frete Negociado</p>
-                    <input type="number" className="w-full p-5 bg-white/5 border border-white/10 rounded-2xl font-black text-2xl text-primary-400 outline-none" value={formData.agreed_price || ''} onChange={e => setFormData({...formData, agreed_price: Number(e.target.value)})} />
+                    <input type="number" className="w-full p-5 bg-white/5 border border-white/10 rounded-2xl font-black text-2xl text-primary-400 outline-none" value={formData.agreed_price || ''} onChange={e => setFormData({...formData, agreed_price: e.target.value === '' ? 0 : Number(e.target.value)})} />
                   </div>
                   <div className="space-y-2">
                     <p className="text-[10px] font-black uppercase text-slate-600">Comissão %</p>
-                    <input type="number" className="w-full p-5 bg-white/5 border border-white/10 rounded-2xl font-black text-2xl text-amber-400 outline-none" value={formData.driver_commission_percentage} onChange={e => setFormData({...formData, driver_commission_percentage: Number(e.target.value)})} />
+                    <input type="number" className="w-full p-5 bg-white/5 border border-white/10 rounded-2xl font-black text-2xl text-amber-400 outline-none" value={formData.driver_commission_percentage || ''} onChange={e => setFormData({...formData, driver_commission_percentage: e.target.value === '' ? 0 : Number(e.target.value)})} />
                   </div>
                 </div>
               </div>
@@ -440,8 +440,8 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                   <input 
                     type="number" 
                     className="w-full p-6 bg-slate-50 border-2 border-emerald-500/20 rounded-3xl font-black text-3xl text-slate-900 outline-none focus:ring-4 focus:ring-emerald-500/10 transition-all"
-                    value={newVehicleKm}
-                    onChange={(e) => setNewVehicleKm(Number(e.target.value))}
+                    value={newVehicleKm || ''}
+                    onChange={(e) => setNewVehicleKm(e.target.value === '' ? 0 : Number(e.target.value))}
                   />
                   <Gauge className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-200" size={32} />
                 </div>

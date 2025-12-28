@@ -25,7 +25,7 @@ export const VehicleManager: React.FC<VehicleManagerProps> = ({ vehicles, onAddV
   });
 
   const resetForm = () => {
-    setFormData({ plate: '', model: '', year: 2024, current_km: 0, axles: 2, cargo_type: 'geral' });
+    setFormData({ plate: '', model: '', year: new Date().getFullYear(), current_km: 0, axles: 2, cargo_type: 'geral' });
     setEditingId(null);
   };
 
@@ -99,13 +99,6 @@ export const VehicleManager: React.FC<VehicleManagerProps> = ({ vehicles, onAddV
             </div>
           </div>
         ))}
-        
-        {vehicles.length === 0 && (
-          <div className="col-span-full py-20 text-center bg-white rounded-[3rem] border-2 border-dashed border-slate-200">
-             <Truck size={48} className="mx-auto text-slate-200 mb-4" />
-             <p className="text-slate-400 font-bold">Nenhum veículo cadastrado.</p>
-          </div>
-        )}
       </div>
 
       {isModalOpen && (
@@ -124,7 +117,7 @@ export const VehicleManager: React.FC<VehicleManagerProps> = ({ vehicles, onAddV
                 </div>
                 <div className="space-y-1">
                   <label className="text-[11px] font-black uppercase text-slate-400 ml-1">Ano</label>
-                  <input type="number" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-black outline-none" value={formData.year} onChange={e => setFormData({...formData, year: Number(e.target.value)})} />
+                  <input type="number" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-black outline-none" value={formData.year || ''} onChange={e => setFormData({...formData, year: e.target.value === '' ? 0 : Number(e.target.value)})} />
                 </div>
               </div>
 
@@ -142,7 +135,7 @@ export const VehicleManager: React.FC<VehicleManagerProps> = ({ vehicles, onAddV
                 </div>
                 <div className="space-y-1">
                   <label className="text-[11px] font-black uppercase text-slate-400 ml-1">KM Atual</label>
-                  <input type="number" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-black outline-none" value={formData.current_km} onChange={e => setFormData({...formData, current_km: Number(e.target.value)})} />
+                  <input type="number" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-black outline-none" value={formData.current_km || ''} onChange={e => setFormData({...formData, current_km: e.target.value === '' ? 0 : Number(e.target.value)})} />
                 </div>
               </div>
 

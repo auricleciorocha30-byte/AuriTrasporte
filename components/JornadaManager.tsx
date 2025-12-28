@@ -124,8 +124,12 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
             {mode === 'DRIVING' ? 'Direção em Curso' : mode === 'RESTING' ? 'Descanso em Curso' : 'Jornada em Espera'}
           </div>
 
-          {/* Cronômetro com cores temáticas e brilho */}
-          <div className={`text-6xl md:text-8xl font-black font-mono tracking-tighter select-none tabular-nums leading-none mb-6 flex items-baseline gap-2 transition-colors duration-500 drop-shadow-[0_0_15px_rgba(255,255,255,0.1)] ${mode === 'DRIVING' ? 'text-primary-400' : mode === 'RESTING' ? 'text-emerald-400' : 'text-slate-200'}`}>
+          {/* Cronômetro com cores temáticas e brilho dinâmico baseado no modo */}
+          <div className={`text-6xl md:text-8xl font-black font-mono tracking-tighter select-none tabular-nums leading-none mb-6 flex items-baseline gap-2 transition-all duration-500 ${
+            mode === 'DRIVING' ? 'text-primary-500 drop-shadow-[0_0_25px_rgba(99,102,241,0.4)]' : 
+            mode === 'RESTING' ? 'text-emerald-500 drop-shadow-[0_0_25px_rgba(16,185,129,0.4)]' : 
+            'text-slate-300 drop-shadow-none'
+          }`}>
             {formatTime(currentTime)}
           </div>
 

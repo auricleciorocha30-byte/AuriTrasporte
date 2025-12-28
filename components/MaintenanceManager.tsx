@@ -41,12 +41,10 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ maintena
   };
 
   const handleVehicleChange = (vId: string) => {
-    // Busca o veículo selecionado na lista para pegar o KM atual
     const selectedVehicle = vehicles.find(v => v.id === vId);
     setFormData({
       ...formData,
       vehicle_id: vId,
-      // Se encontrou o veículo, preenche o km_at_purchase com o KM atual dele
       km_at_purchase: selectedVehicle ? selectedVehicle.current_km : 0
     });
   };
@@ -92,7 +90,6 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ maintena
                 <th className="px-6 py-4 text-xs font-black text-slate-500 uppercase">Peça / Serviço</th>
                 <th className="px-6 py-4 text-xs font-black text-slate-500 uppercase">Veículo</th>
                 <th className="px-6 py-4 text-xs font-black text-slate-500 uppercase">Status</th>
-                <th className="px-6 py-4 text-xs font-black text-slate-500 uppercase">Validade</th>
                 <th className="px-6 py-4 text-xs font-black text-slate-500 uppercase text-right">Custo</th>
                 <th className="px-6 py-4 text-xs font-black text-slate-500 uppercase text-right">Ações</th>
               </tr>
@@ -117,20 +114,6 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ maintena
                         <StatusIcon size={12}/> {status.label}
                       </div>
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="flex flex-col gap-1">
-                        {m.warranty_months > 0 && (
-                          <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500">
-                            <Calendar size={12} className="text-primary-500"/> {m.warranty_months} meses
-                          </div>
-                        )}
-                        {m.warranty_km > 0 && (
-                          <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500">
-                            <Gauge size={12} className="text-blue-500"/> {(m.warranty_km || 0).toLocaleString()} KM
-                          </div>
-                        )}
-                      </div>
-                    </td>
                     <td className="px-6 py-4 text-right">
                       <div className="text-sm font-black text-rose-600">R$ {(m.cost || 0).toLocaleString()}</div>
                     </td>
@@ -142,14 +125,6 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ maintena
                   </tr>
                 );
               })}
-              {maintenance.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-6 py-20 text-center">
-                    <CheckCircle2 size={48} className="mx-auto text-slate-200 mb-4" />
-                    <p className="text-slate-400 font-bold">Nenhuma manutenção registrada.</p>
-                  </td>
-                </tr>
-              )}
             </tbody>
           </table>
         </div>
@@ -192,7 +167,7 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ maintena
                   <input 
                     type="number" 
                     className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-black outline-none" 
-                    value={formData.km_at_purchase ?? ''}
+                    value={formData.km_at_purchase || ''}
                     onChange={e => setFormData({...formData, km_at_purchase: e.target.value === '' ? 0 : Number(e.target.value)})} 
                   />
                 </div>
@@ -209,7 +184,7 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ maintena
 
               <div className="bg-primary-50 p-6 rounded-[2rem] border border-primary-100 space-y-4">
                 <p className="text-[10px] font-black uppercase text-primary-600 flex items-center gap-2">
-                   <ShieldCheck size={14}/> Configuração de Garantia
+                   <ShieldCheck size={14}/> Garantia
                 </p>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
@@ -217,7 +192,7 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ maintena
                     <input 
                       type="number" 
                       className="w-full p-3 bg-white border border-primary-200 rounded-xl font-black outline-none" 
-                      value={formData.warranty_months ?? ''} 
+                      value={formData.warranty_months || ''} 
                       onChange={e => setFormData({...formData, warranty_months: e.target.value === '' ? 0 : Number(e.target.value)})} 
                     />
                   </div>
@@ -226,7 +201,7 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ maintena
                     <input 
                       type="number" 
                       className="w-full p-3 bg-white border border-primary-200 rounded-xl font-black outline-none" 
-                      value={formData.warranty_km ?? ''} 
+                      value={formData.warranty_km || ''} 
                       onChange={e => setFormData({...formData, warranty_km: e.target.value === '' ? 0 : Number(e.target.value)})} 
                     />
                   </div>
@@ -237,9 +212,8 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ maintena
                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Custo Total (R$)</label>
                  <input 
                   type="number" 
-                  placeholder="0.00" 
                   className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-black text-xl text-rose-600 outline-none" 
-                  value={formData.cost ?? ''}
+                  value={formData.cost || ''}
                   onChange={e => setFormData({...formData, cost: e.target.value === '' ? 0 : Number(e.target.value)})} 
                  />
               </div>
