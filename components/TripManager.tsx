@@ -295,22 +295,22 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md flex items-end md:items-center justify-center p-0 md:p-6 z-[100] animate-fade-in" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
           <div className="bg-white w-full max-w-2xl rounded-t-[4rem] md:rounded-[3rem] shadow-2xl animate-slide-up relative h-[92vh] md:h-auto overflow-y-auto pb-10">
-            <div className="flex justify-between items-center p-10 pb-4">
+            <div className="flex justify-between items-center p-6 md:p-10 pb-4">
               <div>
                 <span className="text-xs font-black uppercase text-primary-600 tracking-widest">Viagem & Rota</span>
-                <h3 className="text-3xl font-black uppercase tracking-tighter mt-1">{editingTripId ? 'Alterar Viagem' : 'Novo Lançamento'}</h3>
+                <h3 className="text-3xl font-black uppercase tracking-tighter mt-1 leading-none">{editingTripId ? 'Alterar Viagem' : 'Novo Lançamento'}</h3>
               </div>
-              <button onClick={() => setIsModalOpen(false)} className="bg-slate-100 p-5 rounded-full text-slate-400 hover:text-slate-900 transition-all"><X size={28} /></button>
+              <button onClick={() => setIsModalOpen(false)} className="bg-slate-100 p-4 md:p-5 rounded-full text-slate-400 hover:text-slate-900 transition-all"><X size={28} /></button>
             </div>
 
-            <div className="p-10 space-y-8">
-              <div className="space-y-4 bg-slate-50 p-8 rounded-[3rem] border border-slate-100">
+            <div className="p-5 md:p-10 space-y-8">
+              <div className="space-y-4 bg-slate-50 p-4 md:p-8 rounded-[3rem] border border-slate-100">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Origem (Cidade/UF)</label>
                     <div className="flex gap-2">
-                      <input placeholder="Cidade" className="flex-1 p-5 bg-white rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-primary-500" value={origin.city} onChange={e => setOrigin({...origin, city: e.target.value})} />
-                      <select className="w-24 p-5 bg-white rounded-2xl border-none font-bold outline-none" value={origin.state} onChange={e => setOrigin({...origin, state: e.target.value})}>
+                      <input placeholder="Cidade" className="flex-1 p-4 md:p-5 bg-white rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-primary-500" value={origin.city} onChange={e => setOrigin({...origin, city: e.target.value})} />
+                      <select className="w-20 md:w-24 p-4 md:p-5 bg-white rounded-2xl border-none font-bold outline-none" value={origin.state} onChange={e => setOrigin({...origin, state: e.target.value})}>
                         {BRAZILIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
                     </div>
@@ -318,8 +318,8 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Destino (Cidade/UF)</label>
                     <div className="flex gap-2">
-                      <input placeholder="Cidade" className="flex-1 p-5 bg-white rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-primary-500" value={destination.city} onChange={e => setDestination({...destination, city: e.target.value})} />
-                      <select className="w-24 p-5 bg-white rounded-2xl border-none font-bold outline-none" value={destination.state} onChange={e => setDestination({...destination, state: e.target.value})}>
+                      <input placeholder="Cidade" className="flex-1 p-4 md:p-5 bg-white rounded-2xl border-none font-bold outline-none focus:ring-2 focus:ring-primary-500" value={destination.city} onChange={e => setDestination({...destination, city: e.target.value})} />
+                      <select className="w-20 md:w-24 p-4 md:p-5 bg-white rounded-2xl border-none font-bold outline-none" value={destination.state} onChange={e => setDestination({...destination, state: e.target.value})}>
                         {BRAZILIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
                     </div>
@@ -338,12 +338,12 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                       </div>
                     ))}
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-1 md:gap-2">
                     <input placeholder="Cidade parada" className="flex-1 p-4 bg-white rounded-2xl border-none text-sm font-bold outline-none" value={newStop.city} onChange={e => setNewStop({...newStop, city: e.target.value})} />
-                    <select className="w-20 p-4 bg-white rounded-2xl border-none font-bold outline-none" value={newStop.state} onChange={e => setNewStop({...newStop, state: e.target.value})}>
+                    <select className="w-16 md:w-20 p-4 bg-white rounded-2xl border-none font-bold outline-none" value={newStop.state} onChange={e => setNewStop({...newStop, state: e.target.value})}>
                       {BRAZILIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
-                    <button onClick={addStop} className="p-4 bg-slate-900 text-white rounded-2xl hover:bg-black transition-all">
+                    <button onClick={addStop} className="p-4 bg-slate-900 text-white rounded-2xl hover:bg-black transition-all shrink-0">
                       <Plus size={20}/>
                     </button>
                   </div>
@@ -380,12 +380,12 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                 </div>
               </div>
 
-              <div className="bg-slate-950 p-10 rounded-[3rem] text-white space-y-6">
+              <div className="bg-slate-950 p-6 md:p-10 rounded-[3rem] text-white space-y-6">
                 <div className="flex justify-between items-center">
                    <span className="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em]">Valores e Comissões</span>
                    <button onClick={suggestANTTPrice} className="text-[10px] font-black text-emerald-400 bg-emerald-500/10 px-4 py-2 rounded-xl hover:bg-emerald-500/20 transition-all uppercase">Simular ANTT</button>
                 </div>
-                <div className="grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-2 gap-4 md:gap-6">
                   <div className="space-y-2">
                     <p className="text-[10px] font-black uppercase text-slate-600">Frete Negociado</p>
                     <input type="number" className="w-full p-5 bg-white/5 border border-white/10 rounded-2xl font-black text-2xl text-primary-400 outline-none" value={formData.agreed_price || ''} onChange={e => setFormData({...formData, agreed_price: e.target.value === '' ? 0 : Number(e.target.value)})} />
@@ -421,8 +421,7 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
           </div>
         </div>
       )}
-
-      {/* MODAL DE ATUALIZAÇÃO DE KM AO CONCLUIR VIAGEM */}
+      {/* ... restante do componente (modais de KM, etc) permanece inalterado ... */}
       {isKmModalOpen && (
         <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-2xl flex items-center justify-center p-6 z-[120] animate-fade-in">
           <div className="bg-white rounded-[3.5rem] w-full max-w-md p-10 md:p-12 shadow-2xl text-center">
