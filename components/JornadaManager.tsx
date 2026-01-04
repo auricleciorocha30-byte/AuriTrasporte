@@ -215,16 +215,16 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
             ) : savedLogs.map((log) => (
               <div 
                 key={log.id} 
-                className={`group p-5 rounded-3xl flex justify-between items-center border transition-all hover:border-slate-300 ${
+                className={`group p-4 rounded-[2rem] border transition-all hover:border-slate-300 flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
                   log.type === 'Direção' ? 'bg-blue-50/20 border-blue-50' : 'bg-emerald-50/20 border-emerald-50'
                 }`}
               >
-                <div className="flex gap-4 items-center">
-                  <div className={`p-3 rounded-xl ${log.type === 'Direção' ? 'bg-primary-100 text-primary-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                <div className="flex gap-3 items-center">
+                  <div className={`p-3 rounded-2xl shrink-0 ${log.type === 'Direção' ? 'bg-primary-100 text-primary-600' : 'bg-emerald-100 text-emerald-600'}`}>
                     {log.type === 'Direção' ? <Activity size={20}/> : <Coffee size={20}/>}
                   </div>
                   <div>
-                    <p className={`text-[9px] font-black uppercase tracking-widest mb-1 ${log.type === 'Direção' ? 'text-primary-600' : 'text-emerald-600'}`}>
+                    <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${log.type === 'Direção' ? 'text-primary-600' : 'text-emerald-600'}`}>
                       {log.type}
                     </p>
                     <div className="flex items-center gap-2 text-sm font-black text-slate-800">
@@ -235,16 +235,19 @@ export const JornadaManager: React.FC<JornadaManagerProps> = ({ mode, startTime,
                   </div>
                 </div>
                 
-                <div className="flex items-center gap-6">
-                  <div className="text-right">
-                    <p className="text-[9px] font-black text-slate-400 uppercase mb-0.5">Duração</p>
-                    <p className="font-black text-slate-900 text-sm">{formatTime(log.duration_seconds)}</p>
+                <div className="flex items-center justify-between sm:justify-end gap-6 border-t sm:border-t-0 pt-3 sm:pt-0">
+                  <div className={`px-4 py-2 rounded-2xl border ${log.type === 'Direção' ? 'bg-primary-50 border-primary-100' : 'bg-emerald-50 border-emerald-100'}`}>
+                    <p className={`text-[9px] font-black uppercase mb-0.5 ${log.type === 'Direção' ? 'text-primary-400' : 'text-emerald-400'}`}>Duração</p>
+                    <p className={`font-black text-sm tabular-nums ${log.type === 'Direção' ? 'text-primary-700' : 'text-emerald-700'}`}>
+                      {formatTime(log.duration_seconds)}
+                    </p>
                   </div>
+                  
                   <button 
                     onClick={() => { if(confirm("Remover este registro?")) onDeleteLog(log.id) }} 
-                    className="p-2 text-slate-200 hover:text-rose-500 transition-all opacity-0 group-hover:opacity-100"
+                    className="p-3 text-slate-200 hover:text-rose-500 transition-all sm:opacity-0 group-hover:opacity-100"
                   >
-                    <Trash2 size={18}/>
+                    <Trash2 size={20}/>
                   </button>
                 </div>
               </div>
