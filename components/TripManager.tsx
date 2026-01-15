@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Trip, TripStatus, Vehicle, TripStop } from '../types';
 import { Plus, MapPin, Calendar, Truck, UserCheck, Navigation, X, Trash2, Map as MapIcon, ChevronRight, Percent, Loader2, Edit2, DollarSign, MessageSquare, Sparkles, Wand2, PlusCircle, ExternalLink, CheckSquare, Gauge, Utensils, Construction, MapPinPlus, ShieldCheck, ChevronDown, AlignLeft, CheckCircle2 } from 'lucide-react';
 import { calculateANTT } from '../services/anttService';
@@ -56,6 +56,15 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
     status: TripStatus.SCHEDULED,
     notes: ''
   });
+
+  // Ordenar viagens: mais recentes no topo
+  const sortedTrips = useMemo(() => {
+    return [...trips].sort((a, b) => {
+      const dateA = new Date(a.date).getTime();
+      const dateB = new Date(b.date).getTime();
+      return dateB - dateA;
+    });
+  }, [trips]);
 
   const calculatedCommission = (formData.agreed_price || 0) * ((formData.driver_commission_percentage || 0) / 100);
 
@@ -205,7 +214,7 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 px-4">
-        {trips.map(trip => {
+        {sortedTrips.map(trip => {
           const vehicle = vehicles.find(v => v.id === trip.vehicle_id);
           return (
             <div key={trip.id} className="bg-white p-8 rounded-[3rem] border border-slate-50 shadow-sm relative group animate-fade-in hover:border-primary-500 transition-all">
@@ -421,7 +430,7 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
           </div>
         </div>
       )}
-      {/* ... restante do componente (modais de KM, etc) permanece inalterado ... */}
+      
       {isKmModalOpen && (
         <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-2xl flex items-center justify-center p-6 z-[120] animate-fade-in">
           <div className="bg-white rounded-[3.5rem] w-full max-w-md p-10 md:p-12 shadow-2xl text-center">

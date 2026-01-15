@@ -243,6 +243,7 @@ const App: React.FC = () => {
         setMaintenance([]);
         setJornadaLogs([]);
         setDismissedNotificationIds([]);
+        setIsMobileMenuOpen(false);
       }
     });
 
@@ -331,7 +332,15 @@ const App: React.FC = () => {
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    try {
+      setAuthLoading(true);
+      setIsMobileMenuOpen(false);
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error("Erro ao sair:", err);
+    } finally {
+      setAuthLoading(false);
+    }
   };
 
   const formatTime = (s: number) => {
@@ -397,13 +406,27 @@ const App: React.FC = () => {
   );
 
   return (
-    <div className="flex h-screen bg-slate-50 overflow-hidden">
-      <aside className={`fixed md:relative z-40 w-64 h-full bg-slate-900 text-slate-300 p-4 transition-transform duration-300 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
-        <div className="flex items-center gap-2 mb-10 px-2">
-          <Truck className="text-primary-500" size={28} />
-          <span className="text-xl font-bold text-white tracking-tighter uppercase">AuriLog</span>
+    <div className="flex h-screen bg-slate-50 overflow-hidden relative">
+      {/* Backdrop para Menu Mobile */}
+      {isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[35] md:hidden animate-fade-in" 
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
+      <aside className={`fixed md:relative z-40 w-64 h-full bg-slate-900 text-slate-300 p-4 flex flex-col transition-transform duration-300 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+        <div className="flex items-center justify-between mb-10 px-2 shrink-0">
+          <div className="flex items-center gap-2">
+            <Truck className="text-primary-500" size={28} />
+            <span className="text-xl font-bold text-white tracking-tighter uppercase">AuriLog</span>
+          </div>
+          <button onClick={() => setIsMobileMenuOpen(false)} className="md:hidden p-2 text-slate-500 hover:text-white transition-colors">
+            <X size={20} />
+          </button>
         </div>
-        <nav className="space-y-1">
+        
+        <nav className="flex-1 space-y-1 overflow-y-auto custom-scrollbar">
           <MenuBtn icon={LayoutDashboard} label="Dashboard" active={currentView === AppView.DASHBOARD} onClick={() => {setCurrentView(AppView.DASHBOARD); setIsMobileMenuOpen(false);}} />
           <MenuBtn icon={Truck} label="Viagens" active={currentView === AppView.TRIPS} onClick={() => {setCurrentView(AppView.TRIPS); setIsMobileMenuOpen(false);}} />
           <MenuBtn icon={Wallet} label="Financeiro" active={currentView === AppView.EXPENSES} onClick={() => {setCurrentView(AppView.EXPENSES); setIsMobileMenuOpen(false);}} />
@@ -412,7 +435,17 @@ const App: React.FC = () => {
           <MenuBtn icon={Calculator} label="Frete ANTT" active={currentView === AppView.CALCULATOR} onClick={() => {setCurrentView(AppView.CALCULATOR); setIsMobileMenuOpen(false);}} />
           <MenuBtn icon={Timer} label="Jornada" active={currentView === AppView.JORNADA} onClick={() => {setCurrentView(AppView.JORNADA); setIsMobileMenuOpen(false);}} />
         </nav>
-        <button onClick={handleLogout} className="absolute bottom-6 left-4 right-4 flex items-center gap-3 px-4 py-3 text-rose-400 font-bold hover:bg-white/5 rounded-xl transition-colors"><LogOut size={18} /> Sair</button>
+
+        <div className="pt-4 border-t border-white/5 mt-auto pb-[env(safe-area-inset-bottom)]">
+          <button 
+            onClick={handleLogout} 
+            disabled={authLoading}
+            className="w-full flex items-center gap-3 px-4 py-4 text-rose-400 font-bold hover:bg-white/5 rounded-xl transition-all active:scale-95 disabled:opacity-50"
+          >
+            {authLoading ? <Loader2 className="animate-spin" size={18} /> : <LogOut size={18} />} 
+            {authLoading ? 'Saindo...' : 'Sair da Conta'}
+          </button>
+        </div>
       </aside>
 
       <main className="flex-1 flex flex-col overflow-hidden">
@@ -443,14 +476,14 @@ const App: React.FC = () => {
               </div>
             )}
 
-            <button onClick={() => setIsNotificationOpen(true)} className="relative p-3 text-slate-500 hover:bg-slate-50 rounded-full">
+            <button onClick={() => setIsNotificationOpen(true)} className="relative p-3 text-slate-500 hover:bg-slate-50 rounded-full transition-all active:scale-90">
               <Bell size={24} />
               {activeNotifications.length > 0 && <span className="absolute top-2 right-2 bg-rose-500 text-white text-[8px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-white">{activeNotifications.length}</span>}
             </button>
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-4 md:p-8">
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
           {currentView === AppView.EXPENSES && (
             <ExpenseManager 
               expenses={expenses} trips={trips} vehicles={vehicles} 
@@ -501,6 +534,7 @@ const App: React.FC = () => {
               currentTime={jornadaElapsed}
               logs={jornadaLogs} 
               setMode={setJornadaMode} 
+              // Fix: setStartTime updated to setJornadaStartTime to match the local state setter
               setStartTime={setJornadaStartTime} 
               onSaveLog={(l) => handleAction('jornada_logs', l, 'insert')} 
               onDeleteLog={(id) => handleAction('jornada_logs', { id }, 'delete')} 
@@ -527,7 +561,7 @@ const App: React.FC = () => {
 };
 
 const MenuBtn = ({ icon: Icon, label, active, onClick }: any) => (
-  <button onClick={onClick} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all ${active ? 'bg-primary-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800'}`}><Icon size={20} /><span className="font-bold text-sm">{label}</span></button>
+  <button onClick={onClick} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all active:scale-95 ${active ? 'bg-primary-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800'}`}><Icon size={20} /><span className="font-bold text-sm">{label}</span></button>
 );
 
 export default App;
