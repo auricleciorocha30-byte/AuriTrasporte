@@ -334,12 +334,19 @@ const App: React.FC = () => {
   const handleLogout = async () => {
     try {
       setAuthLoading(true);
+      // Feedback visual imediato e fechamento do menu
       setIsMobileMenuOpen(false);
+      setSession(null);
+      localStorage.clear();
+      
+      // Tenta deslogar via Supabase, mas não bloqueia se houver erro de rede
       await supabase.auth.signOut();
     } catch (err) {
       console.error("Erro ao sair:", err);
     } finally {
       setAuthLoading(false);
+      // Forçar recarregamento para limpar caches e garantir tela de login
+      window.location.href = '/';
     }
   };
 
@@ -410,19 +417,19 @@ const App: React.FC = () => {
       {/* Backdrop para Menu Mobile */}
       {isMobileMenuOpen && (
         <div 
-          className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[35] md:hidden animate-fade-in" 
+          className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[100] md:hidden animate-fade-in" 
           onClick={() => setIsMobileMenuOpen(false)}
         />
       )}
 
-      <aside className={`fixed md:relative z-40 w-64 h-full bg-slate-900 text-slate-300 p-4 flex flex-col transition-transform duration-300 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+      <aside className={`fixed md:relative z-[110] w-64 h-full bg-slate-900 text-slate-300 p-4 flex flex-col transition-transform duration-300 ${isMobileMenuOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full md:translate-x-0'}`}>
         <div className="flex items-center justify-between mb-10 px-2 shrink-0">
           <div className="flex items-center gap-2">
             <Truck className="text-primary-500" size={28} />
             <span className="text-xl font-bold text-white tracking-tighter uppercase">AuriLog</span>
           </div>
-          <button onClick={() => setIsMobileMenuOpen(false)} className="md:hidden p-2 text-slate-500 hover:text-white transition-colors">
-            <X size={20} />
+          <button onClick={() => setIsMobileMenuOpen(false)} className="md:hidden p-3 text-slate-500 hover:text-white transition-colors">
+            <X size={24} />
           </button>
         </div>
         
@@ -436,11 +443,11 @@ const App: React.FC = () => {
           <MenuBtn icon={Timer} label="Jornada" active={currentView === AppView.JORNADA} onClick={() => {setCurrentView(AppView.JORNADA); setIsMobileMenuOpen(false);}} />
         </nav>
 
-        <div className="pt-4 border-t border-white/5 mt-auto pb-[env(safe-area-inset-bottom)]">
+        <div className="pt-4 border-t border-white/5 mt-auto pb-10 md:pb-6">
           <button 
-            onClick={handleLogout} 
-            disabled={authLoading}
-            className="w-full flex items-center gap-3 px-4 py-4 text-rose-400 font-bold hover:bg-white/5 rounded-xl transition-all active:scale-95 disabled:opacity-50"
+            type="button"
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleLogout(); }} 
+            className="w-full flex items-center gap-3 px-4 py-5 text-rose-400 font-black uppercase text-xs hover:bg-white/5 rounded-xl transition-all active:scale-95 cursor-pointer"
           >
             {authLoading ? <Loader2 className="animate-spin" size={18} /> : <LogOut size={18} />} 
             {authLoading ? 'Saindo...' : 'Sair da Conta'}
@@ -448,10 +455,10 @@ const App: React.FC = () => {
         </div>
       </aside>
 
-      <main className="flex-1 flex flex-col overflow-hidden">
-        <header className="h-16 bg-white border-b flex items-center justify-between px-6 shrink-0 z-10">
+      <main className="flex-1 flex flex-col overflow-hidden relative z-10">
+        <header className="h-16 bg-white border-b flex items-center justify-between px-6 shrink-0 z-20">
           <div className="flex items-center gap-4">
-            <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden p-2 text-slate-600"><Menu size={24} /></button>
+            <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden p-2 text-slate-600 hover:bg-slate-50 rounded-lg transition-colors"><Menu size={24} /></button>
             <div className="flex items-center gap-2">
               <span className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter border ${isOnline ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>
                 {isOnline ? <Wifi size={12}/> : <WifiOff size={12}/>}
@@ -534,7 +541,6 @@ const App: React.FC = () => {
               currentTime={jornadaElapsed}
               logs={jornadaLogs} 
               setMode={setJornadaMode} 
-              // Fix: setStartTime updated to setJornadaStartTime to match the local state setter
               setStartTime={setJornadaStartTime} 
               onSaveLog={(l) => handleAction('jornada_logs', l, 'insert')} 
               onDeleteLog={(id) => handleAction('jornada_logs', { id }, 'delete')} 

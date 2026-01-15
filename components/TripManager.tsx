@@ -57,11 +57,11 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
     notes: ''
   });
 
-  // Ordenar viagens: mais recentes no topo
+  // Ordenar viagens: mais recentes no topo usando timestamp para comparação segura
   const sortedTrips = useMemo(() => {
     return [...trips].sort((a, b) => {
-      const dateA = new Date(a.date).getTime();
-      const dateB = new Date(b.date).getTime();
+      const dateA = new Date(a.date + 'T12:00:00').getTime();
+      const dateB = new Date(b.date + 'T12:00:00').getTime();
       return dateB - dateA;
     });
   }, [trips]);
