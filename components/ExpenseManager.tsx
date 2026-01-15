@@ -15,6 +15,12 @@ interface ExpenseManagerProps {
 
 const getToday = () => new Date().toISOString().split('T')[0];
 
+const addOneMonth = (dateStr: string) => {
+  const d = new Date(dateStr + 'T12:00:00');
+  d.setMonth(d.getMonth() + 1);
+  return d.toISOString().split('T')[0];
+};
+
 const FIXED_CATEGORIES = [
   ExpenseCategory.FINANCING,
   ExpenseCategory.INSURANCE,
@@ -85,10 +91,33 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
     });
   };
 
-  const handleMarkAsPaid = async (id: string, description: string, amount: number) => {
-    if (confirm(`Confirmar o pagamento de "${description}" no valor de R$ ${amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}?`)) {
+  const handleMarkAsPaid = async (id: string) => {
+    const expense = expenses.find(e => e.id === id);
+    if (!expense) return;
+
+    if (confirm(`Confirmar o pagamento de "${expense.description}" no valor de R$ ${expense.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}?`)) {
       if (onUpdateExpense) {
+        // Marca a atual como paga
         await onUpdateExpense(id, { is_paid: true });
+
+        // Se houver próxima parcela, cria automaticamente
+        if (expense.installments_total && expense.installment_number && expense.installment_number < expense.installments_total) {
+          const nextDueDate = addOneMonth(expense.due_date || expense.date);
+          const nextPayload: Omit<Expense, 'id'> = {
+            description: expense.description,
+            amount: expense.amount,
+            category: expense.category,
+            date: expense.date,
+            due_date: nextDueDate,
+            is_paid: false,
+            trip_id: expense.trip_id,
+            vehicle_id: expense.vehicle_id,
+            installments_total: expense.installments_total,
+            installment_number: expense.installment_number + 1
+          };
+          await onAddExpense(nextPayload);
+          alert(`Parcela ${expense.installment_number} paga! Próxima parcela (${expense.installment_number + 1}/${expense.installments_total}) gerada para ${new Date(nextDueDate + 'T12:00:00').toLocaleDateString()}.`);
+        }
       }
     }
   };
@@ -202,7 +231,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
 
                 {!expense.is_paid && (
                   <button 
-                    onClick={() => handleMarkAsPaid(expense.id, expense.description, expense.amount)} 
+                    onClick={() => handleMarkAsPaid(expense.id)} 
                     className="w-full mt-4 py-4 bg-emerald-600 text-white rounded-[1.5rem] font-black text-xs uppercase flex items-center justify-center gap-2 hover:bg-emerald-700 shadow-xl active:scale-95 transition-all"
                   >
                     <Check size={18}/> Marcar como Pago

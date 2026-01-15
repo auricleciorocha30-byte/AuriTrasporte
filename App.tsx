@@ -120,7 +120,6 @@ const App: React.FC = () => {
           await offlineStorage.markAsSynced(item.id);
         } else {
           console.error(`Falha no sync de ${item.table}:`, error.message);
-          // Se for erro de política ou esquema, removemos para não travar a fila infinita
           if (error.code === '42P10' || error.code === '23505' || error.message.includes('policy')) {
              await offlineStorage.markAsSynced(item.id);
           }
@@ -207,10 +206,13 @@ const App: React.FC = () => {
       dueDate.setHours(0,0,0,0);
       const diffTime = dueDate.getTime() - today.getTime();
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
       if (diffDays < 0) {
         list.push({ id: `exp-late-${e.id}`, type: 'URGENT', category: 'FINANCE', title: `Dívida em Atraso`, message: `${e.description} venceu em ${dueDate.toLocaleDateString()}.`, date: 'Atrasado' });
       } else if (diffDays === 0) {
         list.push({ id: `exp-today-${e.id}`, type: 'WARNING', category: 'FINANCE', title: `Pagar Hoje`, message: `Vencimento de ${e.description}.`, date: 'Hoje' });
+      } else if (diffDays > 0 && diffDays <= 5) {
+        list.push({ id: `exp-soon-${e.id}`, type: 'INFO', category: 'FINANCE', title: `Vencimento Próximo`, message: `${e.description} vence em ${diffDays} dias (${dueDate.toLocaleDateString()}).`, date: 'Em breve' });
       }
     });
 
