@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Expense, ExpenseCategory, Trip, Vehicle } from '../types';
-import { Trash2, ChevronDown, ReceiptText, Banknote, Loader2, Edit2, CheckCircle2, X, ShieldCheck, Wallet, Check, Layers, AlertCircle } from 'lucide-react';
+import { Trash2, ChevronDown, ReceiptText, Banknote, Loader2, Edit2, CheckCircle2, X, ShieldCheck, Wallet, Check, Layers, AlertCircle, Calendar } from 'lucide-react';
 
 interface ExpenseManagerProps {
   expenses: Expense[];
@@ -100,23 +100,23 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
         // Marca a atual como paga
         await onUpdateExpense(id, { is_paid: true });
 
-        // Se houver próxima parcela, cria automaticamente
+        // Se houver próxima parcela, cria automaticamente como PENDENTE para o mês seguinte
         if (expense.installments_total && expense.installment_number && expense.installment_number < expense.installments_total) {
           const nextDueDate = addOneMonth(expense.due_date || expense.date);
           const nextPayload: Omit<Expense, 'id'> = {
             description: expense.description,
             amount: expense.amount,
             category: expense.category,
-            date: expense.date,
-            due_date: nextDueDate,
-            is_paid: false,
+            date: getToday(), // Data de lançamento hoje
+            due_date: nextDueDate, // Vencimento mês que vem
+            is_paid: false, // Próxima parcela nasce pendente
             trip_id: expense.trip_id,
             vehicle_id: expense.vehicle_id,
             installments_total: expense.installments_total,
             installment_number: expense.installment_number + 1
           };
           await onAddExpense(nextPayload);
-          alert(`Parcela ${expense.installment_number} paga! Próxima parcela (${expense.installment_number + 1}/${expense.installments_total}) gerada para ${new Date(nextDueDate + 'T12:00:00').toLocaleDateString()}.`);
+          alert(`Parcela ${expense.installment_number} marcada como paga!\n\nPróxima parcela (${expense.installment_number + 1}/${expense.installments_total}) gerada automaticamente para ${new Date(nextDueDate + 'T12:00:00').toLocaleDateString()}.`);
         }
       }
     }
@@ -162,21 +162,21 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
     <div className="space-y-8 pb-32 animate-fade-in max-w-7xl mx-auto">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 px-4">
         <div>
-          <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase leading-none">Controle Financeiro</h2>
-          <p className="text-slate-400 font-bold text-sm uppercase tracking-widest mt-2">Gestão de Fluxo de Caixa</p>
+          <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase leading-none">Financeiro</h2>
+          <p className="text-slate-400 font-bold text-sm uppercase tracking-widest mt-2">Fluxo de Caixa e Vencimentos</p>
         </div>
         <div className="flex gap-4 w-full md:w-auto">
           <button 
             onClick={() => { resetForm(); setModalType('TRIP'); setFormData(prev => ({ ...prev, category: ExpenseCategory.FUEL, is_paid: true })); }} 
             className="flex-1 md:flex-none flex items-center justify-center gap-2 px-8 py-5 bg-white border-2 border-slate-100 rounded-[2rem] font-black text-xs uppercase text-slate-600 hover:border-primary-500 hover:text-primary-600 transition-all shadow-sm active:scale-95"
           >
-            <ReceiptText size={20} /> Gasto de Viagem
+            <ReceiptText size={20} /> Despesa Viagem
           </button>
           <button 
             onClick={() => { resetForm(); setModalType('FIXED'); setFormData(prev => ({ ...prev, category: ExpenseCategory.FINANCING, is_paid: false })); }} 
             className="flex-1 md:flex-none flex items-center justify-center gap-2 px-8 py-5 bg-slate-900 text-white rounded-[2rem] font-black text-xs uppercase shadow-2xl hover:bg-black active:scale-95 transition-all"
           >
-            <Banknote size={20} /> Gasto Fixo
+            <Banknote size={20} /> Despesa Fixa
           </button>
         </div>
       </div>
@@ -196,15 +196,15 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
                 </div>
                 <div className="text-right">
                   <div className="text-[10px] font-black uppercase text-slate-400 mb-1">Valor</div>
-                  <div className="text-3xl font-black text-rose-500">R$ {expense.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                  <div className="text-3xl font-black text-slate-900">R$ {expense.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
                   {expense.installments_total && expense.installments_total > 1 && (
-                    <div className="text-[10px] font-black text-slate-400 uppercase mt-1">Parcela {expense.installment_number}/{expense.installments_total}</div>
+                    <div className="text-[10px] font-black text-primary-500 uppercase mt-1">Parcela {expense.installment_number}/{expense.installments_total}</div>
                   )}
                 </div>
               </div>
 
               <div className="space-y-4">
-                <h3 className="text-xl font-black text-slate-800 leading-tight truncate">{expense.description}</h3>
+                <h3 className="text-xl font-black text-slate-800 leading-tight truncate uppercase tracking-tighter">{expense.description}</h3>
                 
                 <div className="flex flex-wrap gap-2">
                   <span className={`text-[10px] font-black uppercase px-3 py-1 rounded-lg ${isFixed ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'}`}>
@@ -217,13 +217,16 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
                 <div className="h-px bg-slate-50 my-2"></div>
 
                 <div className="flex justify-between items-center">
-                  <div>
-                    <p className="text-[10px] font-black uppercase text-slate-400">Vencimento</p>
-                    <p className={`text-sm font-black ${isOverdue ? 'text-rose-600' : 'text-slate-700'}`}>{expense.due_date ? new Date(expense.due_date + 'T12:00:00').toLocaleDateString() : '---'}</p>
+                  <div className="flex items-center gap-2">
+                    <Calendar size={14} className="text-slate-300" />
+                    <div>
+                      <p className="text-[10px] font-black uppercase text-slate-400">Vencimento</p>
+                      <p className={`text-sm font-black ${isOverdue ? 'text-rose-600' : 'text-slate-700'}`}>{expense.due_date ? new Date(expense.due_date + 'T12:00:00').toLocaleDateString() : '---'}</p>
+                    </div>
                   </div>
                   <div className="text-right">
                     <p className="text-[10px] font-black uppercase text-slate-400">Status</p>
-                    <span className={`text-[10px] font-black uppercase px-3 py-1 rounded-lg ${expense.is_paid ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                    <span className={`text-[10px] font-black uppercase px-3 py-1 rounded-lg ${expense.is_paid ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700 animate-pulse'}`}>
                       {expense.is_paid ? 'Pago' : 'Pendente'}
                     </span>
                   </div>
@@ -250,10 +253,10 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
 
       {modalType && (
         <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md flex items-end md:items-center justify-center p-0 md:p-6 z-[100] animate-fade-in" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
-          <div className="bg-white rounded-t-[4rem] md:rounded-[3rem] w-full max-w-xl p-10 md:p-12 shadow-2xl animate-slide-up h-[92vh] md:h-auto overflow-y-auto">
-            <div className="flex justify-between items-center mb-10">
+          <div className="bg-white rounded-t-[4rem] md:rounded-[3rem] w-full max-w-xl p-8 md:p-12 shadow-2xl animate-slide-up h-[94vh] md:h-auto overflow-y-auto">
+            <div className="flex justify-between items-center mb-8">
               <div>
-                <span className="text-xs font-black uppercase text-primary-600 tracking-[0.2em]">{modalType === 'FIXED' ? 'Custo Fixo / Mensal' : 'Gasto da Viagem'}</span>
+                <span className="text-xs font-black uppercase text-primary-600 tracking-[0.2em]">{modalType === 'FIXED' ? 'Despesa Administrativa' : 'Despesa Operacional'}</span>
                 <h3 className="text-3xl font-black text-slate-900 tracking-tighter uppercase leading-none mt-2">
                   {editingExpenseId ? 'Editar Lançamento' : 'Novo Lançamento'}
                 </h3>
@@ -263,14 +266,14 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
 
             <form onSubmit={handleSubmit} className="space-y-6 pb-12">
               <div className="space-y-2">
-                <label className="text-[11px] font-black uppercase text-slate-400 ml-1">Descrição do Gasto</label>
-                <input required type="text" placeholder={modalType === 'FIXED' ? "Ex: Financiamento Cavalo" : "Ex: Abastecimento Diesel"} className="w-full p-5 bg-slate-50 rounded-3xl border-2 border-transparent focus:border-primary-500 font-bold outline-none text-lg transition-all" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
+                <label className="text-[11px] font-black uppercase text-slate-400 ml-1">Descrição</label>
+                <input required type="text" placeholder={modalType === 'FIXED' ? "Ex: Prestação do Caminhão" : "Ex: Troca de Óleo"} className="w-full p-5 bg-slate-50 rounded-3xl border-2 border-transparent focus:border-primary-500 font-bold outline-none text-lg transition-all" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
               </div>
 
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-2 gap-4 md:gap-6">
                 <div className="space-y-2">
-                  <label className="text-[11px] font-black uppercase text-slate-400 ml-1">Valor Total (R$)</label>
-                  <input required type="number" step="0.01" className="w-full p-5 bg-slate-50 rounded-3xl border-2 border-transparent focus:border-primary-500 font-black text-3xl text-rose-500 outline-none" value={formData.amount || ''} onChange={e => setFormData({...formData, amount: e.target.value})} />
+                  <label className="text-[11px] font-black uppercase text-slate-400 ml-1">Valor (R$)</label>
+                  <input required type="number" step="0.01" className="w-full p-5 bg-slate-50 rounded-3xl border-2 border-transparent focus:border-primary-500 font-black text-3xl text-slate-900 outline-none" value={formData.amount || ''} onChange={e => setFormData({...formData, amount: e.target.value})} />
                 </div>
                 <div className="space-y-2">
                   <label className="text-[11px] font-black uppercase text-slate-400 ml-1">Categoria</label>
@@ -283,20 +286,33 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-6 p-6 bg-slate-50 rounded-[2.5rem] border border-slate-100">
+              <div className="grid grid-cols-2 gap-4 md:gap-6">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1 flex items-center gap-1"><Layers size={14}/> N. de Parcelas</label>
-                  <input type="number" className="w-full p-4 bg-white rounded-2xl border border-slate-200 font-black text-xl outline-none" value={formData.installments_total || ''} onChange={e => setFormData({...formData, installments_total: e.target.value === '' ? 0 : Number(e.target.value)})} />
+                  <label className="text-[11px] font-black uppercase text-slate-400 ml-1">Lançamento</label>
+                  <input required type="date" className="w-full p-5 bg-slate-50 rounded-3xl font-bold outline-none" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Parcela Atual</label>
-                  <input type="number" className="w-full p-4 bg-white rounded-2xl border border-slate-200 font-black text-xl outline-none" value={formData.installment_number || ''} onChange={e => setFormData({...formData, installment_number: e.target.value === '' ? 0 : Number(e.target.value)})} />
+                  <label className="text-[11px] font-black uppercase text-primary-600 ml-1 flex items-center gap-1">Vencimento <AlertCircle size={12}/></label>
+                  <input required type="date" className="w-full p-5 bg-slate-50 rounded-3xl border-2 border-primary-100 font-bold outline-none focus:border-primary-500" value={formData.due_date} onChange={e => setFormData({...formData, due_date: e.target.value})} />
                 </div>
               </div>
 
-              <div className="flex items-center gap-4 p-5 bg-emerald-50 rounded-3xl border border-emerald-100">
-                <input type="checkbox" className="w-6 h-6 rounded-lg text-emerald-600" checked={formData.is_paid} onChange={e => setFormData({...formData, is_paid: e.target.checked})} />
-                <label className="text-sm font-black text-emerald-700 uppercase">Já foi pago?</label>
+              <div className="grid grid-cols-2 gap-4 p-6 bg-slate-50 rounded-[2.5rem] border border-slate-100">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1 flex items-center gap-1"><Layers size={14}/> Total de Parcelas</label>
+                  <input type="number" className="w-full p-4 bg-white rounded-2xl border border-slate-200 font-black text-xl outline-none" value={formData.installments_total || ''} onChange={e => setFormData({...formData, installments_total: e.target.value === '' ? 1 : Number(e.target.value)})} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Parcela Atual</label>
+                  <input type="number" className="w-full p-4 bg-white rounded-2xl border border-slate-200 font-black text-xl outline-none" value={formData.installment_number || ''} onChange={e => setFormData({...formData, installment_number: e.target.value === '' ? 1 : Number(e.target.value)})} />
+                </div>
+              </div>
+
+              <div className={`flex items-center gap-4 p-6 rounded-3xl border transition-all ${formData.is_paid ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100'}`}>
+                <input type="checkbox" className="w-7 h-7 rounded-lg text-emerald-600" checked={formData.is_paid} onChange={e => setFormData({...formData, is_paid: e.target.checked})} />
+                <label className={`text-sm font-black uppercase ${formData.is_paid ? 'text-emerald-700' : 'text-rose-700'}`}>
+                  {formData.is_paid ? 'Lançamento já está Pago' : 'Lançar como Pendente'}
+                </label>
               </div>
 
               <button disabled={isSaving} type="submit" className="w-full py-7 bg-primary-600 text-white rounded-[2.5rem] font-black text-xl shadow-2xl flex items-center justify-center gap-4 active:scale-95 transition-all">
