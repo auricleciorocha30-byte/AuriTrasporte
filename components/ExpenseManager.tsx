@@ -93,31 +93,26 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
 
   const handleMarkAsPaid = async (id: string) => {
     const expense = expenses.find(e => e.id === id);
-    if (!expense) return;
+    if (!expense || !onUpdateExpense) return;
 
-    if (confirm(`Confirmar o pagamento de "${expense.description}" no valor de R$ ${expense.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}?`)) {
-      if (onUpdateExpense) {
-        // Marca a atual como paga
+    if (confirm(`Confirmar o pagamento da parcela ${expense.installment_number}/${expense.installments_total} de "${expense.description}"?`)) {
+      
+      // Se houver próxima parcela, ATUALIZA o mesmo registro para a próxima (mesmo card)
+      if (expense.installments_total && expense.installment_number && expense.installment_number < expense.installments_total) {
+        const nextDueDate = addOneMonth(expense.due_date || expense.date);
+        
+        await onUpdateExpense(id, {
+          is_paid: false, // Próxima parcela nasce pendente
+          installment_number: expense.installment_number + 1,
+          due_date: nextDueDate,
+          date: getToday() // Data do novo lançamento (hoje)
+        });
+
+        alert(`Parcela ${expense.installment_number} paga!\n\nO card foi atualizado para a próxima parcela (${expense.installment_number + 1}/${expense.installments_total}) com vencimento em ${new Date(nextDueDate + 'T12:00:00').toLocaleDateString()}.`);
+      } else {
+        // Se for a última ou não parcelada, apenas marca como paga
         await onUpdateExpense(id, { is_paid: true });
-
-        // Se houver próxima parcela, cria automaticamente como PENDENTE para o mês seguinte
-        if (expense.installments_total && expense.installment_number && expense.installment_number < expense.installments_total) {
-          const nextDueDate = addOneMonth(expense.due_date || expense.date);
-          const nextPayload: Omit<Expense, 'id'> = {
-            description: expense.description,
-            amount: expense.amount,
-            category: expense.category,
-            date: getToday(), // Data de lançamento hoje
-            due_date: nextDueDate, // Vencimento mês que vem
-            is_paid: false, // Próxima parcela nasce pendente
-            trip_id: expense.trip_id,
-            vehicle_id: expense.vehicle_id,
-            installments_total: expense.installments_total,
-            installment_number: expense.installment_number + 1
-          };
-          await onAddExpense(nextPayload);
-          alert(`Parcela ${expense.installment_number} marcada como paga!\n\nPróxima parcela (${expense.installment_number + 1}/${expense.installments_total}) gerada automaticamente para ${new Date(nextDueDate + 'T12:00:00').toLocaleDateString()}.`);
-        }
+        alert("Despesa finalizada e marcada como paga!");
       }
     }
   };
@@ -190,6 +185,12 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
 
           return (
             <div key={expense.id} className={`bg-white p-8 rounded-[3rem] border-2 shadow-sm relative group hover:border-primary-500 transition-all ${isOverdue ? 'border-rose-200 ring-4 ring-rose-50' : 'border-slate-50'}`}>
+              {isOverdue && (
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-rose-600 text-white px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest animate-bounce z-20">
+                  Atrasada
+                </div>
+              )}
+              
               <div className="flex justify-between items-start mb-6">
                 <div className={`p-5 rounded-[1.5rem] ${!isFixed ? 'bg-indigo-50 text-indigo-600' : 'bg-amber-50 text-amber-600'}`}>
                   {!isFixed ? <ReceiptText size={28}/> : <Wallet size={28}/>}
@@ -227,7 +228,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
                   <div className="text-right">
                     <p className="text-[10px] font-black uppercase text-slate-400">Status</p>
                     <span className={`text-[10px] font-black uppercase px-3 py-1 rounded-lg ${expense.is_paid ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700 animate-pulse'}`}>
-                      {expense.is_paid ? 'Pago' : 'Pendente'}
+                      {expense.is_paid ? 'Pago' : isOverdue ? 'Atrasado' : 'Pendente'}
                     </span>
                   </div>
                 </div>
@@ -237,7 +238,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
                     onClick={() => handleMarkAsPaid(expense.id)} 
                     className="w-full mt-4 py-4 bg-emerald-600 text-white rounded-[1.5rem] font-black text-xs uppercase flex items-center justify-center gap-2 hover:bg-emerald-700 shadow-xl active:scale-95 transition-all"
                   >
-                    <Check size={18}/> Marcar como Pago
+                    <Check size={18}/> {expense.installments_total && expense.installments_total > 1 ? `Pagar Parcela ${expense.installment_number}` : 'Marcar como Pago'}
                   </button>
                 )}
               </div>

@@ -334,19 +334,14 @@ const App: React.FC = () => {
   const handleLogout = async () => {
     try {
       setAuthLoading(true);
-      // Feedback visual imediato e fechamento do menu
       setIsMobileMenuOpen(false);
-      setSession(null);
       localStorage.clear();
-      
-      // Tenta deslogar via Supabase, mas não bloqueia se houver erro de rede
       await supabase.auth.signOut();
     } catch (err) {
       console.error("Erro ao sair:", err);
     } finally {
       setAuthLoading(false);
-      // Forçar recarregamento para limpar caches e garantir tela de login
-      window.location.href = '/';
+      window.location.reload();
     }
   };
 
@@ -447,7 +442,7 @@ const App: React.FC = () => {
           <button 
             type="button"
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleLogout(); }} 
-            className="w-full flex items-center gap-3 px-4 py-5 text-rose-400 font-black uppercase text-xs hover:bg-white/5 rounded-xl transition-all active:scale-95 cursor-pointer"
+            className="w-full flex items-center gap-3 px-4 py-5 text-rose-400 font-black uppercase text-xs hover:bg-white/5 rounded-xl transition-all active:scale-95 cursor-pointer relative z-[120]"
           >
             {authLoading ? <Loader2 className="animate-spin" size={18} /> : <LogOut size={18} />} 
             {authLoading ? 'Saindo...' : 'Sair da Conta'}
