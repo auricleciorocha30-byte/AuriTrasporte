@@ -491,7 +491,7 @@ const App: React.FC = () => {
           )}
           {currentView === AppView.TRIPS && (
             <TripManager 
-              trips={trips} vehicles={vehicles} 
+              trips={trips} vehicles={vehicles} expenses={expenses}
               onAddTrip={(t) => handleAction('trips', t, 'insert')} 
               onUpdateTrip={(id, t) => handleAction('trips', { ...t, id }, 'update')} 
               onUpdateStatus={async (id, s, km) => { 

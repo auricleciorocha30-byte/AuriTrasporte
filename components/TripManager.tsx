@@ -1,12 +1,13 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Trip, TripStatus, Vehicle, TripStop } from '../types';
-import { Plus, MapPin, Calendar, Truck, UserCheck, Navigation, X, Trash2, Map as MapIcon, ChevronRight, Percent, Loader2, Edit2, DollarSign, MessageSquare, Sparkles, Wand2, PlusCircle, ExternalLink, CheckSquare, Gauge, Utensils, Construction, MapPinPlus, ShieldCheck, ChevronDown, AlignLeft, CheckCircle2, Package, NotebookPen, GaugeCircle, MapPinned } from 'lucide-react';
+import { Trip, TripStatus, Vehicle, TripStop, Expense } from '../types';
+import { Plus, MapPin, Calendar, Truck, UserCheck, Navigation, X, Trash2, Map as MapIcon, ChevronRight, Percent, Loader2, Edit2, DollarSign, MessageSquare, Sparkles, Wand2, PlusCircle, ExternalLink, CheckSquare, Gauge, Utensils, Construction, MapPinPlus, ShieldCheck, ChevronDown, AlignLeft, CheckCircle2, Package, NotebookPen, GaugeCircle, MapPinned, ReceiptText } from 'lucide-react';
 import { calculateANTT } from '../services/anttService';
 
 interface TripManagerProps {
   trips: Trip[];
   vehicles: Vehicle[];
+  expenses: Expense[];
   onAddTrip: (trip: Omit<Trip, 'id'>) => Promise<void>;
   onUpdateTrip: (id: string, trip: Partial<Trip>) => Promise<void>;
   onUpdateStatus: (id: string, status: TripStatus, newVehicleKm?: number) => Promise<void>;
@@ -27,7 +28,7 @@ const getTodayLocal = () => {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 };
 
-export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAddTrip, onUpdateTrip, onUpdateStatus, onDeleteTrip, isSaving }) => {
+export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, expenses, onAddTrip, onUpdateTrip, onUpdateStatus, onDeleteTrip, isSaving }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isKmModalOpen, setIsKmModalOpen] = useState(false);
   const [editingTripId, setEditingTripId] = useState<string | null>(null);
@@ -59,19 +60,24 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
   });
 
   const sortedTrips = useMemo(() => {
-    const today = getTodayLocal();
     return [...trips].sort((a, b) => {
-      const getPriority = (trip: Trip) => {
-        if (trip.status === TripStatus.SCHEDULED && trip.date <= today) return 1;
-        if (trip.status === TripStatus.IN_PROGRESS) return 2;
-        if (trip.status === TripStatus.SCHEDULED && trip.date > today) return 3;
-        return 4;
+      const statusPriority: Record<TripStatus, number> = {
+        [TripStatus.SCHEDULED]: 1,
+        [TripStatus.IN_PROGRESS]: 2,
+        [TripStatus.COMPLETED]: 3,
+        [TripStatus.CANCELLED]: 4
       };
 
-      const priorityA = getPriority(a);
-      const priorityB = getPriority(b);
+      if (statusPriority[a.status] !== statusPriority[b.status]) {
+        return statusPriority[a.status] - statusPriority[b.status];
+      }
 
-      if (priorityA !== priorityB) return priorityA - priorityB;
+      // Dentro do mesmo status
+      if (a.status === TripStatus.COMPLETED || a.status === TripStatus.CANCELLED) {
+        // Mais recentes primeiro para concluídas e canceladas
+        return b.date.localeCompare(a.date);
+      }
+      // Mais próximas primeiro para agendadas e em andamento
       return a.date.localeCompare(b.date);
     });
   }, [trips]);
@@ -237,9 +243,14 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
           const vehicle = vehicles.find(v => v.id === trip.vehicle_id);
           const isAtrasada = trip.status === TripStatus.SCHEDULED && trip.date < getTodayLocal();
           const isHoje = trip.status === TripStatus.SCHEDULED && trip.date === getTodayLocal();
+          
+          // Calcula total de despesas vinculadas a esta viagem
+          const tripExpensesTotal = expenses
+            .filter(e => e.trip_id === trip.id)
+            .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
 
           return (
-            <div key={trip.id} className={`bg-white p-8 rounded-[3rem] border-2 shadow-sm relative group animate-fade-in transition-all ${isAtrasada ? 'border-rose-200 ring-4 ring-rose-50' : isHoje ? 'border-primary-200 ring-4 ring-primary-50' : 'border-slate-50'}`}>
+            <div key={trip.id} className={`bg-white p-6 md:p-8 rounded-[3rem] border-2 shadow-sm relative group animate-fade-in transition-all ${isAtrasada ? 'border-rose-200 ring-4 ring-rose-50' : isHoje ? 'border-primary-200 ring-4 ring-primary-50' : 'border-slate-50'}`}>
               {(isAtrasada || isHoje) && (
                 <div className={`absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full text-[10px] font-black uppercase text-white z-20 ${isAtrasada ? 'bg-rose-600 animate-pulse' : 'bg-primary-600'}`}>
                   {isAtrasada ? 'Saída Atrasada' : 'Saída Hoje'}
@@ -248,8 +259,8 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
 
               <div className="flex flex-col gap-6">
                  <div className="flex-1">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-2">
+                    <div className="flex items-center justify-between gap-2 mb-4">
+                      <div className="shrink-0 flex items-center gap-2">
                         <select 
                           value={trip.status} 
                           onChange={(e) => handleStatusChange(trip, e.target.value as TripStatus)}
@@ -262,7 +273,7 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                           {Object.values(TripStatus).map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
                       </div>
-                      <span className="text-[10px] font-black text-slate-400 flex items-center gap-1 uppercase">
+                      <span className="shrink-0 text-[10px] md:text-xs font-black text-slate-400 flex items-center gap-1 uppercase whitespace-nowrap">
                         <Calendar size={12} /> {formatDateDisplay(trip.date)}
                       </span>
                     </div>
@@ -303,6 +314,15 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                           <p className="text-lg font-black text-primary-700">R$ {trip.agreed_price.toLocaleString()}</p>
                         </div>
                       </div>
+                      
+                      {/* Nova informação: Despesas da Viagem */}
+                      <div className="bg-rose-50 p-4 rounded-2xl border border-rose-100">
+                        <div className="flex items-center gap-2 mb-1">
+                          <ReceiptText size={12} className="text-rose-400" />
+                          <p className="text-[9px] font-black text-rose-400 uppercase">Gastos Vinculados</p>
+                        </div>
+                        <p className="text-lg font-black text-rose-700">R$ {tripExpensesTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                      </div>
                     </div>
                  </div>
               </div>
@@ -321,7 +341,7 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
           );
         })}
       </div>
-
+      {/* ... o restante do código permanece igual (modais, etc) */}
       {isKmModalOpen && (
         <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-6 z-[120] animate-fade-in">
           <div className="bg-white rounded-[3rem] w-full max-w-md p-10 shadow-2xl animate-slide-up">
