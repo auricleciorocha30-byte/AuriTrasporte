@@ -47,7 +47,6 @@ export interface TripStop {
 
 export interface Trip {
   id: string;
-  description?: string;
   origin: string;
   destination: string;
   stops?: TripStop[]; 
@@ -115,6 +114,7 @@ export interface ANTTParams {
   otherCosts?: number;
 }
 
+// Added JornadaLog interface to fix missing export error required by App.tsx and JornadaManager.tsx
 export interface JornadaLog {
   id: string;
   user_id?: string;
