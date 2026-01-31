@@ -57,7 +57,6 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
   });
 
   const sortedExpenses = useMemo(() => {
-    const today = getToday();
     return [...expenses].sort((a, b) => {
       if (!a.is_paid && b.is_paid) return -1;
       if (a.is_paid && !b.is_paid) return 1;
@@ -107,7 +106,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
     const expense = expenses.find(e => e.id === id);
     if (!expense || !onUpdateExpense) return;
 
-    if (confirm(`Confirmar o pagamento da parcela ${expense.installment_number}/${expense.installments_total} de "${expense.description}"?`)) {
+    if (confirm(`Confirmar pagamento de "${expense.description}"?`)) {
       if (expense.installments_total && expense.installment_number && expense.installment_number < expense.installments_total) {
         const nextDueDate = addOneMonth(expense.due_date || expense.date);
         await onUpdateExpense(id, {
@@ -137,8 +136,8 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
       date: formData.date,
       due_date: formData.due_date || formData.date,
       is_paid: Boolean(formData.is_paid),
-      trip_id: (modalType === 'TRIP' && formData.trip_id && formData.trip_id !== '') ? formData.trip_id : null,
-      vehicle_id: (formData.vehicle_id && formData.vehicle_id !== '') ? formData.vehicle_id : null,
+      trip_id: (modalType === 'TRIP' && formData.trip_id !== '') ? formData.trip_id : null,
+      vehicle_id: (formData.vehicle_id !== '') ? formData.vehicle_id : null,
       installments_total: Number(formData.installments_total || 1),
       installment_number: Number(formData.installment_number || 1)
     };
@@ -191,7 +190,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
           return (
             <div key={expense.id} className={`bg-white p-8 rounded-[3rem] border-2 shadow-sm relative group hover:border-primary-500 transition-all ${isOverdue ? 'border-rose-300 ring-4 ring-rose-50' : isToday ? 'border-amber-300 ring-4 ring-amber-50' : 'border-slate-50'}`}>
               {(isOverdue || isToday) && (
-                <div className={`absolute -top-3 left-1/2 -translate-x-1/2 text-white px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest z-20 ${isOverdue ? 'bg-rose-600 animate-bounce' : 'bg-amber-600'}`}>
+                <div className={`absolute -top-3 left-1/2 -translate-x-1/2 text-white px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest z-20 ${isOverdue ? 'bg-rose-600' : 'bg-amber-600'}`}>
                   {isOverdue ? 'Atrasada' : 'Vence Hoje'}
                 </div>
               )}
