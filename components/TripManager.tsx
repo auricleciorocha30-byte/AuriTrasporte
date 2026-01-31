@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Trip, TripStatus, Vehicle, TripStop } from '../types';
-import { Plus, MapPin, Calendar, Truck, UserCheck, Navigation, X, Trash2, Map as MapIcon, ChevronRight, Percent, Loader2, Edit2, DollarSign, MessageSquare, Sparkles, Wand2, PlusCircle, ExternalLink, CheckSquare, Gauge, Utensils, Construction, MapPinPlus, ShieldCheck, ChevronDown, AlignLeft, CheckCircle2 } from 'lucide-react';
+import { Plus, MapPin, Calendar, Truck, UserCheck, Navigation, X, Trash2, Map as MapIcon, ChevronRight, Percent, Loader2, Edit2, DollarSign, MessageSquare, Sparkles, Wand2, PlusCircle, ExternalLink, CheckSquare, Gauge, Utensils, Construction, MapPinPlus, ShieldCheck, ChevronDown, AlignLeft, CheckCircle2, Package, NotebookPen, GaugeCircle, MapPinned } from 'lucide-react';
 import { calculateANTT } from '../services/anttService';
 
 interface TripManagerProps {
@@ -47,6 +47,7 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
   });
 
   const [formData, setFormData] = useState<any>({
+    description: '',
     distance_km: 0,
     agreed_price: 0,
     driver_commission_percentage: 10,
@@ -57,23 +58,20 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
     notes: ''
   });
 
-  // Prioridade: Atrasadas/Hoje > Em Andamento > Futuras > Concluídas
   const sortedTrips = useMemo(() => {
     const today = getTodayLocal();
     return [...trips].sort((a, b) => {
       const getPriority = (trip: Trip) => {
-        if (trip.status === TripStatus.SCHEDULED && trip.date <= today) return 1; // Máxima: Atrasadas e Hoje
+        if (trip.status === TripStatus.SCHEDULED && trip.date <= today) return 1;
         if (trip.status === TripStatus.IN_PROGRESS) return 2;
         if (trip.status === TripStatus.SCHEDULED && trip.date > today) return 3;
-        return 4; // Concluídas e Canceladas
+        return 4;
       };
 
       const priorityA = getPriority(a);
       const priorityB = getPriority(b);
 
       if (priorityA !== priorityB) return priorityA - priorityB;
-      
-      // Desempate por data (mais antigas primeiro nas atrasadas, mais próximas nas futuras)
       return a.date.localeCompare(b.date);
     });
   }, [trips]);
@@ -120,13 +118,10 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
     return url;
   };
 
-  const previewCurrentRoute = () => {
-    if (!origin.city || !destination.city) {
-      alert("Informe ao menos a cidade de origem e destino para ver a rota.");
-      return;
-    }
-    const url = getMapsUrl(`${origin.city} - ${origin.state}`, `${destination.city} - ${destination.state}`, stops);
-    window.open(url, '_blank');
+  const getWazeUrl = (destCity: string, destState: string) => {
+    if (!destCity) return "";
+    const destStr = `${destCity}, ${destState}, Brasil`;
+    return `https://www.waze.com/ul?q=${encodeURIComponent(destStr)}&navigate=yes`;
   };
 
   const suggestANTTPrice = () => {
@@ -157,6 +152,7 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
     setOrigin({ city: '', state: 'SP' });
     setDestination({ city: '', state: 'SP' });
     setFormData({
+      description: '',
       distance_km: 0,
       agreed_price: 0,
       driver_commission_percentage: 10,
@@ -170,12 +166,13 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
 
   const handleEdit = (trip: Trip) => {
     setEditingTripId(trip.id);
-    const originParts = trip.origin.split(' - ');
-    const destParts = trip.destination.split(' - ');
-    setOrigin({ city: originParts[0], state: originParts[1] || 'SP' });
-    setDestination({ city: destParts[0], state: destParts[1] || 'SP' });
+    const originParts = (trip.origin || "").split(' - ');
+    const destParts = (trip.destination || "").split(' - ');
+    setOrigin({ city: originParts[0] || '', state: originParts[1] || 'SP' });
+    setDestination({ city: destParts[0] || '', state: destParts[1] || 'SP' });
     setStops(trip.stops || []);
     setFormData({
+      description: trip.description || '',
       distance_km: trip.distance_km,
       agreed_price: trip.agreed_price,
       driver_commission_percentage: trip.driver_commission_percentage,
@@ -194,6 +191,7 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
       return;
     }
     const payload = {
+      description: formData.description.trim(),
       origin: `${origin.city} - ${origin.state}`,
       destination: `${destination.city} - ${destination.state}`,
       distance_km: Number(formData.distance_km),
@@ -207,10 +205,19 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
       notes: formData.notes.trim(),
       stops: stops
     };
-    if (editingTripId) { await onUpdateTrip(editingTripId, payload); }
-    else { await onAddTrip(payload); }
-    setIsModalOpen(false);
-    resetForm();
+    
+    try {
+      if (editingTripId) { 
+        await onUpdateTrip(editingTripId, payload); 
+      } else { 
+        await onAddTrip(payload); 
+      }
+      setIsModalOpen(false);
+      resetForm();
+    } catch (err) {
+      console.error("Erro ao salvar viagem:", err);
+      alert("Erro ao salvar. Verifique sua conexão.");
+    }
   };
 
   return (
@@ -241,32 +248,40 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
 
               <div className="flex flex-col gap-6">
                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-4">
-                      <select 
-                        value={trip.status} 
-                        onChange={(e) => handleStatusChange(trip, e.target.value as TripStatus)}
-                        className={`text-[9px] font-black uppercase px-3 py-1.5 rounded-full border-none cursor-pointer focus:ring-2 focus:ring-primary-500 ${
-                          trip.status === TripStatus.COMPLETED ? 'bg-emerald-100 text-emerald-700' : 
-                          trip.status === TripStatus.IN_PROGRESS ? 'bg-blue-100 text-blue-700' :
-                          trip.status === TripStatus.CANCELLED ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-700'
-                        }`}
-                      >
-                        {Object.values(TripStatus).map(s => <option key={s} value={s}>{s}</option>)}
-                      </select>
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2">
+                        <select 
+                          value={trip.status} 
+                          onChange={(e) => handleStatusChange(trip, e.target.value as TripStatus)}
+                          className={`text-[9px] font-black uppercase px-3 py-1.5 rounded-full border-none cursor-pointer focus:ring-2 focus:ring-primary-500 ${
+                            trip.status === TripStatus.COMPLETED ? 'bg-emerald-100 text-emerald-700' : 
+                            trip.status === TripStatus.IN_PROGRESS ? 'bg-blue-100 text-blue-700' :
+                            trip.status === TripStatus.CANCELLED ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-700'
+                          }`}
+                        >
+                          {Object.values(TripStatus).map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                      </div>
                       <span className="text-[10px] font-black text-slate-400 flex items-center gap-1 uppercase">
                         <Calendar size={12} /> {formatDateDisplay(trip.date)}
                       </span>
                     </div>
+
+                    {trip.description && (
+                      <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter mb-4 leading-tight line-clamp-2">
+                        {trip.description}
+                      </h3>
+                    )}
                     
                     <div className="space-y-1 mb-4">
                       <div className="flex items-center gap-2">
                         <div className="w-2 h-2 rounded-full bg-primary-500"></div>
-                        <h3 className="text-lg font-black text-slate-800 tracking-tighter truncate uppercase">{trip.origin}</h3>
+                        <h4 className="text-sm font-black text-slate-700 truncate uppercase">{trip.origin}</h4>
                       </div>
-                      <div className="ml-1 w-px h-4 bg-slate-100"></div>
+                      <div className="ml-1 w-px h-3 bg-slate-100"></div>
                       <div className="flex items-center gap-2">
                         <div className="w-2 h-2 rounded-full bg-rose-500"></div>
-                        <h3 className="text-lg font-black text-slate-800 tracking-tighter truncate uppercase">{trip.destination}</h3>
+                        <h4 className="text-sm font-black text-slate-700 truncate uppercase">{trip.destination}</h4>
                       </div>
                     </div>
                     
@@ -307,6 +322,37 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
         })}
       </div>
 
+      {isKmModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-6 z-[120] animate-fade-in">
+          <div className="bg-white rounded-[3rem] w-full max-w-md p-10 shadow-2xl animate-slide-up">
+            <div className="flex flex-col items-center text-center mb-8">
+              <div className="p-5 bg-emerald-50 text-emerald-600 rounded-full mb-4">
+                <GaugeCircle size={48} />
+              </div>
+              <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Atualizar KM</h3>
+              <p className="text-slate-500 font-bold text-sm mt-2">Qual é o KM atual do veículo ao finalizar esta viagem?</p>
+            </div>
+            
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-slate-400 ml-1">KM Atual do Painel</label>
+                <input 
+                  type="number" 
+                  className="w-full p-6 bg-slate-50 border-2 border-transparent focus:border-primary-500 rounded-3xl font-black text-3xl text-center outline-none" 
+                  value={newVehicleKm || ''} 
+                  onChange={e => setNewVehicleKm(Number(e.target.value))} 
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <button onClick={() => setIsKmModalOpen(false)} className="flex-1 py-5 border-2 rounded-3xl font-black uppercase text-xs text-slate-400">Cancelar</button>
+                <button onClick={confirmKmUpdate} className="flex-1 py-5 bg-emerald-600 text-white rounded-3xl font-black uppercase text-xs shadow-xl">Confirmar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md flex items-end md:items-center justify-center p-0 md:p-6 z-[100] animate-fade-in" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
           <div className="bg-white w-full max-w-2xl rounded-t-[4rem] md:rounded-[3rem] shadow-2xl animate-slide-up relative h-[92vh] md:h-auto overflow-y-auto pb-10">
@@ -315,10 +361,22 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                 <span className="text-xs font-black uppercase text-primary-600 tracking-widest">Planejamento de Rota</span>
                 <h3 className="text-3xl font-black uppercase tracking-tighter mt-1 leading-none">{editingTripId ? 'Alterar Viagem' : 'Novo Frete'}</h3>
               </div>
-              <button onClick={() => setIsModalOpen(false)} className="bg-slate-100 p-4 md:p-5 rounded-full text-slate-400 hover:text-slate-900 transition-all"><X size={28} /></button>
+              <button onClick={() => { resetForm(); setIsModalOpen(false); }} className="bg-slate-100 p-4 md:p-5 rounded-full text-slate-400 hover:text-slate-900 transition-all"><X size={28} /></button>
             </div>
 
             <div className="p-5 md:p-10 space-y-8">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-slate-400 ml-1 flex items-center gap-2">
+                  <NotebookPen size={14}/> OBS / Descrição da Carga
+                </label>
+                <input 
+                  placeholder="Ex: Carga de milho, Peças automotivas, Observações..." 
+                  className="w-full p-5 bg-slate-50 border-2 border-transparent focus:border-primary-500 rounded-2xl font-black text-lg outline-none transition-all" 
+                  value={formData.description} 
+                  onChange={e => setFormData({...formData, description: e.target.value})} 
+                />
+              </div>
+
               <div className="space-y-4 bg-slate-50 p-4 md:p-8 rounded-[3rem] border border-slate-100">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
@@ -338,6 +396,60 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                         {BRAZILIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
                     </div>
+                  </div>
+                </div>
+
+                <div className="mt-6 pt-6 border-t border-slate-200">
+                  <div className="flex justify-between items-center mb-3">
+                    <label className="text-[10px] font-black uppercase text-slate-400 ml-1 flex items-center gap-2">
+                      <MapPinPlus size={14}/> Adicionar Rotas / Escalas (Opcional)
+                    </label>
+                  </div>
+                  
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {stops.map((stop, idx) => (
+                      <div key={idx} className="bg-white px-3 py-2 rounded-xl flex items-center gap-2 border border-slate-200 animate-fade-in shadow-sm">
+                        <span className="text-[10px] font-bold text-slate-700">{stop.city} - {stop.state}</span>
+                        <button onClick={() => removeStop(idx)} className="text-rose-400 hover:text-rose-600"><X size={14}/></button>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <div className="flex gap-1 md:gap-2">
+                    <input placeholder="Cidade parada" className="flex-1 p-4 bg-white rounded-2xl border-none text-sm font-bold outline-none focus:ring-2 focus:ring-primary-500" value={newStop.city} onChange={e => setNewStop({...newStop, city: e.target.value})} />
+                    <select className="w-16 md:w-20 p-4 bg-white rounded-2xl border-none font-bold outline-none" value={newStop.state} onChange={e => setNewStop({...newStop, state: e.target.value})}>
+                      {BRAZILIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                    <button onClick={addStop} className="p-4 bg-slate-900 text-white rounded-2xl hover:bg-black transition-all shrink-0">
+                      <Plus size={20}/>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mt-6 pt-6 border-t border-slate-200">
+                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1 flex items-center gap-2 mb-4">
+                    <MapPinned size={14}/> Visualizar Trajeto no Mapa
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button 
+                      onClick={() => {
+                        const url = getMapsUrl(`${origin.city} - ${origin.state}`, `${destination.city} - ${destination.state}`, stops);
+                        if (!origin.city || !destination.city) return alert("Informe origem e destino.");
+                        window.open(url, '_blank');
+                      }}
+                      className="flex items-center justify-center gap-2 py-4 bg-white border-2 border-slate-100 rounded-2xl font-black text-[10px] uppercase text-slate-600 hover:border-primary-500 hover:text-primary-600 transition-all shadow-sm"
+                    >
+                      <MapIcon size={14}/> Google Maps
+                    </button>
+                    <button 
+                      onClick={() => {
+                        if (!destination.city) return alert("Informe o destino.");
+                        window.open(getWazeUrl(destination.city, destination.state), '_blank');
+                      }}
+                      className="flex items-center justify-center gap-2 py-4 bg-white border-2 border-slate-100 rounded-2xl font-black text-[10px] uppercase text-slate-600 hover:border-primary-500 hover:text-primary-600 transition-all shadow-sm"
+                    >
+                      <Navigation size={14}/> Waze
+                    </button>
                   </div>
                 </div>
               </div>
