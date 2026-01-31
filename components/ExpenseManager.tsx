@@ -56,20 +56,14 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
     installment_number: 1
   });
 
-  // Ordenação de Prioridade: Atrasadas > Vencendo Hoje > Pendentes Futuras > Pagas
   const sortedExpenses = useMemo(() => {
     const today = getToday();
     return [...expenses].sort((a, b) => {
-      // Prioridade 1: Pendentes vs Pagas
       if (!a.is_paid && b.is_paid) return -1;
       if (a.is_paid && !b.is_paid) return 1;
-
-      // Se ambas pendentes, prioriza data de vencimento menor (mais antiga/atrasada)
       if (!a.is_paid && !b.is_paid) {
         return (a.due_date || a.date).localeCompare(b.due_date || b.date);
       }
-
-      // Se ambas pagas, mostra as mais recentes primeiro
       return (b.date).localeCompare(a.date);
     });
   }, [expenses]);
@@ -118,11 +112,11 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
         const nextDueDate = addOneMonth(expense.due_date || expense.date);
         await onUpdateExpense(id, {
           is_paid: false, 
-          installment_number: expense.installment_number + 1,
+          installment_number: (expense.installment_number || 1) + 1,
           due_date: nextDueDate,
           date: getToday()
         });
-        alert(`Parcela ${expense.installment_number} paga! Card atualizado para a parcela ${expense.installment_number + 1}.`);
+        alert(`Parcela ${expense.installment_number} paga! Próxima parcela: ${expense.installment_number + 1}.`);
       } else {
         await onUpdateExpense(id, { is_paid: true });
         alert("Despesa finalizada!");
@@ -313,7 +307,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 md:gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                 <div className="space-y-2">
                   <label className="text-[11px] font-black uppercase text-slate-400 ml-1">Data Gasto</label>
                   <input required type="date" className="w-full p-5 bg-slate-50 rounded-3xl font-bold outline-none" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} />
@@ -365,8 +359,8 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
               )}
 
               <div className={`flex items-center gap-4 p-6 rounded-3xl border transition-all ${formData.is_paid ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100'}`}>
-                <input type="checkbox" className="w-7 h-7 rounded-lg text-emerald-600" checked={formData.is_paid} onChange={e => setFormData({...formData, is_paid: e.target.checked})} />
-                <label className={`text-sm font-black uppercase ${formData.is_paid ? 'text-emerald-700' : 'text-rose-700'}`}>
+                <input type="checkbox" id="checkPaid" className="w-7 h-7 rounded-lg text-emerald-600 cursor-pointer" checked={formData.is_paid} onChange={e => setFormData({...formData, is_paid: e.target.checked})} />
+                <label htmlFor="checkPaid" className={`text-sm font-black uppercase cursor-pointer flex-1 ${formData.is_paid ? 'text-emerald-700' : 'text-rose-700'}`}>
                   {formData.is_paid ? 'Gasto já Pago' : 'Lançar como Pendente'}
                 </label>
               </div>
