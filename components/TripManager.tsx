@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Trip, TripStatus, Vehicle, TripStop } from '../types';
-import { Plus, MapPin, Calendar, Truck, UserCheck, Navigation, X, Trash2, Map as MapIcon, ChevronRight, Percent, Loader2, Edit2, DollarSign, MessageSquare, Sparkles, Wand2, PlusCircle, ExternalLink, CheckSquare, Gauge, Utensils, Construction, MapPinPlus, ShieldCheck, ChevronDown, AlignLeft, CheckCircle2 } from 'lucide-react';
+import { Plus, MapPin, Calendar, Truck, UserCheck, Navigation, X, Trash2, Map as MapIcon, ChevronRight, Percent, Loader2, Edit2, DollarSign, MessageSquare, Sparkles, Wand2, PlusCircle, ExternalLink, CheckSquare, Gauge, Utensils, Construction, MapPinPlus, ShieldCheck, ChevronDown, AlignLeft, CheckCircle2, Package } from 'lucide-react';
 import { calculateANTT } from '../services/anttService';
 
 interface TripManagerProps {
@@ -47,6 +47,7 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
   });
 
   const [formData, setFormData] = useState<any>({
+    description: '',
     distance_km: 0,
     agreed_price: 0,
     driver_commission_percentage: 10,
@@ -73,7 +74,7 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
 
       if (priorityA !== priorityB) return priorityA - priorityB;
       
-      // Desempate por data (mais antigas primeiro nas atrasadas, mais próximas nas futuras)
+      // Desempate por data
       return a.date.localeCompare(b.date);
     });
   }, [trips]);
@@ -157,6 +158,7 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
     setOrigin({ city: '', state: 'SP' });
     setDestination({ city: '', state: 'SP' });
     setFormData({
+      description: '',
       distance_km: 0,
       agreed_price: 0,
       driver_commission_percentage: 10,
@@ -176,6 +178,7 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
     setDestination({ city: destParts[0], state: destParts[1] || 'SP' });
     setStops(trip.stops || []);
     setFormData({
+      description: trip.description || '',
       distance_km: trip.distance_km,
       agreed_price: trip.agreed_price,
       driver_commission_percentage: trip.driver_commission_percentage,
@@ -194,6 +197,7 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
       return;
     }
     const payload = {
+      description: formData.description.trim(),
       origin: `${origin.city} - ${origin.state}`,
       destination: `${destination.city} - ${destination.state}`,
       distance_km: Number(formData.distance_km),
@@ -241,32 +245,40 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
 
               <div className="flex flex-col gap-6">
                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-4">
-                      <select 
-                        value={trip.status} 
-                        onChange={(e) => handleStatusChange(trip, e.target.value as TripStatus)}
-                        className={`text-[9px] font-black uppercase px-3 py-1.5 rounded-full border-none cursor-pointer focus:ring-2 focus:ring-primary-500 ${
-                          trip.status === TripStatus.COMPLETED ? 'bg-emerald-100 text-emerald-700' : 
-                          trip.status === TripStatus.IN_PROGRESS ? 'bg-blue-100 text-blue-700' :
-                          trip.status === TripStatus.CANCELLED ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-700'
-                        }`}
-                      >
-                        {Object.values(TripStatus).map(s => <option key={s} value={s}>{s}</option>)}
-                      </select>
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2">
+                        <select 
+                          value={trip.status} 
+                          onChange={(e) => handleStatusChange(trip, e.target.value as TripStatus)}
+                          className={`text-[9px] font-black uppercase px-3 py-1.5 rounded-full border-none cursor-pointer focus:ring-2 focus:ring-primary-500 ${
+                            trip.status === TripStatus.COMPLETED ? 'bg-emerald-100 text-emerald-700' : 
+                            trip.status === TripStatus.IN_PROGRESS ? 'bg-blue-100 text-blue-700' :
+                            trip.status === TripStatus.CANCELLED ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-700'
+                          }`}
+                        >
+                          {Object.values(TripStatus).map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                      </div>
                       <span className="text-[10px] font-black text-slate-400 flex items-center gap-1 uppercase">
                         <Calendar size={12} /> {formatDateDisplay(trip.date)}
                       </span>
                     </div>
+
+                    {trip.description && (
+                      <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter mb-4 leading-tight line-clamp-2">
+                        {trip.description}
+                      </h3>
+                    )}
                     
                     <div className="space-y-1 mb-4">
                       <div className="flex items-center gap-2">
                         <div className="w-2 h-2 rounded-full bg-primary-500"></div>
-                        <h3 className="text-lg font-black text-slate-800 tracking-tighter truncate uppercase">{trip.origin}</h3>
+                        <h4 className="text-sm font-black text-slate-700 truncate uppercase">{trip.origin}</h4>
                       </div>
-                      <div className="ml-1 w-px h-4 bg-slate-100"></div>
+                      <div className="ml-1 w-px h-3 bg-slate-100"></div>
                       <div className="flex items-center gap-2">
                         <div className="w-2 h-2 rounded-full bg-rose-500"></div>
-                        <h3 className="text-lg font-black text-slate-800 tracking-tighter truncate uppercase">{trip.destination}</h3>
+                        <h4 className="text-sm font-black text-slate-700 truncate uppercase">{trip.destination}</h4>
                       </div>
                     </div>
                     
@@ -319,6 +331,19 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
             </div>
 
             <div className="p-5 md:p-10 space-y-8">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-slate-400 ml-1 flex items-center gap-2">
+                  <Package size={14}/> Descrição da Carga
+                </label>
+                <input 
+                  required 
+                  placeholder="Ex: Carga de milho, Peças automotivas, Mudança..." 
+                  className="w-full p-5 bg-slate-50 border-2 border-transparent focus:border-primary-500 rounded-2xl font-black text-lg outline-none transition-all" 
+                  value={formData.description} 
+                  onChange={e => setFormData({...formData, description: e.target.value})} 
+                />
+              </div>
+
               <div className="space-y-4 bg-slate-50 p-4 md:p-8 rounded-[3rem] border border-slate-100">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
@@ -338,6 +363,29 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                         {BRAZILIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
                     </div>
+                  </div>
+                </div>
+
+                <div className="mt-6 pt-6 border-t border-slate-200">
+                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1 flex items-center gap-2 mb-3">
+                    <MapPinPlus size={14}/> Adicionar Rotas / Escalas (Opcional)
+                  </label>
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {stops.map((stop, idx) => (
+                      <div key={idx} className="bg-white px-3 py-2 rounded-xl flex items-center gap-2 border border-slate-200 animate-fade-in shadow-sm">
+                        <span className="text-[10px] font-bold text-slate-700">{stop.city} - {stop.state}</span>
+                        <button onClick={() => removeStop(idx)} className="text-rose-400 hover:text-rose-600"><X size={14}/></button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex gap-1 md:gap-2">
+                    <input placeholder="Cidade parada" className="flex-1 p-4 bg-white rounded-2xl border-none text-sm font-bold outline-none focus:ring-2 focus:ring-primary-500" value={newStop.city} onChange={e => setNewStop({...newStop, city: e.target.value})} />
+                    <select className="w-16 md:w-20 p-4 bg-white rounded-2xl border-none font-bold outline-none" value={newStop.state} onChange={e => setNewStop({...newStop, state: e.target.value})}>
+                      {BRAZILIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                    <button onClick={addStop} className="p-4 bg-slate-900 text-white rounded-2xl hover:bg-black transition-all shrink-0">
+                      <Plus size={20}/>
+                    </button>
                   </div>
                 </div>
               </div>
