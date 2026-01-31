@@ -131,14 +131,14 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ maintena
       </div>
 
       {isModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white w-full max-w-md rounded-[2.5rem] p-8 shadow-2xl animate-fade-in my-8">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-end md:items-center justify-center p-0 md:p-4 z-50 overflow-y-auto">
+          <div className="bg-white w-full max-w-md rounded-t-[3rem] md:rounded-[2.5rem] p-8 shadow-2xl animate-fade-in my-0 md:my-8 h-[90vh] md:h-auto overflow-y-auto mt-[env(safe-area-inset-top)]">
             <div className="flex justify-between items-center mb-8">
                <h3 className="text-2xl font-black text-slate-900">Lançar Manutenção</h3>
                <button onClick={() => setIsModalOpen(false)} className="text-slate-400"><X size={28}/></button>
             </div>
             
-            <div className="space-y-4">
+            <div className="space-y-4 pb-10">
               <div className="space-y-1">
                 <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Veículo</label>
                 <select 
@@ -161,7 +161,8 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ maintena
                 />
               </div>
               
-              <div className="grid grid-cols-2 gap-3">
+              {/* Ajuste para mobile: Empilhar em telas pequenas */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-[10px] font-black uppercase text-slate-400 ml-1">KM na Troca</label>
                   <input 
@@ -175,7 +176,7 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ maintena
                   <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Data da Compra</label>
                   <input 
                     type="date" 
-                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-xs outline-none" 
+                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-base outline-none" 
                     value={formData.purchase_date} 
                     onChange={e => setFormData({...formData, purchase_date: e.target.value})} 
                   />
@@ -186,7 +187,7 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ maintena
                 <p className="text-[10px] font-black uppercase text-primary-600 flex items-center gap-2">
                    <ShieldCheck size={14}/> Garantia
                 </p>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Meses</label>
                     <input 
@@ -218,7 +219,7 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ maintena
                  />
               </div>
 
-              <div className="flex gap-3 pt-6">
+              <div className="flex gap-3 pt-6 mb-8">
                 <button disabled={isSaving} onClick={() => setIsModalOpen(false)} className="flex-1 py-4 font-bold border rounded-2xl active:scale-95 transition-all">Cancelar</button>
                 <button disabled={isSaving} onClick={async () => { 
                    if(!formData.vehicle_id || !formData.part_name) return alert("Preencha veículo e peça.");

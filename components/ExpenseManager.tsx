@@ -262,7 +262,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
 
       {modalType && (
         <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md flex items-end md:items-center justify-center p-0 md:p-6 z-[100] animate-fade-in" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
-          <div className="bg-white rounded-t-[4rem] md:rounded-[3rem] w-full max-w-xl p-8 md:p-12 shadow-2xl animate-slide-up h-[94vh] md:h-auto overflow-y-auto">
+          <div className="bg-white rounded-t-[4rem] md:rounded-[3rem] w-full max-w-xl p-8 md:p-12 shadow-2xl animate-slide-up h-[90vh] md:h-auto overflow-y-auto mt-[env(safe-area-inset-top)]">
             <div className="flex justify-between items-center mb-8">
               <div>
                 <span className="text-xs font-black uppercase text-primary-600 tracking-[0.2em]">{modalType === 'FIXED' ? 'Lançamento Fixo' : 'Lançamento Viagem'}</span>
@@ -304,14 +304,15 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 md:gap-6">
+              {/* Ajuste para mobile: Grid de datas empilhável */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                 <div className="space-y-2">
                   <label className="text-[11px] font-black uppercase text-slate-400 ml-1">Data Gasto</label>
-                  <input required type="date" className="w-full p-5 bg-slate-50 rounded-3xl font-bold outline-none" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} />
+                  <input required type="date" className="w-full p-5 bg-slate-50 rounded-3xl font-bold outline-none text-base" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} />
                 </div>
                 <div className="space-y-2">
                   <label className="text-[11px] font-black uppercase text-primary-600 ml-1">Vencimento</label>
-                  <input required type="date" className="w-full p-5 bg-slate-50 rounded-3xl border-2 border-primary-100 font-bold outline-none" value={formData.due_date} onChange={e => setFormData({...formData, due_date: e.target.value})} />
+                  <input required type="date" className="w-full p-5 bg-slate-50 rounded-3xl border-2 border-primary-100 font-bold outline-none text-base" value={formData.due_date} onChange={e => setFormData({...formData, due_date: e.target.value})} />
                 </div>
               </div>
 
@@ -343,7 +344,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
               </div>
 
               {modalType === 'FIXED' && (
-                <div className="grid grid-cols-2 gap-4 p-6 bg-slate-50 rounded-[2.5rem] border border-slate-100">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-6 bg-slate-50 rounded-[2.5rem] border border-slate-100">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Total de Parcelas</label>
                     <input type="number" className="w-full p-4 bg-white rounded-2xl border border-slate-200 font-black text-xl outline-none" value={formData.installments_total || ''} onChange={e => setFormData({...formData, installments_total: e.target.value === '' ? 1 : Number(e.target.value)})} />
@@ -362,7 +363,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
                 </label>
               </div>
 
-              <button disabled={isSaving} type="submit" className="w-full py-7 bg-primary-600 text-white rounded-[2.5rem] font-black text-xl shadow-2xl flex items-center justify-center gap-4 active:scale-95 transition-all">
+              <button disabled={isSaving} type="submit" className="w-full py-7 bg-primary-600 text-white rounded-[2.5rem] font-black text-xl shadow-2xl flex items-center justify-center gap-4 active:scale-95 transition-all mb-8">
                 {isSaving ? <Loader2 className="animate-spin" /> : <ShieldCheck size={24}/>}
                 {isSaving ? 'Salvando...' : 'Confirmar Lançamento'}
               </button>
