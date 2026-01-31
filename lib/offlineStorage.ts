@@ -48,7 +48,7 @@ export const offlineStorage = {
 
     if (action === 'delete') {
       await db.delete(table as any, id);
-      finalData = { id }; // Dados mínimos para deletar no remoto
+      finalData = { id }; 
     } else if (action === 'update') {
       const existing = await db.get(table as any, id);
       finalData = { 
@@ -69,11 +69,10 @@ export const offlineStorage = {
       await db.put(table as any, finalData);
     }
 
-    // Registrar na fila de sincronização
     await db.put('sync_queue', {
-      id: generateUUID(), // ID único para a entrada na fila de sync
+      id: generateUUID(),
       table,
-      data: finalData, // Contém o ID do registro real
+      data: finalData,
       status: 'pending',
       action,
       timestamp: Date.now()
