@@ -106,7 +106,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
     const expense = expenses.find(e => e.id === id);
     if (!expense || !onUpdateExpense) return;
 
-    if (confirm(`Confirmar pagamento de "${expense.description}"?`)) {
+    if (confirm(`Confirmar o pagamento de "${expense.description}"?`)) {
       if (expense.installments_total && expense.installment_number && expense.installment_number < expense.installments_total) {
         const nextDueDate = addOneMonth(expense.due_date || expense.date);
         await onUpdateExpense(id, {
@@ -333,7 +333,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
                       <select className="w-full p-5 bg-slate-50 rounded-3xl border-2 border-transparent focus:border-primary-500 font-bold appearance-none pr-12 outline-none" value={formData.trip_id} onChange={e => setFormData({...formData, trip_id: e.target.value})}>
                         <option value="">Sem Viagem Específica</option>
                         {trips.filter(t => t.status !== 'Cancelada').map(t => (
-                          <option key={t.id} value={t.id}>{t.origin.split(' - ')[0]} -> {t.destination.split(' - ')[0]}</option>
+                          <option key={t.id} value={t.id}>{`${t.origin.split(' - ')[0]} ➔ ${t.destination.split(' - ')[0]}`}</option>
                         ))}
                       </select>
                       <ChevronDown className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={20} />
