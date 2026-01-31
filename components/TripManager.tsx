@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Trip, TripStatus, Vehicle, TripStop } from '../types';
-import { Plus, MapPin, Calendar, Truck, UserCheck, Navigation, X, Trash2, Map as MapIcon, ChevronRight, Percent, Loader2, Edit2, DollarSign, MessageSquare, Sparkles, Wand2, PlusCircle, ExternalLink, CheckSquare, Gauge, Utensils, Construction, MapPinPlus, ShieldCheck, ChevronDown, AlignLeft, CheckCircle2, Package } from 'lucide-react';
+import { Plus, MapPin, Calendar, Truck, UserCheck, Navigation, X, Trash2, Map as MapIcon, ChevronRight, Percent, Loader2, Edit2, DollarSign, MessageSquare, Sparkles, Wand2, PlusCircle, ExternalLink, CheckSquare, Gauge, Utensils, Construction, MapPinPlus, ShieldCheck, ChevronDown, AlignLeft, CheckCircle2, Package, NotebookPen } from 'lucide-react';
 import { calculateANTT } from '../services/anttService';
 
 interface TripManagerProps {
@@ -333,11 +333,10 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
             <div className="p-5 md:p-10 space-y-8">
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase text-slate-400 ml-1 flex items-center gap-2">
-                  <Package size={14}/> Descrição da Carga
+                  <NotebookPen size={14}/> OBS / Descrição da Carga
                 </label>
                 <input 
-                  required 
-                  placeholder="Ex: Carga de milho, Peças automotivas, Mudança..." 
+                  placeholder="Ex: Carga de milho, Peças automotivas, Observações..." 
                   className="w-full p-5 bg-slate-50 border-2 border-transparent focus:border-primary-500 rounded-2xl font-black text-lg outline-none transition-all" 
                   value={formData.description} 
                   onChange={e => setFormData({...formData, description: e.target.value})} 
