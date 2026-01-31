@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Expense, ExpenseCategory, Trip, Vehicle } from '../types';
-import { Trash2, ChevronDown, ReceiptText, Banknote, Loader2, Edit2, X, ShieldCheck, Wallet, Check, Calendar, Truck, Tag } from 'lucide-react';
+import { Trash2, ChevronDown, ReceiptText, Banknote, Loader2, Edit2, CheckCircle2, X, ShieldCheck, Wallet, Check, Layers, AlertCircle, Calendar, Truck } from 'lucide-react';
 
 interface ExpenseManagerProps {
   expenses: Expense[];
@@ -56,14 +56,20 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
     installment_number: 1
   });
 
+  // Ordenação de Prioridade: Atrasadas > Vencendo Hoje > Pendentes Futuras > Pagas
   const sortedExpenses = useMemo(() => {
     const today = getToday();
     return [...expenses].sort((a, b) => {
+      // Prioridade 1: Pendentes vs Pagas
       if (!a.is_paid && b.is_paid) return -1;
       if (a.is_paid && !b.is_paid) return 1;
+
+      // Se ambas pendentes, prioriza data de vencimento menor (mais antiga/atrasada)
       if (!a.is_paid && !b.is_paid) {
         return (a.due_date || a.date).localeCompare(b.due_date || b.date);
       }
+
+      // Se ambas pagas, mostra as mais recentes primeiro
       return (b.date).localeCompare(a.date);
     });
   }, [expenses]);
@@ -112,12 +118,14 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
         const nextDueDate = addOneMonth(expense.due_date || expense.date);
         await onUpdateExpense(id, {
           is_paid: false, 
-          installment_number: (expense.installment_number || 1) + 1,
+          installment_number: expense.installment_number + 1,
           due_date: nextDueDate,
           date: getToday()
         });
+        alert(`Parcela ${expense.installment_number} paga! Card atualizado para a parcela ${expense.installment_number + 1}.`);
       } else {
         await onUpdateExpense(id, { is_paid: true });
+        alert("Despesa finalizada!");
       }
     }
   };
@@ -286,19 +294,11 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
                   <input required type="number" step="0.01" className="w-full p-5 bg-slate-50 rounded-3xl border-2 border-transparent focus:border-primary-500 font-black text-3xl text-slate-900 outline-none" value={formData.amount || ''} onChange={e => setFormData({...formData, amount: e.target.value})} />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[11px] font-black uppercase text-slate-400 ml-1 flex items-center gap-2">
-                    <Tag size={12}/> Categoria
-                  </label>
+                  <label className="text-[11px] font-black uppercase text-slate-400 ml-1">Veículo Associado</label>
                   <div className="relative">
-                    <select 
-                      required
-                      className="w-full p-5 bg-slate-50 rounded-3xl border-2 border-transparent focus:border-primary-500 font-bold appearance-none pr-12 outline-none"
-                      value={formData.category}
-                      onChange={e => setFormData({...formData, category: e.target.value})}
-                    >
-                      {currentCategories.map(cat => (
-                        <option key={cat} value={cat}>{cat}</option>
-                      ))}
+                    <select className="w-full p-5 bg-slate-50 rounded-3xl border-2 border-transparent focus:border-primary-500 font-bold appearance-none pr-12 outline-none" value={formData.vehicle_id} onChange={e => setFormData({...formData, vehicle_id: e.target.value})}>
+                      <option value="">Nenhum Veículo</option>
+                      {vehicles.map(v => <option key={v.id} value={v.id}>{v.plate} - {v.model}</option>)}
                     </select>
                     <ChevronDown className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={20} />
                   </div>
@@ -314,33 +314,6 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
                   <label className="text-[11px] font-black uppercase text-primary-600 ml-1">Vencimento</label>
                   <input required type="date" className="w-full p-5 bg-slate-50 rounded-3xl border-2 border-primary-100 font-bold outline-none" value={formData.due_date} onChange={e => setFormData({...formData, due_date: e.target.value})} />
                 </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                <div className="space-y-2">
-                  <label className="text-[11px] font-black uppercase text-slate-400 ml-1">Veículo Associado</label>
-                  <div className="relative">
-                    <select className="w-full p-5 bg-slate-50 rounded-3xl border-2 border-transparent focus:border-primary-500 font-bold appearance-none pr-12 outline-none" value={formData.vehicle_id} onChange={e => setFormData({...formData, vehicle_id: e.target.value})}>
-                      <option value="">Nenhum Veículo</option>
-                      {vehicles.map(v => <option key={v.id} value={v.id}>{v.plate} - {v.model}</option>)}
-                    </select>
-                    <ChevronDown className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={20} />
-                  </div>
-                </div>
-                {modalType === 'TRIP' && (
-                  <div className="space-y-2">
-                    <label className="text-[11px] font-black uppercase text-slate-400 ml-1">Vincular Viagem</label>
-                    <div className="relative">
-                      <select className="w-full p-5 bg-slate-50 rounded-3xl border-2 border-transparent focus:border-primary-500 font-bold appearance-none pr-12 outline-none" value={formData.trip_id} onChange={e => setFormData({...formData, trip_id: e.target.value})}>
-                        <option value="">Sem Viagem Específica</option>
-                        {trips.filter(t => t.status !== 'Cancelada').map(t => (
-                          <option key={t.id} value={t.id}>{t.origin.split(' - ')[0]} -> {t.destination.split(' - ')[0]}</option>
-                        ))}
-                      </select>
-                      <ChevronDown className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={20} />
-                    </div>
-                  </div>
-                )}
               </div>
 
               {modalType === 'FIXED' && (
