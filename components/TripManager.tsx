@@ -57,12 +57,24 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
     notes: ''
   });
 
-  // Ordenar viagens: mais recentes no topo usando timestamp para comparação segura
+  // Prioridade: Atrasadas/Hoje > Em Andamento > Futuras > Concluídas
   const sortedTrips = useMemo(() => {
+    const today = getTodayLocal();
     return [...trips].sort((a, b) => {
-      const dateA = new Date(a.date + 'T12:00:00').getTime();
-      const dateB = new Date(b.date + 'T12:00:00').getTime();
-      return dateB - dateA;
+      const getPriority = (trip: Trip) => {
+        if (trip.status === TripStatus.SCHEDULED && trip.date <= today) return 1; // Máxima: Atrasadas e Hoje
+        if (trip.status === TripStatus.IN_PROGRESS) return 2;
+        if (trip.status === TripStatus.SCHEDULED && trip.date > today) return 3;
+        return 4; // Concluídas e Canceladas
+      };
+
+      const priorityA = getPriority(a);
+      const priorityB = getPriority(b);
+
+      if (priorityA !== priorityB) return priorityA - priorityB;
+      
+      // Desempate por data (mais antigas primeiro nas atrasadas, mais próximas nas futuras)
+      return a.date.localeCompare(b.date);
     });
   }, [trips]);
 
@@ -206,18 +218,27 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
       <div className="flex justify-between items-center px-4">
         <div>
           <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">Minhas Viagens</h2>
-          <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mt-1">Controle de rotas e ganhos</p>
+          <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mt-1">Status e Roteirização</p>
         </div>
-        <button onClick={() => { resetForm(); setIsModalOpen(true); }} className="bg-primary-600 text-white px-8 py-5 rounded-[2rem] flex items-center gap-2 font-black uppercase text-xs shadow-xl shadow-primary-200 active:scale-95 transition-all">
-          <Plus size={20} /> Lançar Nova
+        <button onClick={() => { resetForm(); setIsModalOpen(true); }} className="bg-primary-600 text-white px-8 py-5 rounded-[2rem] flex items-center gap-2 font-black uppercase text-xs shadow-xl active:scale-95 transition-all">
+          <Plus size={20} /> Nova Viagem
         </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 px-4">
         {sortedTrips.map(trip => {
           const vehicle = vehicles.find(v => v.id === trip.vehicle_id);
+          const isAtrasada = trip.status === TripStatus.SCHEDULED && trip.date < getTodayLocal();
+          const isHoje = trip.status === TripStatus.SCHEDULED && trip.date === getTodayLocal();
+
           return (
-            <div key={trip.id} className="bg-white p-8 rounded-[3rem] border border-slate-50 shadow-sm relative group animate-fade-in hover:border-primary-500 transition-all">
+            <div key={trip.id} className={`bg-white p-8 rounded-[3rem] border-2 shadow-sm relative group animate-fade-in transition-all ${isAtrasada ? 'border-rose-200 ring-4 ring-rose-50' : isHoje ? 'border-primary-200 ring-4 ring-primary-50' : 'border-slate-50'}`}>
+              {(isAtrasada || isHoje) && (
+                <div className={`absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full text-[10px] font-black uppercase text-white z-20 ${isAtrasada ? 'bg-rose-600 animate-pulse' : 'bg-primary-600'}`}>
+                  {isAtrasada ? 'Saída Atrasada' : 'Saída Hoje'}
+                </div>
+              )}
+
               <div className="flex flex-col gap-6">
                  <div className="flex-1">
                     <div className="flex items-center gap-3 mb-4">
@@ -251,7 +272,7 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                     
                     <div className="flex items-center gap-2 mb-6">
                       <Truck size={14} className="text-slate-400" />
-                      <span className="text-[10px] font-black uppercase bg-slate-50 text-slate-500 px-3 py-1 rounded-lg">
+                      <span className="text-[10px] font-black uppercase bg-slate-900 text-white px-3 py-1 rounded-lg">
                         {vehicle ? `${vehicle.plate} • ${vehicle.model}` : 'Sem veículo'}
                       </span>
                     </div>
@@ -267,27 +288,13 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                           <p className="text-lg font-black text-primary-700">R$ {trip.agreed_price.toLocaleString()}</p>
                         </div>
                       </div>
-                      
-                      <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100/50">
-                        <p className="text-[9px] font-black text-amber-600 uppercase flex items-center gap-1">
-                          <Percent size={10} /> Comissão ({trip.driver_commission_percentage}%)
-                        </p>
-                        <p className="text-xl font-black text-amber-700">R$ {trip.driver_commission.toLocaleString()}</p>
-                      </div>
                     </div>
-
-                    {trip.notes && (
-                      <div className="mt-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                         <p className="text-[9px] font-black text-slate-400 uppercase mb-1 flex items-center gap-1"><AlignLeft size={10}/> Notas</p>
-                         <p className="text-xs text-slate-600 font-medium line-clamp-2 italic">{trip.notes}</p>
-                      </div>
-                    )}
                  </div>
               </div>
 
               <div className="mt-6 flex gap-2">
                 <button onClick={() => window.open(getMapsUrl(trip.origin, trip.destination, trip.stops), '_blank')} className="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase flex items-center justify-center gap-2 hover:bg-black transition-all">
-                  <MapIcon size={14}/> Ver Rota
+                  <MapIcon size={14}/> Rota GPS
                 </button>
               </div>
 
@@ -300,14 +307,13 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
         })}
       </div>
 
-      {/* MODAL PRINCIPAL DE VIAGEM */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md flex items-end md:items-center justify-center p-0 md:p-6 z-[100] animate-fade-in" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
           <div className="bg-white w-full max-w-2xl rounded-t-[4rem] md:rounded-[3rem] shadow-2xl animate-slide-up relative h-[92vh] md:h-auto overflow-y-auto pb-10">
             <div className="flex justify-between items-center p-6 md:p-10 pb-4">
               <div>
-                <span className="text-xs font-black uppercase text-primary-600 tracking-widest">Viagem & Rota</span>
-                <h3 className="text-3xl font-black uppercase tracking-tighter mt-1 leading-none">{editingTripId ? 'Alterar Viagem' : 'Novo Lançamento'}</h3>
+                <span className="text-xs font-black uppercase text-primary-600 tracking-widest">Planejamento de Rota</span>
+                <h3 className="text-3xl font-black uppercase tracking-tighter mt-1 leading-none">{editingTripId ? 'Alterar Viagem' : 'Novo Frete'}</h3>
               </div>
               <button onClick={() => setIsModalOpen(false)} className="bg-slate-100 p-4 md:p-5 rounded-full text-slate-400 hover:text-slate-900 transition-all"><X size={28} /></button>
             </div>
@@ -334,34 +340,11 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                     </div>
                   </div>
                 </div>
-
-                <div className="mt-6 pt-6 border-t border-slate-200">
-                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1 flex items-center gap-2 mb-3">
-                    <MapPinPlus size={14}/> Paradas / Escalas (Opcional)
-                  </label>
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    {stops.map((stop, idx) => (
-                      <div key={idx} className="bg-white px-3 py-2 rounded-xl flex items-center gap-2 border border-slate-200 animate-fade-in shadow-sm">
-                        <span className="text-[10px] font-bold text-slate-700">{stop.city} - {stop.state}</span>
-                        <button onClick={() => removeStop(idx)} className="text-rose-400 hover:text-rose-600"><X size={14}/></button>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="flex gap-1 md:gap-2">
-                    <input placeholder="Cidade parada" className="flex-1 p-4 bg-white rounded-2xl border-none text-sm font-bold outline-none" value={newStop.city} onChange={e => setNewStop({...newStop, city: e.target.value})} />
-                    <select className="w-16 md:w-20 p-4 bg-white rounded-2xl border-none font-bold outline-none" value={newStop.state} onChange={e => setNewStop({...newStop, state: e.target.value})}>
-                      {BRAZILIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                    <button onClick={addStop} className="p-4 bg-slate-900 text-white rounded-2xl hover:bg-black transition-all shrink-0">
-                      <Plus size={20}/>
-                    </button>
-                  </div>
-                </div>
               </div>
 
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase text-slate-400 ml-1 flex items-center gap-2">
-                  <Truck size={14} className="text-primary-500"/> Associar Veículo para Viagem
+                  <Truck size={14} className="text-primary-500"/> Veículo da Viagem
                 </label>
                 <div className="relative">
                   <select 
@@ -380,94 +363,35 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
 
               <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Data Viagem</label>
+                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Data Partida</label>
                   <input type="date" className="w-full p-5 bg-slate-50 rounded-2xl font-bold outline-none" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Distância KM</label>
+                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1">KM Estimado</label>
                   <input type="number" className="w-full p-5 bg-slate-50 rounded-2xl font-black text-2xl outline-none" value={formData.distance_km || ''} onChange={e => setFormData({...formData, distance_km: e.target.value === '' ? 0 : Number(e.target.value)})} />
                 </div>
               </div>
 
               <div className="bg-slate-950 p-6 md:p-10 rounded-[3rem] text-white space-y-6">
                 <div className="flex justify-between items-center">
-                   <span className="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em]">Valores e Comissões</span>
-                   <button onClick={suggestANTTPrice} className="text-[10px] font-black text-emerald-400 bg-emerald-500/10 px-4 py-2 rounded-xl hover:bg-emerald-500/20 transition-all uppercase">Simular ANTT</button>
+                   <span className="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em]">Acordo de Frete</span>
+                   <button onClick={suggestANTTPrice} className="text-[10px] font-black text-emerald-400 bg-emerald-500/10 px-4 py-2 rounded-xl hover:bg-emerald-500/20 transition-all uppercase">Simular Piso</button>
                 </div>
                 <div className="grid grid-cols-2 gap-4 md:gap-6">
                   <div className="space-y-2">
-                    <p className="text-[10px] font-black uppercase text-slate-600">Frete Negociado</p>
+                    <p className="text-[10px] font-black uppercase text-slate-600">Frete Bruto</p>
                     <input type="number" className="w-full p-5 bg-white/5 border border-white/10 rounded-2xl font-black text-2xl text-primary-400 outline-none" value={formData.agreed_price || ''} onChange={e => setFormData({...formData, agreed_price: e.target.value === '' ? 0 : Number(e.target.value)})} />
                   </div>
                   <div className="space-y-2">
-                    <p className="text-[10px] font-black uppercase text-slate-600">Comissão %</p>
+                    <p className="text-[10px] font-black uppercase text-slate-600">Comissão (%)</p>
                     <input type="number" className="w-full p-5 bg-white/5 border border-white/10 rounded-2xl font-black text-2xl text-amber-400 outline-none" value={formData.driver_commission_percentage || ''} onChange={e => setFormData({...formData, driver_commission_percentage: e.target.value === '' ? 0 : Number(e.target.value)})} />
                   </div>
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase text-slate-400 ml-1 flex items-center gap-1"><AlignLeft size={14}/> Observações</label>
-                <textarea 
-                  placeholder="Detalhes da carga, local de descarga, contatos..." 
-                  rows={3}
-                  className="w-full p-5 bg-slate-50 border-2 border-transparent focus:border-primary-500 rounded-3xl font-bold outline-none transition-all resize-none" 
-                  value={formData.notes} 
-                  onChange={e => setFormData({...formData, notes: e.target.value})} 
-                />
-              </div>
-
-              <div className="flex flex-col gap-4">
-                <button onClick={previewCurrentRoute} className="w-full py-5 bg-slate-100 text-slate-700 rounded-[2rem] font-black text-xs uppercase flex items-center justify-center gap-3 hover:bg-slate-200 transition-all">
-                  <MapIcon size={20}/> Visualizar Trajeto no Google Maps
-                </button>
-                <button disabled={isSaving} onClick={handleSave} className="w-full py-8 bg-primary-600 text-white rounded-[2.5rem] font-black text-2xl shadow-2xl flex items-center justify-center gap-4 active:scale-95 transition-all">
-                  {isSaving ? <Loader2 className="animate-spin" /> : <ShieldCheck size={32}/>}
-                  {isSaving ? 'Salvando...' : 'Confirmar Viagem'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {isKmModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-2xl flex items-center justify-center p-6 z-[120] animate-fade-in">
-          <div className="bg-white rounded-[3.5rem] w-full max-w-md p-10 md:p-12 shadow-2xl text-center">
-            <div className="bg-emerald-100 text-emerald-600 p-8 rounded-full w-24 h-24 flex items-center justify-center mx-auto mb-8">
-              <CheckCircle2 size={48} />
-            </div>
-            
-            <h3 className="text-3xl font-black text-slate-900 uppercase tracking-tighter mb-4 leading-none">Concluir Viagem</h3>
-            <p className="text-slate-500 font-bold text-sm mb-10">Para finalizar, atualize o odômetro (KM) final do veículo associado.</p>
-            
-            <div className="space-y-6 mb-12">
-              <div className="space-y-1 text-left">
-                <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Odômetro Final (KM)</label>
-                <div className="relative">
-                  <input 
-                    type="number" 
-                    className="w-full p-6 bg-slate-50 border-2 border-emerald-500/20 rounded-3xl font-black text-3xl text-slate-900 outline-none focus:ring-4 focus:ring-emerald-500/10 transition-all"
-                    value={newVehicleKm || ''}
-                    onChange={(e) => setNewVehicleKm(e.target.value === '' ? 0 : Number(e.target.value))}
-                  />
-                  <Gauge className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-200" size={32} />
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <button 
-                onClick={() => { setIsKmModalOpen(false); setPendingStatusUpdate(null); }} 
-                className="py-5 bg-slate-100 text-slate-600 rounded-3xl font-black uppercase text-xs hover:bg-slate-200 transition-all"
-              >
-                Voltar
-              </button>
-              <button 
-                onClick={confirmKmUpdate} 
-                className="py-5 bg-emerald-600 text-white rounded-3xl font-black uppercase text-xs shadow-2xl shadow-emerald-200 hover:bg-emerald-700 transition-all"
-              >
-                Salvar e Concluir
+              <button disabled={isSaving} onClick={handleSave} className="w-full py-8 bg-primary-600 text-white rounded-[2.5rem] font-black text-2xl shadow-2xl flex items-center justify-center gap-4 active:scale-95 transition-all">
+                {isSaving ? <Loader2 className="animate-spin" /> : <ShieldCheck size={32}/>}
+                {isSaving ? 'Salvando...' : 'Confirmar Viagem'}
               </button>
             </div>
           </div>

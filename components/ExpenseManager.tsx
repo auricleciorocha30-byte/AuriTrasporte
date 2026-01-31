@@ -1,7 +1,7 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Expense, ExpenseCategory, Trip, Vehicle } from '../types';
-import { Trash2, ChevronDown, ReceiptText, Banknote, Loader2, Edit2, CheckCircle2, X, ShieldCheck, Wallet, Check, Layers, AlertCircle, Calendar } from 'lucide-react';
+import { Trash2, ChevronDown, ReceiptText, Banknote, Loader2, Edit2, CheckCircle2, X, ShieldCheck, Wallet, Check, Layers, AlertCircle, Calendar, Truck } from 'lucide-react';
 
 interface ExpenseManagerProps {
   expenses: Expense[];
@@ -56,6 +56,24 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
     installment_number: 1
   });
 
+  // Ordenação de Prioridade: Atrasadas > Vencendo Hoje > Pendentes Futuras > Pagas
+  const sortedExpenses = useMemo(() => {
+    const today = getToday();
+    return [...expenses].sort((a, b) => {
+      // Prioridade 1: Pendentes vs Pagas
+      if (!a.is_paid && b.is_paid) return -1;
+      if (a.is_paid && !b.is_paid) return 1;
+
+      // Se ambas pendentes, prioriza data de vencimento menor (mais antiga/atrasada)
+      if (!a.is_paid && !b.is_paid) {
+        return (a.due_date || a.date).localeCompare(b.due_date || b.date);
+      }
+
+      // Se ambas pagas, mostra as mais recentes primeiro
+      return (b.date).localeCompare(a.date);
+    });
+  }, [expenses]);
+
   const resetForm = () => {
     setModalType(null);
     setEditingExpenseId(null);
@@ -96,23 +114,18 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
     if (!expense || !onUpdateExpense) return;
 
     if (confirm(`Confirmar o pagamento da parcela ${expense.installment_number}/${expense.installments_total} de "${expense.description}"?`)) {
-      
-      // Se houver próxima parcela, ATUALIZA o mesmo registro para a próxima (mesmo card)
       if (expense.installments_total && expense.installment_number && expense.installment_number < expense.installments_total) {
         const nextDueDate = addOneMonth(expense.due_date || expense.date);
-        
         await onUpdateExpense(id, {
-          is_paid: false, // Próxima parcela nasce pendente
+          is_paid: false, 
           installment_number: expense.installment_number + 1,
           due_date: nextDueDate,
-          date: getToday() // Data do novo lançamento (hoje)
+          date: getToday()
         });
-
-        alert(`Parcela ${expense.installment_number} paga!\n\nO card foi atualizado para a próxima parcela (${expense.installment_number + 1}/${expense.installments_total}) com vencimento em ${new Date(nextDueDate + 'T12:00:00').toLocaleDateString()}.`);
+        alert(`Parcela ${expense.installment_number} paga! Card atualizado para a parcela ${expense.installment_number + 1}.`);
       } else {
-        // Se for a última ou não parcelada, apenas marca como paga
         await onUpdateExpense(id, { is_paid: true });
-        alert("Despesa finalizada e marcada como paga!");
+        alert("Despesa finalizada!");
       }
     }
   };
@@ -147,7 +160,6 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
       resetForm();
     } catch (err: any) {
       console.error("Erro ao salvar despesa:", err);
-      alert("Erro ao salvar.");
     }
   };
 
@@ -158,7 +170,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 px-4">
         <div>
           <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase leading-none">Financeiro</h2>
-          <p className="text-slate-400 font-bold text-sm uppercase tracking-widest mt-2">Fluxo de Caixa e Vencimentos</p>
+          <p className="text-slate-400 font-bold text-sm uppercase tracking-widest mt-2">Vencimentos e Fluxo de Caixa</p>
         </div>
         <div className="flex gap-4 w-full md:w-auto">
           <button 
@@ -177,17 +189,18 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 px-4">
-        {expenses.map((expense) => {
+        {sortedExpenses.map((expense) => {
           const isOverdue = !expense.is_paid && expense.due_date && new Date(expense.due_date + 'T12:00:00') < new Date();
+          const isToday = !expense.is_paid && expense.due_date === getToday();
           const trip = trips.find(t => t.id === expense.trip_id);
           const vehicle = vehicles.find(v => v.id === expense.vehicle_id);
           const isFixed = FIXED_CATEGORIES.includes(expense.category);
 
           return (
-            <div key={expense.id} className={`bg-white p-8 rounded-[3rem] border-2 shadow-sm relative group hover:border-primary-500 transition-all ${isOverdue ? 'border-rose-200 ring-4 ring-rose-50' : 'border-slate-50'}`}>
-              {isOverdue && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-rose-600 text-white px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest animate-bounce z-20">
-                  Atrasada
+            <div key={expense.id} className={`bg-white p-8 rounded-[3rem] border-2 shadow-sm relative group hover:border-primary-500 transition-all ${isOverdue ? 'border-rose-300 ring-4 ring-rose-50' : isToday ? 'border-amber-300 ring-4 ring-amber-50' : 'border-slate-50'}`}>
+              {(isOverdue || isToday) && (
+                <div className={`absolute -top-3 left-1/2 -translate-x-1/2 text-white px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest z-20 ${isOverdue ? 'bg-rose-600 animate-bounce' : 'bg-amber-600'}`}>
+                  {isOverdue ? 'Atrasada' : 'Vence Hoje'}
                 </div>
               )}
               
@@ -211,8 +224,12 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
                   <span className={`text-[10px] font-black uppercase px-3 py-1 rounded-lg ${isFixed ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'}`}>
                     {expense.category}
                   </span>
-                  {trip && <span className="text-[10px] font-black uppercase bg-indigo-100 text-indigo-700 px-3 py-1 rounded-lg">Rota: {trip.destination.split(' - ')[0]}</span>}
-                  {vehicle && <span className="text-[10px] font-black uppercase bg-slate-900 text-white px-3 py-1 rounded-lg">{vehicle.plate}</span>}
+                  {vehicle && (
+                    <span className="text-[10px] font-black uppercase bg-slate-900 text-white px-3 py-1 rounded-lg flex items-center gap-1">
+                      <Truck size={10}/> {vehicle.plate}
+                    </span>
+                  )}
+                  {trip && <span className="text-[10px] font-black uppercase bg-indigo-100 text-indigo-700 px-3 py-1 rounded-lg">Viagem: {trip.destination.split(' - ')[0]}</span>}
                 </div>
 
                 <div className="h-px bg-slate-50 my-2"></div>
@@ -222,12 +239,12 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
                     <Calendar size={14} className="text-slate-300" />
                     <div>
                       <p className="text-[10px] font-black uppercase text-slate-400">Vencimento</p>
-                      <p className={`text-sm font-black ${isOverdue ? 'text-rose-600' : 'text-slate-700'}`}>{expense.due_date ? new Date(expense.due_date + 'T12:00:00').toLocaleDateString() : '---'}</p>
+                      <p className={`text-sm font-black ${isOverdue ? 'text-rose-600' : isToday ? 'text-amber-600' : 'text-slate-700'}`}>{expense.due_date ? new Date(expense.due_date + 'T12:00:00').toLocaleDateString() : '---'}</p>
                     </div>
                   </div>
                   <div className="text-right">
                     <p className="text-[10px] font-black uppercase text-slate-400">Status</p>
-                    <span className={`text-[10px] font-black uppercase px-3 py-1 rounded-lg ${expense.is_paid ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700 animate-pulse'}`}>
+                    <span className={`text-[10px] font-black uppercase px-3 py-1 rounded-lg ${expense.is_paid ? 'bg-emerald-100 text-emerald-700' : isOverdue ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}`}>
                       {expense.is_paid ? 'Pago' : isOverdue ? 'Atrasado' : 'Pendente'}
                     </span>
                   </div>
@@ -238,7 +255,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
                     onClick={() => handleMarkAsPaid(expense.id)} 
                     className="w-full mt-4 py-4 bg-emerald-600 text-white rounded-[1.5rem] font-black text-xs uppercase flex items-center justify-center gap-2 hover:bg-emerald-700 shadow-xl active:scale-95 transition-all"
                   >
-                    <Check size={18}/> {expense.installments_total && expense.installments_total > 1 ? `Pagar Parcela ${expense.installment_number}` : 'Marcar como Pago'}
+                    <Check size={18}/> {expense.installments_total && expense.installments_total > 1 ? `Pagar Parcela ${expense.installment_number}` : 'Confirmar Pagamento'}
                   </button>
                 )}
               </div>
@@ -257,9 +274,9 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
           <div className="bg-white rounded-t-[4rem] md:rounded-[3rem] w-full max-w-xl p-8 md:p-12 shadow-2xl animate-slide-up h-[94vh] md:h-auto overflow-y-auto">
             <div className="flex justify-between items-center mb-8">
               <div>
-                <span className="text-xs font-black uppercase text-primary-600 tracking-[0.2em]">{modalType === 'FIXED' ? 'Despesa Administrativa' : 'Despesa Operacional'}</span>
+                <span className="text-xs font-black uppercase text-primary-600 tracking-[0.2em]">{modalType === 'FIXED' ? 'Lançamento Fixo' : 'Lançamento Viagem'}</span>
                 <h3 className="text-3xl font-black text-slate-900 tracking-tighter uppercase leading-none mt-2">
-                  {editingExpenseId ? 'Editar Lançamento' : 'Novo Lançamento'}
+                  {editingExpenseId ? 'Editar Gasto' : 'Novo Gasto'}
                 </h3>
               </div>
               <button onClick={resetForm} className="bg-slate-100 p-5 rounded-full text-slate-400 hover:text-slate-900 transition-all"><X size={28} /></button>
@@ -267,20 +284,21 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
 
             <form onSubmit={handleSubmit} className="space-y-6 pb-12">
               <div className="space-y-2">
-                <label className="text-[11px] font-black uppercase text-slate-400 ml-1">Descrição</label>
-                <input required type="text" placeholder={modalType === 'FIXED' ? "Ex: Prestação do Caminhão" : "Ex: Troca de Óleo"} className="w-full p-5 bg-slate-50 rounded-3xl border-2 border-transparent focus:border-primary-500 font-bold outline-none text-lg transition-all" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
+                <label className="text-[11px] font-black uppercase text-slate-400 ml-1">O que foi pago?</label>
+                <input required type="text" placeholder="Ex: Prestação, Seguro, Diesel..." className="w-full p-5 bg-slate-50 rounded-3xl border-2 border-transparent focus:border-primary-500 font-bold outline-none text-lg transition-all" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
               </div>
 
-              <div className="grid grid-cols-2 gap-4 md:gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                 <div className="space-y-2">
                   <label className="text-[11px] font-black uppercase text-slate-400 ml-1">Valor (R$)</label>
                   <input required type="number" step="0.01" className="w-full p-5 bg-slate-50 rounded-3xl border-2 border-transparent focus:border-primary-500 font-black text-3xl text-slate-900 outline-none" value={formData.amount || ''} onChange={e => setFormData({...formData, amount: e.target.value})} />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[11px] font-black uppercase text-slate-400 ml-1">Categoria</label>
+                  <label className="text-[11px] font-black uppercase text-slate-400 ml-1">Veículo Associado</label>
                   <div className="relative">
-                    <select className="w-full p-5 bg-slate-50 rounded-3xl border-2 border-transparent focus:border-primary-500 font-bold appearance-none pr-12 outline-none" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value as ExpenseCategory})}>
-                      {currentCategories.map(c => <option key={c} value={c}>{c}</option>)}
+                    <select className="w-full p-5 bg-slate-50 rounded-3xl border-2 border-transparent focus:border-primary-500 font-bold appearance-none pr-12 outline-none" value={formData.vehicle_id} onChange={e => setFormData({...formData, vehicle_id: e.target.value})}>
+                      <option value="">Nenhum Veículo</option>
+                      {vehicles.map(v => <option key={v.id} value={v.id}>{v.plate} - {v.model}</option>)}
                     </select>
                     <ChevronDown className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={20} />
                   </div>
@@ -289,30 +307,32 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
 
               <div className="grid grid-cols-2 gap-4 md:gap-6">
                 <div className="space-y-2">
-                  <label className="text-[11px] font-black uppercase text-slate-400 ml-1">Lançamento</label>
+                  <label className="text-[11px] font-black uppercase text-slate-400 ml-1">Data Gasto</label>
                   <input required type="date" className="w-full p-5 bg-slate-50 rounded-3xl font-bold outline-none" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[11px] font-black uppercase text-primary-600 ml-1 flex items-center gap-1">Vencimento <AlertCircle size={12}/></label>
-                  <input required type="date" className="w-full p-5 bg-slate-50 rounded-3xl border-2 border-primary-100 font-bold outline-none focus:border-primary-500" value={formData.due_date} onChange={e => setFormData({...formData, due_date: e.target.value})} />
+                  <label className="text-[11px] font-black uppercase text-primary-600 ml-1">Vencimento</label>
+                  <input required type="date" className="w-full p-5 bg-slate-50 rounded-3xl border-2 border-primary-100 font-bold outline-none" value={formData.due_date} onChange={e => setFormData({...formData, due_date: e.target.value})} />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 p-6 bg-slate-50 rounded-[2.5rem] border border-slate-100">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1 flex items-center gap-1"><Layers size={14}/> Total de Parcelas</label>
-                  <input type="number" className="w-full p-4 bg-white rounded-2xl border border-slate-200 font-black text-xl outline-none" value={formData.installments_total || ''} onChange={e => setFormData({...formData, installments_total: e.target.value === '' ? 1 : Number(e.target.value)})} />
+              {modalType === 'FIXED' && (
+                <div className="grid grid-cols-2 gap-4 p-6 bg-slate-50 rounded-[2.5rem] border border-slate-100">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Total de Parcelas</label>
+                    <input type="number" className="w-full p-4 bg-white rounded-2xl border border-slate-200 font-black text-xl outline-none" value={formData.installments_total || ''} onChange={e => setFormData({...formData, installments_total: e.target.value === '' ? 1 : Number(e.target.value)})} />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Parcela Inicial</label>
+                    <input type="number" className="w-full p-4 bg-white rounded-2xl border border-slate-200 font-black text-xl outline-none" value={formData.installment_number || ''} onChange={e => setFormData({...formData, installment_number: e.target.value === '' ? 1 : Number(e.target.value)})} />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Parcela Atual</label>
-                  <input type="number" className="w-full p-4 bg-white rounded-2xl border border-slate-200 font-black text-xl outline-none" value={formData.installment_number || ''} onChange={e => setFormData({...formData, installment_number: e.target.value === '' ? 1 : Number(e.target.value)})} />
-                </div>
-              </div>
+              )}
 
               <div className={`flex items-center gap-4 p-6 rounded-3xl border transition-all ${formData.is_paid ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100'}`}>
                 <input type="checkbox" className="w-7 h-7 rounded-lg text-emerald-600" checked={formData.is_paid} onChange={e => setFormData({...formData, is_paid: e.target.checked})} />
                 <label className={`text-sm font-black uppercase ${formData.is_paid ? 'text-emerald-700' : 'text-rose-700'}`}>
-                  {formData.is_paid ? 'Lançamento já está Pago' : 'Lançar como Pendente'}
+                  {formData.is_paid ? 'Gasto já Pago' : 'Lançar como Pendente'}
                 </label>
               </div>
 

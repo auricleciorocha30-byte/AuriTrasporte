@@ -409,7 +409,6 @@ const App: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden relative">
-      {/* Backdrop para Menu Mobile */}
       {isMobileMenuOpen && (
         <div 
           className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[100] md:hidden animate-fade-in" 
@@ -417,7 +416,7 @@ const App: React.FC = () => {
         />
       )}
 
-      <aside className={`fixed md:relative z-[110] w-64 h-full bg-slate-900 text-slate-300 p-4 flex flex-col transition-transform duration-300 ${isMobileMenuOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full md:translate-x-0'}`}>
+      <aside className={`fixed md:relative z-[200] w-64 h-full bg-slate-900 text-slate-300 p-4 flex flex-col transition-transform duration-300 ${isMobileMenuOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full md:translate-x-0'}`}>
         <div className="flex items-center justify-between mb-10 px-2 shrink-0">
           <div className="flex items-center gap-2">
             <Truck className="text-primary-500" size={28} />
@@ -438,11 +437,11 @@ const App: React.FC = () => {
           <MenuBtn icon={Timer} label="Jornada" active={currentView === AppView.JORNADA} onClick={() => {setCurrentView(AppView.JORNADA); setIsMobileMenuOpen(false);}} />
         </nav>
 
-        <div className="pt-4 border-t border-white/5 mt-auto pb-10 md:pb-6">
+        <div className="pt-4 border-t border-white/5 mt-auto pb-12">
           <button 
             type="button"
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleLogout(); }} 
-            className="w-full flex items-center gap-3 px-4 py-5 text-rose-400 font-black uppercase text-xs hover:bg-white/5 rounded-xl transition-all active:scale-95 cursor-pointer relative z-[120]"
+            className="w-full flex items-center gap-3 px-6 py-6 text-rose-400 font-black uppercase text-xs hover:bg-white/5 rounded-2xl transition-all active:scale-95 cursor-pointer relative z-[210] border-2 border-rose-500/10"
           >
             {authLoading ? <Loader2 className="animate-spin" size={18} /> : <LogOut size={18} />} 
             {authLoading ? 'Saindo...' : 'Sair da Conta'}
@@ -457,13 +456,8 @@ const App: React.FC = () => {
             <div className="flex items-center gap-2">
               <span className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter border ${isOnline ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>
                 {isOnline ? <Wifi size={12}/> : <WifiOff size={12}/>}
-                {isOnline ? 'Conectado' : 'Offline'}
+                {isOnline ? 'Online' : 'Offline'}
               </span>
-              {syncing && (
-                <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter bg-blue-50 text-blue-600 border border-blue-100 animate-pulse">
-                  <RefreshCcw size={10} className="animate-spin" /> Sincronizando...
-                </span>
-              )}
             </div>
           </div>
           
