@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Expense, ExpenseCategory, Trip, Vehicle } from '../types';
-import { Trash2, ChevronDown, ReceiptText, Banknote, Loader2, Edit2, CheckCircle2, X, ShieldCheck, Wallet, Check, Layers, AlertCircle, Calendar, Truck, Tag } from 'lucide-react';
+import { Trash2, ChevronDown, ReceiptText, Banknote, Loader2, Edit2, X, ShieldCheck, Wallet, Check, Calendar, Truck, Tag } from 'lucide-react';
 
 interface ExpenseManagerProps {
   expenses: Expense[];
@@ -56,20 +56,14 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
     installment_number: 1
   });
 
-  // Ordenação de Prioridade: Atrasadas > Vencendo Hoje > Pendentes Futuras > Pagas
   const sortedExpenses = useMemo(() => {
     const today = getToday();
     return [...expenses].sort((a, b) => {
-      // Prioridade 1: Pendentes vs Pagas
       if (!a.is_paid && b.is_paid) return -1;
       if (a.is_paid && !b.is_paid) return 1;
-
-      // Se ambas pendentes, prioriza data de vencimento menor (mais antiga/atrasada)
       if (!a.is_paid && !b.is_paid) {
         return (a.due_date || a.date).localeCompare(b.due_date || b.date);
       }
-
-      // Se ambas pagas, mostra as mais recentes primeiro
       return (b.date).localeCompare(a.date);
     });
   }, [expenses]);
@@ -122,10 +116,8 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
           due_date: nextDueDate,
           date: getToday()
         });
-        alert(`Parcela ${expense.installment_number} paga! Card atualizado para a parcela ${(expense.installment_number || 1) + 1}.`);
       } else {
         await onUpdateExpense(id, { is_paid: true });
-        alert("Despesa finalizada!");
       }
     }
   };

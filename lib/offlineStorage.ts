@@ -1,5 +1,5 @@
 
-import { openDB, IDBPDatabase } from 'https://esm.sh/idb@8.0.2';
+import { openDB, IDBPDatabase } from 'idb';
 
 const DB_NAME = 'aurilog_offline_db';
 const DB_VERSION = 1;
