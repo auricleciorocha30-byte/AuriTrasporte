@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Trip, TripStatus, Vehicle, TripStop } from '../types';
-import { Plus, MapPin, Calendar, Truck, UserCheck, Navigation, X, Trash2, Map as MapIcon, ChevronRight, Percent, Loader2, Edit2, DollarSign, MessageSquare, Sparkles, Wand2, PlusCircle, ExternalLink, CheckSquare, Gauge, Utensils, Construction, MapPinPlus, ShieldCheck, ChevronDown, AlignLeft, CheckCircle2, Package, NotebookPen, GaugeCircle } from 'lucide-react';
+import { Plus, MapPin, Calendar, Truck, UserCheck, Navigation, X, Trash2, Map as MapIcon, ChevronRight, Percent, Loader2, Edit2, DollarSign, MessageSquare, Sparkles, Wand2, PlusCircle, ExternalLink, CheckSquare, Gauge, Utensils, Construction, MapPinPlus, ShieldCheck, ChevronDown, AlignLeft, CheckCircle2, Package, NotebookPen, GaugeCircle, MapPinned } from 'lucide-react';
 import { calculateANTT } from '../services/anttService';
 
 interface TripManagerProps {
@@ -58,7 +58,6 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
     notes: ''
   });
 
-  // Prioridade: Atrasadas/Hoje > Em Andamento > Futuras > Concluídas
   const sortedTrips = useMemo(() => {
     const today = getTodayLocal();
     return [...trips].sort((a, b) => {
@@ -117,6 +116,12 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
       url += `&waypoints=${encodeURIComponent(waypointsStr)}`;
     }
     return url;
+  };
+
+  const getWazeUrl = (destCity: string, destState: string) => {
+    if (!destCity) return "";
+    const destStr = `${destCity}, ${destState}, Brasil`;
+    return `https://www.waze.com/ul?q=${encodeURIComponent(destStr)}&navigate=yes`;
   };
 
   const suggestANTTPrice = () => {
@@ -395,9 +400,12 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                 </div>
 
                 <div className="mt-6 pt-6 border-t border-slate-200">
-                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1 flex items-center gap-2 mb-3">
-                    <MapPinPlus size={14}/> Adicionar Rotas / Escalas (Opcional)
-                  </label>
+                  <div className="flex justify-between items-center mb-3">
+                    <label className="text-[10px] font-black uppercase text-slate-400 ml-1 flex items-center gap-2">
+                      <MapPinPlus size={14}/> Adicionar Rotas / Escalas (Opcional)
+                    </label>
+                  </div>
+                  
                   <div className="flex flex-wrap gap-2 mb-4">
                     {stops.map((stop, idx) => (
                       <div key={idx} className="bg-white px-3 py-2 rounded-xl flex items-center gap-2 border border-slate-200 animate-fade-in shadow-sm">
@@ -406,6 +414,7 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                       </div>
                     ))}
                   </div>
+                  
                   <div className="flex gap-1 md:gap-2">
                     <input placeholder="Cidade parada" className="flex-1 p-4 bg-white rounded-2xl border-none text-sm font-bold outline-none focus:ring-2 focus:ring-primary-500" value={newStop.city} onChange={e => setNewStop({...newStop, city: e.target.value})} />
                     <select className="w-16 md:w-20 p-4 bg-white rounded-2xl border-none font-bold outline-none" value={newStop.state} onChange={e => setNewStop({...newStop, state: e.target.value})}>
@@ -413,6 +422,33 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                     </select>
                     <button onClick={addStop} className="p-4 bg-slate-900 text-white rounded-2xl hover:bg-black transition-all shrink-0">
                       <Plus size={20}/>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mt-6 pt-6 border-t border-slate-200">
+                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1 flex items-center gap-2 mb-4">
+                    <MapPinned size={14}/> Visualizar Trajeto no Mapa
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button 
+                      onClick={() => {
+                        const url = getMapsUrl(`${origin.city} - ${origin.state}`, `${destination.city} - ${destination.state}`, stops);
+                        if (!origin.city || !destination.city) return alert("Informe origem e destino.");
+                        window.open(url, '_blank');
+                      }}
+                      className="flex items-center justify-center gap-2 py-4 bg-white border-2 border-slate-100 rounded-2xl font-black text-[10px] uppercase text-slate-600 hover:border-primary-500 hover:text-primary-600 transition-all shadow-sm"
+                    >
+                      <MapIcon size={14}/> Google Maps
+                    </button>
+                    <button 
+                      onClick={() => {
+                        if (!destination.city) return alert("Informe o destino.");
+                        window.open(getWazeUrl(destination.city, destination.state), '_blank');
+                      }}
+                      className="flex items-center justify-center gap-2 py-4 bg-white border-2 border-slate-100 rounded-2xl font-black text-[10px] uppercase text-slate-600 hover:border-primary-500 hover:text-primary-600 transition-all shadow-sm"
+                    >
+                      <Navigation size={14}/> Waze
                     </button>
                   </div>
                 </div>
