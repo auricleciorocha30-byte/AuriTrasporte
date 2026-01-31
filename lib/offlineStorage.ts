@@ -1,5 +1,5 @@
 
-import { openDB, IDBPDatabase } from 'idb';
+import { openDB, IDBPDatabase } from 'https://esm.sh/idb@8.0.2';
 
 const DB_NAME = 'aurilog_offline_db';
 const DB_VERSION = 1;
@@ -48,7 +48,7 @@ export const offlineStorage = {
 
     if (action === 'delete') {
       await db.delete(table as any, id);
-      finalData = { id }; 
+      finalData = { id }; // Dados mínimos para deletar no remoto
     } else if (action === 'update') {
       const existing = await db.get(table as any, id);
       finalData = { 
@@ -69,10 +69,11 @@ export const offlineStorage = {
       await db.put(table as any, finalData);
     }
 
+    // Registrar na fila de sincronização
     await db.put('sync_queue', {
-      id: generateUUID(),
+      id: generateUUID(), // ID único para a entrada na fila de sync
       table,
-      data: finalData,
+      data: finalData, // Contém o ID do registro real
       status: 'pending',
       action,
       timestamp: Date.now()
