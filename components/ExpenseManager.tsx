@@ -304,7 +304,6 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
                 </div>
               </div>
 
-              {/* Ajuste para mobile: Grid de datas empilhável */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                 <div className="space-y-2">
                   <label className="text-[11px] font-black uppercase text-slate-400 ml-1">Data Gasto</label>
@@ -331,11 +330,24 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ expenses, trips,
                   <div className="space-y-2">
                     <label className="text-[11px] font-black uppercase text-slate-400 ml-1">Vincular Viagem</label>
                     <div className="relative">
-                      <select className="w-full p-5 bg-slate-50 rounded-3xl border-2 border-transparent focus:border-primary-500 font-bold appearance-none pr-12 outline-none" value={formData.trip_id} onChange={e => setFormData({...formData, trip_id: e.target.value})}>
+                      <select 
+                        className="w-full p-5 bg-slate-50 rounded-3xl border-2 border-transparent focus:border-primary-500 font-bold appearance-none pr-12 outline-none" 
+                        value={formData.trip_id} 
+                        onChange={e => setFormData({...formData, trip_id: e.target.value})}
+                      >
                         <option value="">Sem Viagem Específica</option>
-                        {trips.filter(t => t.status !== 'Cancelada').map(t => (
-                          <option key={t.id} value={t.id}>{`${t.origin.split(' - ')[0]} ➔ ${t.destination.split(' - ')[0]}`}</option>
-                        ))}
+                        {[...trips]
+                          .filter(t => t.status !== 'Cancelada')
+                          .sort((a, b) => b.date.localeCompare(a.date))
+                          .map(t => {
+                            const dateStr = t.date.split('-').reverse().slice(0, 2).join('/'); // DD/MM
+                            return (
+                              <option key={t.id} value={t.id}>
+                                {`[${dateStr}] ${t.origin.split(' - ')[0]} ➔ ${t.destination.split(' - ')[0]}`}
+                              </option>
+                            );
+                          })
+                        }
                       </select>
                       <ChevronDown className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={20} />
                     </div>
