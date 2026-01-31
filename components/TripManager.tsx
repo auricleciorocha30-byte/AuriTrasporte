@@ -72,12 +72,9 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, expen
         return statusPriority[a.status] - statusPriority[b.status];
       }
 
-      // Dentro do mesmo status
       if (a.status === TripStatus.COMPLETED || a.status === TripStatus.CANCELLED) {
-        // Mais recentes primeiro para concluídas e canceladas
         return b.date.localeCompare(a.date);
       }
-      // Mais próximas primeiro para agendadas e em andamento
       return a.date.localeCompare(b.date);
     });
   }, [trips]);
@@ -244,7 +241,6 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, expen
           const isAtrasada = trip.status === TripStatus.SCHEDULED && trip.date < getTodayLocal();
           const isHoje = trip.status === TripStatus.SCHEDULED && trip.date === getTodayLocal();
           
-          // Calcula total de despesas vinculadas a esta viagem
           const tripExpensesTotal = expenses
             .filter(e => e.trip_id === trip.id)
             .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
@@ -259,7 +255,8 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, expen
 
               <div className="flex flex-col gap-6">
                  <div className="flex-1">
-                    <div className="flex items-center justify-between gap-2 mb-4">
+                    {/* Cabeçalho Ajustado para evitar sobreposição no Mobile */}
+                    <div className="flex flex-col items-start gap-2 mb-4 pr-20">
                       <div className="shrink-0 flex items-center gap-2">
                         <select 
                           value={trip.status} 
@@ -273,7 +270,7 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, expen
                           {Object.values(TripStatus).map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
                       </div>
-                      <span className="shrink-0 text-[10px] md:text-xs font-black text-slate-400 flex items-center gap-1 uppercase whitespace-nowrap">
+                      <span className="text-[10px] md:text-xs font-black text-slate-400 flex items-center gap-1 uppercase">
                         <Calendar size={12} /> {formatDateDisplay(trip.date)}
                       </span>
                     </div>
@@ -315,7 +312,6 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, expen
                         </div>
                       </div>
                       
-                      {/* Nova informação: Despesas da Viagem */}
                       <div className="bg-rose-50 p-4 rounded-2xl border border-rose-100">
                         <div className="flex items-center gap-2 mb-1">
                           <ReceiptText size={12} className="text-rose-400" />
@@ -333,6 +329,7 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, expen
                 </button>
               </div>
 
+              {/* Botões de ação posicionados no topo, mas agora sem conflitar com o texto pois o cabeçalho tem padding-right */}
               <div className="absolute top-6 right-6 flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                 <button onClick={() => handleEdit(trip)} className="p-3 bg-white shadow-md rounded-full text-slate-400 hover:text-primary-600 transition-colors"><Edit2 size={16}/></button>
                 <button onClick={() => { if(confirm('Excluir?')) onDeleteTrip(trip.id) }} className="p-3 bg-white shadow-md rounded-full text-slate-400 hover:text-rose-500 transition-colors"><Trash2 size={16}/></button>
@@ -341,7 +338,7 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, expen
           );
         })}
       </div>
-      {/* ... o restante do código permanece igual (modais, etc) */}
+
       {isKmModalOpen && (
         <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-6 z-[120] animate-fade-in">
           <div className="bg-white rounded-[3rem] w-full max-w-md p-10 shadow-2xl animate-slide-up">
