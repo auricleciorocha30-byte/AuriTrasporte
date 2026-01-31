@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Trip, TripStatus, Vehicle, TripStop } from '../types';
-import { Plus, MapPin, Calendar, Truck, UserCheck, Navigation, X, Trash2, Map as MapIcon, ChevronRight, Percent, Loader2, Edit2, DollarSign, MessageSquare, Sparkles, Wand2, PlusCircle, ExternalLink, CheckSquare, Gauge, Utensils, Construction, MapPinPlus, ShieldCheck, ChevronDown, AlignLeft, CheckCircle2, Package, NotebookPen } from 'lucide-react';
+import { Plus, MapPin, Calendar, Truck, UserCheck, Navigation, X, Trash2, Map as MapIcon, ChevronRight, Percent, Loader2, Edit2, DollarSign, MessageSquare, Sparkles, Wand2, PlusCircle, ExternalLink, CheckSquare, Gauge, Utensils, Construction, MapPinPlus, ShieldCheck, ChevronDown, AlignLeft, CheckCircle2, Package, NotebookPen, GaugeCircle } from 'lucide-react';
 import { calculateANTT } from '../services/anttService';
 
 interface TripManagerProps {
@@ -63,18 +63,16 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
     const today = getTodayLocal();
     return [...trips].sort((a, b) => {
       const getPriority = (trip: Trip) => {
-        if (trip.status === TripStatus.SCHEDULED && trip.date <= today) return 1; // Máxima: Atrasadas e Hoje
+        if (trip.status === TripStatus.SCHEDULED && trip.date <= today) return 1;
         if (trip.status === TripStatus.IN_PROGRESS) return 2;
         if (trip.status === TripStatus.SCHEDULED && trip.date > today) return 3;
-        return 4; // Concluídas e Canceladas
+        return 4;
       };
 
       const priorityA = getPriority(a);
       const priorityB = getPriority(b);
 
       if (priorityA !== priorityB) return priorityA - priorityB;
-      
-      // Desempate por data
       return a.date.localeCompare(b.date);
     });
   }, [trips]);
@@ -121,15 +119,6 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
     return url;
   };
 
-  const previewCurrentRoute = () => {
-    if (!origin.city || !destination.city) {
-      alert("Informe ao menos a cidade de origem e destino para ver a rota.");
-      return;
-    }
-    const url = getMapsUrl(`${origin.city} - ${origin.state}`, `${destination.city} - ${destination.state}`, stops);
-    window.open(url, '_blank');
-  };
-
   const suggestANTTPrice = () => {
     if (!formData.vehicle_id || !formData.distance_km) {
       alert("Selecione um veículo e informe a distância primeiro.");
@@ -172,10 +161,10 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
 
   const handleEdit = (trip: Trip) => {
     setEditingTripId(trip.id);
-    const originParts = trip.origin.split(' - ');
-    const destParts = trip.destination.split(' - ');
-    setOrigin({ city: originParts[0], state: originParts[1] || 'SP' });
-    setDestination({ city: destParts[0], state: destParts[1] || 'SP' });
+    const originParts = (trip.origin || "").split(' - ');
+    const destParts = (trip.destination || "").split(' - ');
+    setOrigin({ city: originParts[0] || '', state: originParts[1] || 'SP' });
+    setDestination({ city: destParts[0] || '', state: destParts[1] || 'SP' });
     setStops(trip.stops || []);
     setFormData({
       description: trip.description || '',
@@ -211,10 +200,19 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
       notes: formData.notes.trim(),
       stops: stops
     };
-    if (editingTripId) { await onUpdateTrip(editingTripId, payload); }
-    else { await onAddTrip(payload); }
-    setIsModalOpen(false);
-    resetForm();
+    
+    try {
+      if (editingTripId) { 
+        await onUpdateTrip(editingTripId, payload); 
+      } else { 
+        await onAddTrip(payload); 
+      }
+      setIsModalOpen(false);
+      resetForm();
+    } catch (err) {
+      console.error("Erro ao salvar viagem:", err);
+      alert("Erro ao salvar. Verifique sua conexão.");
+    }
   };
 
   return (
@@ -319,6 +317,37 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
         })}
       </div>
 
+      {isKmModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-6 z-[120] animate-fade-in">
+          <div className="bg-white rounded-[3rem] w-full max-w-md p-10 shadow-2xl animate-slide-up">
+            <div className="flex flex-col items-center text-center mb-8">
+              <div className="p-5 bg-emerald-50 text-emerald-600 rounded-full mb-4">
+                <GaugeCircle size={48} />
+              </div>
+              <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Atualizar KM</h3>
+              <p className="text-slate-500 font-bold text-sm mt-2">Qual é o KM atual do veículo ao finalizar esta viagem?</p>
+            </div>
+            
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-slate-400 ml-1">KM Atual do Painel</label>
+                <input 
+                  type="number" 
+                  className="w-full p-6 bg-slate-50 border-2 border-transparent focus:border-primary-500 rounded-3xl font-black text-3xl text-center outline-none" 
+                  value={newVehicleKm || ''} 
+                  onChange={e => setNewVehicleKm(Number(e.target.value))} 
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <button onClick={() => setIsKmModalOpen(false)} className="flex-1 py-5 border-2 rounded-3xl font-black uppercase text-xs text-slate-400">Cancelar</button>
+                <button onClick={confirmKmUpdate} className="flex-1 py-5 bg-emerald-600 text-white rounded-3xl font-black uppercase text-xs shadow-xl">Confirmar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md flex items-end md:items-center justify-center p-0 md:p-6 z-[100] animate-fade-in" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
           <div className="bg-white w-full max-w-2xl rounded-t-[4rem] md:rounded-[3rem] shadow-2xl animate-slide-up relative h-[92vh] md:h-auto overflow-y-auto pb-10">
@@ -327,7 +356,7 @@ export const TripManager: React.FC<TripManagerProps> = ({ trips, vehicles, onAdd
                 <span className="text-xs font-black uppercase text-primary-600 tracking-widest">Planejamento de Rota</span>
                 <h3 className="text-3xl font-black uppercase tracking-tighter mt-1 leading-none">{editingTripId ? 'Alterar Viagem' : 'Novo Frete'}</h3>
               </div>
-              <button onClick={() => setIsModalOpen(false)} className="bg-slate-100 p-4 md:p-5 rounded-full text-slate-400 hover:text-slate-900 transition-all"><X size={28} /></button>
+              <button onClick={() => { resetForm(); setIsModalOpen(false); }} className="bg-slate-100 p-4 md:p-5 rounded-full text-slate-400 hover:text-slate-900 transition-all"><X size={28} /></button>
             </div>
 
             <div className="p-5 md:p-10 space-y-8">
