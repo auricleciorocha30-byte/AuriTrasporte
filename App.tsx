@@ -27,7 +27,6 @@ const App: React.FC = () => {
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [isSignUp, setIsSignUp] = useState(false);
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
@@ -85,7 +84,6 @@ const App: React.FC = () => {
   useEffect(() => {
     const handleOnline = () => { setIsOnline(true); syncData(); };
     const handleOffline = () => setIsOnline(false);
-    window.addEventListener('online', handleOnline);
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
     return () => {
@@ -320,10 +318,6 @@ const App: React.FC = () => {
         });
         if (error) throw error;
         setSuccessMsg("E-mail de recuperação enviado!");
-      } else if (isSignUp) {
-        const { error } = await supabase.auth.signUp({ email, password });
-        if (error) throw error;
-        setSuccessMsg("Cadastro realizado! Verifique seu e-mail.");
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
@@ -375,7 +369,7 @@ const App: React.FC = () => {
           <div className="bg-primary-600 p-4 rounded-[1.5rem] shadow-lg mb-4 text-white"><Truck size={40} /></div>
           <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase leading-none text-center">AuriLog</h1>
           <p className="text-slate-400 font-bold text-xs mt-2 uppercase tracking-widest text-center">
-            {isPasswordRecovery ? 'Recuperar Senha' : isSignUp ? 'Criar nova conta' : 'Gestão Profissional de Fretes'}
+            {isPasswordRecovery ? 'Recuperar Senha' : 'Gestão Profissional de Fretes'}
           </p>
         </div>
 
@@ -389,11 +383,9 @@ const App: React.FC = () => {
             <div className="space-y-1.5">
               <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Senha</label>
               <input required type="password" placeholder="••••••••" className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:ring-2 focus:ring-primary-500 transition-all" value={password} onChange={e => setPassword(e.target.value)} />
-              {!isSignUp && (
-                <div className="flex justify-end mt-1">
-                  <button type="button" onClick={() => setIsPasswordRecovery(true)} className="text-[10px] font-black uppercase text-primary-600 hover:underline">Esqueceu a senha?</button>
-                </div>
-              )}
+              <div className="flex justify-end mt-1">
+                <button type="button" onClick={() => setIsPasswordRecovery(true)} className="text-[10px] font-black uppercase text-primary-600 hover:underline">Esqueceu a senha?</button>
+              </div>
             </div>
           )}
 
@@ -402,21 +394,17 @@ const App: React.FC = () => {
 
           <button disabled={authLoading} type="submit" className="w-full py-5 bg-primary-600 text-white rounded-2xl font-black text-lg shadow-xl hover:bg-primary-700 transition-all flex items-center justify-center gap-3">
             {authLoading ? <Loader2 className="animate-spin" /> : <LogIn size={20} />}
-            {isPasswordRecovery ? 'Enviar E-mail' : isSignUp ? 'Cadastrar agora' : 'Entrar no Sistema'}
+            {isPasswordRecovery ? 'Enviar E-mail' : 'Entrar no Sistema'}
           </button>
         </form>
 
-        <div className="mt-8 flex flex-col gap-4">
-          {!isPasswordRecovery ? (
-            <button onClick={() => { setIsSignUp(!isSignUp); setError(''); setSuccessMsg(''); }} className="w-full text-primary-600 font-black text-sm uppercase hover:underline">
-              {isSignUp ? 'Já tem conta? Entre' : 'Não tem conta? Cadastre-se'}
-            </button>
-          ) : (
+        {isPasswordRecovery && (
+          <div className="mt-8 flex flex-col gap-4">
             <button onClick={() => { setIsPasswordRecovery(false); setError(''); setSuccessMsg(''); }} className="w-full text-slate-500 font-black text-sm uppercase hover:underline flex items-center justify-center gap-2">
               <Undo2 size={16}/> Voltar para o Login
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );
