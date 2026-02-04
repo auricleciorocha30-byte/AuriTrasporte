@@ -86,6 +86,7 @@ const App: React.FC = () => {
     const handleOnline = () => { setIsOnline(true); syncData(); };
     const handleOffline = () => setIsOnline(false);
     window.addEventListener('online', handleOnline);
+    window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
     return () => {
       window.removeEventListener('online', handleOnline);
@@ -93,7 +94,7 @@ const App: React.FC = () => {
     };
   }, []);
 
-  // Lógica de Sincronização Resiliente
+  // Lógica de Sincronização Resiliente e Separada por Usuário
   const syncData = useCallback(async () => {
     if (!navigator.onLine || syncing || !session?.user) return;
     setSyncing(true);
@@ -133,16 +134,18 @@ const App: React.FC = () => {
     }
   }, [syncing, session]);
 
-  // Carregamento de Dados (Local e Remoto)
   const fetchData = async (forceCloud = false) => {
+    if (!session?.user) return;
+    const userId = session.user.id;
+
     try {
-      if (navigator.onLine && session?.user && (forceCloud || trips.length === 0)) {
+      if (navigator.onLine && (forceCloud || trips.length === 0)) {
         const [tripsRes, expRes, vehRes, mainRes, jornRes] = await Promise.all([
-          supabase.from('trips').select('*').order('date', { ascending: false }),
-          supabase.from('expenses').select('*').order('date', { ascending: false }),
-          supabase.from('vehicles').select('*').order('plate', { ascending: true }),
-          supabase.from('maintenance').select('*').order('purchase_date', { ascending: false }),
-          supabase.from('jornada_logs').select('*').order('created_at', { ascending: false })
+          supabase.from('trips').select('*').eq('user_id', userId).order('date', { ascending: false }),
+          supabase.from('expenses').select('*').eq('user_id', userId).order('date', { ascending: false }),
+          supabase.from('vehicles').select('*').eq('user_id', userId).order('plate', { ascending: true }),
+          supabase.from('maintenance').select('*').eq('user_id', userId).order('purchase_date', { ascending: false }),
+          supabase.from('jornada_logs').select('*').eq('user_id', userId).order('created_at', { ascending: false })
         ]);
 
         if (tripsRes.data) { await offlineStorage.bulkSave('trips', tripsRes.data); }
@@ -170,7 +173,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Notificações Inteligentes
   const activeNotifications = useMemo(() => {
     const list: any[] = [];
     const now = new Date();
@@ -219,7 +221,6 @@ const App: React.FC = () => {
     return list.filter(n => !dismissedNotificationIds.includes(n.id));
   }, [trips, expenses, maintenance, vehicles, dismissedNotificationIds]);
 
-  // Inicialização do Auth
   useEffect(() => {
     const initAuth = async () => {
       try {
@@ -260,9 +261,10 @@ const App: React.FC = () => {
   const handleAction = async (table: string, data: any, action: 'insert' | 'update' | 'delete' = 'insert') => {
     setIsSaving(true);
     try {
-      const userId = session?.user?.id || 'offline-user';
-      const payload = { ...data, user_id: userId };
+      const userId = session?.user?.id;
+      if (!userId) throw new Error("Usuário não identificado.");
       
+      const payload = { ...data, user_id: userId };
       const savedData = await offlineStorage.save(table, payload, action);
       
       const updateState = (prev: any[]) => {
@@ -278,22 +280,24 @@ const App: React.FC = () => {
       else if (table === 'vehicles') setVehicles(updateState);
       else if (table === 'maintenance') setMaintenance(updateState);
       
-      if (isOnline && session?.user) {
+      if (isOnline) {
         syncData(); 
       }
     } catch (err: any) {
       console.error(`Erro em ${table}:`, err);
+      alert("Erro ao salvar dados. Verifique sua sessão.");
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleClearJornadaHistory = async () => {
+    if (!session?.user) return;
     setIsSaving(true);
     try {
       await offlineStorage.clearTable('jornada_logs');
       setJornadaLogs([]);
-      if (navigator.onLine && session?.user) {
+      if (navigator.onLine) {
         await supabase.from('jornada_logs').delete().eq('user_id', session.user.id);
       }
     } catch (err) {
@@ -335,13 +339,19 @@ const App: React.FC = () => {
     try {
       setAuthLoading(true);
       setIsMobileMenuOpen(false);
+      await offlineStorage.clearTable('trips');
+      await offlineStorage.clearTable('expenses');
+      await offlineStorage.clearTable('vehicles');
+      await offlineStorage.clearTable('maintenance');
+      await offlineStorage.clearTable('jornada_logs');
+      await offlineStorage.clearTable('sync_queue');
       localStorage.clear();
       await supabase.auth.signOut();
+      window.location.reload();
     } catch (err) {
       console.error("Erro ao sair:", err);
     } finally {
       setAuthLoading(false);
-      window.location.reload();
     }
   };
 
@@ -351,6 +361,10 @@ const App: React.FC = () => {
     const secs = s % 60;
     return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
+
+  const MenuBtn = ({ icon: Icon, label, active, onClick }: any) => (
+    <button onClick={onClick} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all active:scale-95 ${active ? 'bg-primary-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800'}`}><Icon size={20} /><span className="font-bold text-sm">{label}</span></button>
+  );
 
   if (loading) return <div className="h-screen flex items-center justify-center bg-slate-950"><Loader2 className="animate-spin text-primary-500" size={48} /></div>;
 
@@ -554,9 +568,5 @@ const App: React.FC = () => {
     </div>
   );
 };
-
-const MenuBtn = ({ icon: Icon, label, active, onClick }: any) => (
-  <button onClick={onClick} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all active:scale-95 ${active ? 'bg-primary-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800'}`}><Icon size={20} /><span className="font-bold text-sm">{label}</span></button>
-);
 
 export default App;
